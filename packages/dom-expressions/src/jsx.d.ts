@@ -877,13 +877,6 @@ export namespace JSX {
      * @see aria-labelledby
      */
     "aria-describedby"?: string | undefined;
-
-    /**
-     * Defines a string value that describes or annotates the current element.
-     *
-     * @see aria-describedby
-     */
-    "aria-description"?: string | undefined;
     /**
      * Defines a string value that describes or annotates the current element.
      *
