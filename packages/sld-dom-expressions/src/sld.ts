@@ -133,12 +133,11 @@ export function createSLDRuntime(r: Runtime) {
       case ELEMENT_NODE:
         let name = node.name;
 
-        const isSvg = r.SVGElements.has(name);
         // 3. Standard HTML Element (node.name is guaranteed string here)
         const element = createElement(name);
         const props = gatherProps(node, values, components);
 
-        r.spread(element, props, isSvg, true);
+        r.spread(element, props, true);
 
         return element;
     }
@@ -171,7 +170,7 @@ export function createSLDRuntime(r: Runtime) {
             // Standard Element path...
             if (node.props.length) {
               const props = gatherProps(node, values, components);
-              r.spread(domNode as Element, props, r.SVGElements.has(node.name as string), true);
+              r.spread(domNode as Element, props, true);
             }
             walkNodes(node.children);
           }

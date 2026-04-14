@@ -74,7 +74,7 @@ type ClassList =
 | Array<string | number | boolean | null | undefined | Record<string, boolean>>;
 export interface Runtime {
   insert(parent: MountableElement, accessor: any, marker?: Node | null, init?: any): any;
-  spread<T>(node: Element, accessor: (() => T) | T, isSVG?: Boolean, skipChildren?: Boolean): void;
+  spread<T>(node: Element, accessor: (() => T) | T, skipChildren?: Boolean): void;
   createComponent(Comp: (props: any) => any, props: any): any;
   mergeProps(...sources: unknown[]): Record<string, any>;
   SVGElements: Set<string>;
