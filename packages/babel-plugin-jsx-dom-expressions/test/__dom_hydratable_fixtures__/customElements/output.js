@@ -26,19 +26,11 @@ const template2 = (() => {
       a: state.data,
       o: state.data
     }),
-    (
-      { e, t, a, o },
-      _p$ = {
-        e: undefined,
-        t: undefined,
-        a: undefined,
-        o: undefined
-      }
-    ) => {
-      e !== _p$.e && _$setAttribute(_el$2, "some-attr", e);
-      t !== _p$.t && _$setAttribute(_el$2, "notProp", t);
-      a !== _p$.a && _$setAttribute(_el$2, "my-attr", a);
-      o !== _p$.o && (_el$2.someProp = o);
+    ({ e, t, a, o }, _p$) => {
+      e !== _p$?.e && _$setAttribute(_el$2, "some-attr", e);
+      t !== _p$?.t && _$setAttribute(_el$2, "notProp", t);
+      a !== _p$?.a && _$setAttribute(_el$2, "my-attr", a);
+      o !== _p$?.o && (_el$2.someProp = o);
     }
   );
   return _el$2;

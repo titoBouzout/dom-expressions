@@ -74,6 +74,7 @@ function wrapDynamics(path, dynamics) {
   dynamics.forEach(({ elem, key, value }, index) => {
     const propIdent = t.identifier(getNumberedId(index));
     const propMember = t.memberExpression(prevId, propIdent);
+    const optionalPropMember = t.optionalMemberExpression(prevId, propIdent, false, true);
 
     properties.push(propIdent);
     values.push(t.objectProperty(propIdent, value));
@@ -82,8 +83,8 @@ function wrapDynamics(path, dynamics) {
       t.expressionStatement(
         t.logicalExpression(
           "&&",
-          t.binaryExpression("!==", propIdent, propMember),
-          setAttr(path, elem, key, propIdent, { dynamic: true, prevId: propMember })
+          t.binaryExpression("!==", propIdent, optionalPropMember),
+          setAttr(path, elem, key, propIdent, { dynamic: true, prevId: optionalPropMember })
         )
       )
     );
@@ -93,15 +94,7 @@ function wrapDynamics(path, dynamics) {
     t.callExpression(effectWrapperId, [
       t.arrowFunctionExpression([], t.objectExpression(values)),
       t.arrowFunctionExpression(
-        [
-          t.objectPattern(properties.map(id => t.objectProperty(id, id, false, true))),
-          t.assignmentPattern(
-            prevId,
-            t.objectExpression(
-              properties.map(id => t.objectProperty(id, t.identifier("undefined")))
-            )
-          )
-        ],
+        [t.objectPattern(properties.map(id => t.objectProperty(id, id, false, true))), prevId],
         t.blockStatement(statements)
       )
     ])

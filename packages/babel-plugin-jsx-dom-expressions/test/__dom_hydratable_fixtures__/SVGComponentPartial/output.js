@@ -11,15 +11,9 @@ const template = (() => {
       e: props.cx,
       t: props.cy
     }),
-    (
-      { e, t },
-      _p$ = {
-        e: undefined,
-        t: undefined
-      }
-    ) => {
-      e !== _p$.e && _$setAttribute(_el$2, "cx", e);
-      t !== _p$.t && _$setAttribute(_el$2, "cy", t);
+    ({ e, t }, _p$) => {
+      e !== _p$?.e && _$setAttribute(_el$2, "cx", e);
+      t !== _p$?.t && _$setAttribute(_el$2, "cy", t);
     }
   );
   return _el$;

@@ -205,17 +205,10 @@ const template7 = (() => {
       t: props.top,
       a: !!props.active
     }),
-    (
-      { e, t, a },
-      _p$ = {
-        e: undefined,
-        t: undefined,
-        a: undefined
-      }
-    ) => {
-      _$style(_el$13, e, _p$.e);
-      t !== _p$.t && _$setStyleProperty(_el$13, "padding-top", t);
-      a !== _p$.a && _el$13.classList.toggle("my-class", a);
+    ({ e, t, a }, _p$) => {
+      _$style(_el$13, e, _p$?.e);
+      t !== _p$?.t && _$setStyleProperty(_el$13, "padding-top", t);
+      a !== _p$?.a && _el$13.classList.toggle("my-class", a);
     }
   );
   return _el$13;
@@ -312,23 +305,13 @@ const template20 = (() => {
       i: min(),
       n: max()
     }),
-    (
-      { e, t, a, o, i, n },
-      _p$ = {
-        e: undefined,
-        t: undefined,
-        a: undefined,
-        o: undefined,
-        i: undefined,
-        n: undefined
-      }
-    ) => {
+    ({ e, t, a, o, i, n }, _p$) => {
       _el$26.value = e ?? "";
-      t !== _p$.t && _$setAttribute(_el$26, "min", t);
-      a !== _p$.a && _$setAttribute(_el$26, "max", a);
+      t !== _p$?.t && _$setAttribute(_el$26, "min", t);
+      a !== _p$?.a && _$setAttribute(_el$26, "max", a);
       _el$27.checked = o;
-      i !== _p$.i && _$setAttribute(_el$27, "min", i);
-      n !== _p$.n && _$setAttribute(_el$27, "max", n);
+      i !== _p$?.i && _$setAttribute(_el$27, "min", i);
+      n !== _p$?.n && _$setAttribute(_el$27, "max", n);
     }
   );
   return _el$25;
@@ -534,14 +517,7 @@ const template41 = (() => {
       t: Color.Red,
       a: Color.Blue
     }),
-    (
-      { e, t, a },
-      _p$ = {
-        e: undefined,
-        t: undefined,
-        a: undefined
-      }
-    ) => {
+    ({ e, t, a }, _p$) => {
       queueMicrotask(() => (_el$55.value = e)) || (_el$55.value = e);
       _el$56.value = t;
       _el$57.value = a;
@@ -828,17 +804,10 @@ const template87 = (() => {
       t: style,
       a: style
     }),
-    (
-      { e, t, a },
-      _p$ = {
-        e: undefined,
-        t: undefined,
-        a: undefined
-      }
-    ) => {
-      e !== _p$.e && _$setAttribute(_el$109, "aria-label", e);
-      _$style(_el$109, t, _p$.t);
-      _$className(_el$109, a, _p$.a);
+    ({ e, t, a }, _p$) => {
+      e !== _p$?.e && _$setAttribute(_el$109, "aria-label", e);
+      _$style(_el$109, t, _p$?.t);
+      _$className(_el$109, a, _p$?.a);
     }
   );
   return _el$109;

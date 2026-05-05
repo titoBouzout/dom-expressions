@@ -154,6 +154,7 @@ function wrapDynamics(path, dynamics) {
   dynamics.forEach(({ elem, key, value, tagName }, index) => {
     const propIdent = t.identifier(getNumberedId(index));
     const propMember = t.memberExpression(prevId, propIdent);
+    const optionalPropMember = t.optionalMemberExpression(prevId, propIdent, false, true);
 
     if (key.startsWith("class:") && !t.isBooleanLiteral(value) && !t.isUnaryExpression(value)) {
       value = t.unaryExpression("!", t.unaryExpression("!", value));
@@ -168,7 +169,7 @@ function wrapDynamics(path, dynamics) {
           setAttr(path, elem, key, propIdent, {
             tagName,
             dynamic: true,
-            prevId: propMember
+            prevId: optionalPropMember
           })
         )
       );
@@ -178,7 +179,13 @@ function wrapDynamics(path, dynamics) {
         t.expressionStatement(
           t.logicalExpression(
             "&&",
-            t.binaryExpression("!==", propIdent, propMember),
+            key === "textContent"
+              ? t.logicalExpression(
+                  "||",
+                  t.unaryExpression("!", prevId),
+                  t.binaryExpression("!==", propIdent, propMember)
+                )
+              : t.binaryExpression("!==", propIdent, optionalPropMember),
             setAttr(path, elem, key, propIdent, {
               tagName,
               dynamic: true,
@@ -194,15 +201,7 @@ function wrapDynamics(path, dynamics) {
     t.callExpression(effectWrapperId, [
       t.arrowFunctionExpression([], t.objectExpression(values)),
       t.arrowFunctionExpression(
-        [
-          t.objectPattern(properties.map(id => t.objectProperty(id, id, false, true))),
-          t.assignmentPattern(
-            prevId,
-            t.objectExpression(
-              properties.map(id => t.objectProperty(id, t.identifier("undefined")))
-            )
-          )
-        ],
+        [t.objectPattern(properties.map(id => t.objectProperty(id, id, false, true))), prevId],
         t.blockStatement(statements)
       )
     ])
