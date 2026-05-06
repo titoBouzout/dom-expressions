@@ -518,6 +518,49 @@ function transformAttributes(path, results) {
       path.get("openingElement").node.attributes.splice(styleAttribute.key, 1);
   }
 
+  // preprocess leading static classes in fixed-shape class arrays
+  attributes = path.get("openingElement").get("attributes");
+  const classArrayAttribute = attributes.find(
+    a =>
+      a.node.name &&
+      a.node.name.name === "class" &&
+      t.isJSXExpressionContainer(a.node.value) &&
+      t.isArrayExpression(a.node.value.expression)
+  );
+  if (classArrayAttribute) {
+    const elements = classArrayAttribute.get("value").get("expression").get("elements");
+    let i = 0,
+      staticClasses = [];
+    while (t.isStringLiteral(elements[i]?.node)) {
+      staticClasses.push(elements[i].node.value);
+      i++;
+    }
+    const staticClassSet = new Set(
+      staticClasses.flatMap(className => trimWhitespace(className).split(/\s+/).filter(Boolean))
+    );
+    if (
+      staticClasses.length &&
+      i === elements.length - 1 &&
+      t.isObjectExpression(elements[i].node) &&
+      !elements[i].node.properties.some(
+        p =>
+          t.isSpreadElement(p) ||
+          p.computed ||
+          (t.isStringLiteral(p.key) && (p.key.value.includes(" ") || p.key.value.includes(":"))) ||
+          staticClassSet.has(t.isIdentifier(p.key) ? p.key.name : p.key.value)
+      )
+    ) {
+      classArrayAttribute.node.value = t.stringLiteral(staticClasses.join(" "));
+      path
+        .get("openingElement")
+        .node.attributes.splice(
+          classArrayAttribute.key + 1,
+          0,
+          t.jsxAttribute(t.jsxIdentifier("class"), t.jsxExpressionContainer(elements[i].node))
+        );
+    }
+  }
+
   // preprocess optimal class objects
   attributes = path.get("openingElement").get("attributes");
   const classListAttribute = attributes.find(

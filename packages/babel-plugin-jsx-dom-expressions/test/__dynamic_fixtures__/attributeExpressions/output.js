@@ -25,7 +25,7 @@ var _tmpl$ = /*#__PURE__*/ _$template(`<div><h1><a href=/>Welcome`),
   _tmpl$8 = /*#__PURE__*/ _$template(`<input type=checkbox checked>`),
   _tmpl$9 = /*#__PURE__*/ _$template(`<input type=checkbox>`),
   _tmpl$10 = /*#__PURE__*/ _$template(`<div class="\`a">\`$\``),
-  _tmpl$11 = /*#__PURE__*/ _$template(`<button type=button>Write`),
+  _tmpl$11 = /*#__PURE__*/ _$template(`<button class="static hi"type=button>Write`),
   _tmpl$12 = /*#__PURE__*/ _$template(`<button class="a b c">Hi`),
   _tmpl$13 = /*#__PURE__*/ _$template(`<div><input readonly><input>`),
   _tmpl$14 = /*#__PURE__*/ _$template(`<div style=a:static>`),
@@ -251,16 +251,7 @@ const template14 = (() => {
   return _el$19;
 })();
 const template15 = _tmpl$10();
-const template16 = (() => {
-  var _el$21 = _tmpl$11();
-  _$className(_el$21, [
-    "static",
-    {
-      hi: "k"
-    }
-  ]);
-  return _el$21;
-})();
+const template16 = _tmpl$11();
 const template17 = (() => {
   var _el$22 = _tmpl$12();
   _$addEventListener(_el$22, "click", increment, true);

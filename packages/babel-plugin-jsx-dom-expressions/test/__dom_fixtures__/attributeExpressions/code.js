@@ -374,3 +374,15 @@ const template93 = <div>
 function MyVideo() {
   return <video src="test.mp4" muted />
 }
+
+const template94 = <div class={["todo", { active: isActive() }]} />;
+
+const template95 = <div class={["todo", props.active]} />;
+
+const template96 = <div class={["todo", "item", { active: isActive() }]} />;
+
+const template97 = <div class={["todo", { active: isActive(), [props.name]: props.enabled }]} />;
+
+const template98 = <div class={["todo", { active: isActive() }, props.extra]} />;
+
+const template99 = <div class={["todo", "item", { todo: false, active: isActive() }]} />;

@@ -325,3 +325,15 @@ const template88 = (
 );
 
 const template89 = <div style="duplicate1" style="duplicate2"/>
+
+const template90 = <div class={["todo", { active: isActive() }]} />;
+
+const template91 = <div class={["todo", props.active]} />;
+
+const template92 = <div class={["todo", "item", { active: isActive() }]} />;
+
+const template93 = <div class={["todo", { active: isActive(), [props.name]: props.enabled }]} />;
+
+const template94 = <div class={["todo", { active: isActive() }, props.extra]} />;
+
+const template95 = <div class={["todo", "item", { todo: false, active: isActive() }]} />;

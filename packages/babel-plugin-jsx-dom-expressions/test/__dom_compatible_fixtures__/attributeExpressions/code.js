@@ -391,3 +391,15 @@ function MyVideo() {
 }
 
 const template97 = <input value={get()} {...{style:"color:red"}}/>
+
+const template98 = <div class={["todo", { active: isActive() }]} />;
+
+const template99 = <div class={["todo", props.active]} />;
+
+const template100 = <div class={["todo", "item", { active: isActive() }]} />;
+
+const template101 = <div class={["todo", { active: isActive(), [props.name]: props.enabled }]} />;
+
+const template102 = <div class={["todo", { active: isActive() }, props.extra]} />;
+
+const template103 = <div class={["todo", "item", { todo: false, active: isActive() }]} />;

@@ -25,7 +25,7 @@ var _tmpl$ = /*#__PURE__*/ _$template(`<div><h1><a href=/>Welcome`),
   _tmpl$8 = /*#__PURE__*/ _$template(`<input type=checkbox checked>`),
   _tmpl$9 = /*#__PURE__*/ _$template(`<input type=checkbox>`),
   _tmpl$10 = /*#__PURE__*/ _$template(`<div class="\`a">\`$\``),
-  _tmpl$11 = /*#__PURE__*/ _$template(`<button type=button>Write`),
+  _tmpl$11 = /*#__PURE__*/ _$template(`<button class="static hi"type=button>Write`),
   _tmpl$12 = /*#__PURE__*/ _$template(`<button class="a b c">Hi`),
   _tmpl$13 = /*#__PURE__*/ _$template(`<div><input readonly><input>`),
   _tmpl$14 = /*#__PURE__*/ _$template(`<div style=c:static>`),
@@ -66,7 +66,9 @@ var _tmpl$ = /*#__PURE__*/ _$template(`<div><h1><a href=/>Welcome`),
   _tmpl$45 = /*#__PURE__*/ _$template(`<div><video poster=1.jpg>`),
   _tmpl$46 = /*#__PURE__*/ _$template(`<div><video>`),
   _tmpl$47 = /*#__PURE__*/ _$template(`<button type=button>`),
-  _tmpl$48 = /*#__PURE__*/ _$template(`<div style=duplicate2>`);
+  _tmpl$48 = /*#__PURE__*/ _$template(`<div style=duplicate2>`),
+  _tmpl$49 = /*#__PURE__*/ _$template(`<div class=todo>`),
+  _tmpl$50 = /*#__PURE__*/ _$template(`<div class="todo item">`);
 import * as styles from "./styles.module.css";
 import { binding } from "somewhere";
 function refFn() {}
@@ -256,16 +258,7 @@ const template14 = (() => {
   return _el$19;
 })();
 const template15 = _$getNextElement(_tmpl$10);
-const template16 = (() => {
-  var _el$21 = _$getNextElement(_tmpl$11);
-  _$className(_el$21, [
-    "static",
-    {
-      hi: "k"
-    }
-  ]);
-  return _el$21;
-})();
+const template16 = _$getNextElement(_tmpl$11);
 const template17 = (() => {
   var _el$22 = _$getNextElement(_tmpl$12);
   _$addEventListener(_el$22, "click", increment, true);
@@ -833,4 +826,83 @@ const template88 = (() => {
   return _el$109;
 })();
 const template89 = _$getNextElement(_tmpl$48);
+const template90 = (() => {
+  var _el$111 = _$getNextElement(_tmpl$49);
+  _$effect(
+    () => !!isActive(),
+    _v$ => {
+      _el$111.classList.toggle("active", _v$);
+    }
+  );
+  return _el$111;
+})();
+const template91 = (() => {
+  var _el$112 = _$getNextElement(_tmpl$4);
+  _$effect(
+    () => ["todo", props.active],
+    (_v$, _$p) => {
+      _$className(_el$112, _v$, _$p);
+    }
+  );
+  return _el$112;
+})();
+const template92 = (() => {
+  var _el$113 = _$getNextElement(_tmpl$50);
+  _$effect(
+    () => !!isActive(),
+    _v$ => {
+      _el$113.classList.toggle("active", _v$);
+    }
+  );
+  return _el$113;
+})();
+const template93 = (() => {
+  var _el$114 = _$getNextElement(_tmpl$4);
+  _$effect(
+    () => [
+      "todo",
+      {
+        active: isActive(),
+        [props.name]: props.enabled
+      }
+    ],
+    (_v$, _$p) => {
+      _$className(_el$114, _v$, _$p);
+    }
+  );
+  return _el$114;
+})();
+const template94 = (() => {
+  var _el$115 = _$getNextElement(_tmpl$4);
+  _$effect(
+    () => [
+      "todo",
+      {
+        active: isActive()
+      },
+      props.extra
+    ],
+    (_v$, _$p) => {
+      _$className(_el$115, _v$, _$p);
+    }
+  );
+  return _el$115;
+})();
+const template95 = (() => {
+  var _el$116 = _$getNextElement(_tmpl$4);
+  _$effect(
+    () => [
+      "todo",
+      "item",
+      {
+        todo: false,
+        active: isActive()
+      }
+    ],
+    (_v$, _$p) => {
+      _$className(_el$116, _v$, _$p);
+    }
+  );
+  return _el$116;
+})();
 _$delegateEvents(["click", "input"]);

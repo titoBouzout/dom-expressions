@@ -23,7 +23,7 @@ var _tmpl$ = /*#__PURE__*/ _$template(`<div><h1><a href=/>Welcome`),
   _tmpl$8 = /*#__PURE__*/ _$template(`<input type=checkbox checked>`),
   _tmpl$9 = /*#__PURE__*/ _$template(`<input type=checkbox>`),
   _tmpl$10 = /*#__PURE__*/ _$template(`<div class="\`a">\`$\``),
-  _tmpl$11 = /*#__PURE__*/ _$template(`<button type=button>Write`),
+  _tmpl$11 = /*#__PURE__*/ _$template(`<button class="static hi"type=button>Write`),
   _tmpl$12 = /*#__PURE__*/ _$template(`<button class="a b c">Hi`),
   _tmpl$13 = /*#__PURE__*/ _$template(`<div><input readonly><input>`),
   _tmpl$14 = /*#__PURE__*/ _$template(`<div style=a:static>`),
@@ -70,7 +70,9 @@ var _tmpl$ = /*#__PURE__*/ _$template(`<div><h1><a href=/>Welcome`),
   _tmpl$51 = /*#__PURE__*/ _$template(
     `<div><video muted></video><video></video><video></video><video muted></video><video></video><video src=test.mp4 muted>`
   ),
-  _tmpl$52 = /*#__PURE__*/ _$template(`<video src=test.mp4 muted>`);
+  _tmpl$52 = /*#__PURE__*/ _$template(`<video src=test.mp4 muted>`),
+  _tmpl$53 = /*#__PURE__*/ _$template(`<div class=todo>`),
+  _tmpl$54 = /*#__PURE__*/ _$template(`<div class="todo item">`);
 import * as styles from "./styles.module.css";
 import { binding } from "somewhere";
 function refFn() {}
@@ -258,16 +260,7 @@ const template14 = (() => {
   return _el$19;
 })();
 const template15 = _tmpl$10();
-const template16 = (() => {
-  var _el$21 = _tmpl$11();
-  _$className(_el$21, [
-    "static",
-    {
-      hi: "k"
-    }
-  ]);
-  return _el$21;
-})();
+const template16 = _tmpl$11();
 const template17 = (() => {
   var _el$22 = _tmpl$12();
   _$addEventListener(_el$22, "click", increment, true);
@@ -899,4 +892,83 @@ const template93 = (() => {
 function MyVideo() {
   return _tmpl$52();
 }
+const template94 = (() => {
+  var _el$120 = _tmpl$53();
+  _$effect(
+    () => !!isActive(),
+    _v$ => {
+      _el$120.classList.toggle("active", _v$);
+    }
+  );
+  return _el$120;
+})();
+const template95 = (() => {
+  var _el$121 = _tmpl$4();
+  _$effect(
+    () => ["todo", props.active],
+    (_v$, _$p) => {
+      _$className(_el$121, _v$, _$p);
+    }
+  );
+  return _el$121;
+})();
+const template96 = (() => {
+  var _el$122 = _tmpl$54();
+  _$effect(
+    () => !!isActive(),
+    _v$ => {
+      _el$122.classList.toggle("active", _v$);
+    }
+  );
+  return _el$122;
+})();
+const template97 = (() => {
+  var _el$123 = _tmpl$4();
+  _$effect(
+    () => [
+      "todo",
+      {
+        active: isActive(),
+        [props.name]: props.enabled
+      }
+    ],
+    (_v$, _$p) => {
+      _$className(_el$123, _v$, _$p);
+    }
+  );
+  return _el$123;
+})();
+const template98 = (() => {
+  var _el$124 = _tmpl$4();
+  _$effect(
+    () => [
+      "todo",
+      {
+        active: isActive()
+      },
+      props.extra
+    ],
+    (_v$, _$p) => {
+      _$className(_el$124, _v$, _$p);
+    }
+  );
+  return _el$124;
+})();
+const template99 = (() => {
+  var _el$125 = _tmpl$4();
+  _$effect(
+    () => [
+      "todo",
+      "item",
+      {
+        todo: false,
+        active: isActive()
+      }
+    ],
+    (_v$, _$p) => {
+      _$className(_el$125, _v$, _$p);
+    }
+  );
+  return _el$125;
+})();
 _$delegateEvents(["click", "input"]);
