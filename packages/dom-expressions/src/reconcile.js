@@ -31,13 +31,17 @@ export default function reconcileArrays(parentNode, a, b) {
         if (!map || !map.has(a[aStart])) a[aStart].remove();
         aStart++;
       }
-      // swap backward
+      // swap backward — symmetric end-swap detected. Walk inward with a single
+      // stable front anchor (a[aStart]); each move targets the same DOM-position
+      // so the browser's adjacency cache stays warm and per-call native
+      // `insertBefore` cost drops sharply on reorder-heavy patterns (e.g. reverse).
     } else if (a[aStart] === b[bEnd - 1] && b[bStart] === a[aEnd - 1]) {
-      const node = a[--aEnd].nextSibling;
-      parentNode.insertBefore(b[bStart++], a[aStart++].nextSibling);
-      parentNode.insertBefore(b[--bEnd], node);
-
-      a[aEnd] = b[bEnd];
+      const anchor = a[aStart];
+      do {
+        parentNode.insertBefore(a[--aEnd], anchor);
+        bStart++;
+        if (aStart >= aEnd - 1 || bStart >= bEnd) break;
+      } while (a[aStart] === b[bEnd - 1] && b[bStart] === a[aEnd - 1]);
       // fallback to map
     } else {
       if (!map) {
