@@ -145,13 +145,16 @@ export function createRenderer({
           if (!map || !map.has(a[aStart])) removeNode(parentNode, a[aStart]);
           aStart++;
         }
-        // swap backward
+        // swap backward — symmetric end-swap detected. Walk inward with a single
+        // stable front anchor (a[aStart]); each move targets the same host
+        // position and avoids cross-anchored inserts on reorder-heavy patterns.
       } else if (a[aStart] === b[bEnd - 1] && b[bStart] === a[aEnd - 1]) {
-        const node = getNextSibling(a[--aEnd]);
-        insertNode(parentNode, b[bStart++], getNextSibling(a[aStart++]));
-        insertNode(parentNode, b[--bEnd], node);
-
-        a[aEnd] = b[bEnd];
+        const anchor = a[aStart];
+        do {
+          insertNode(parentNode, a[--aEnd], anchor);
+          bStart++;
+          if (aStart >= aEnd - 1 || bStart >= bEnd) break;
+        } while (a[aStart] === b[bEnd - 1] && b[bStart] === a[aEnd - 1]);
         // fallback to map
       } else {
         if (!map) {

@@ -2,8 +2,8 @@
 "dom-expressions": patch
 ---
 
-Speed up reconcile's symmetric end-swap branch on reorder-heavy patterns
-(e.g. `<For>` reverse / large rotations).
+Speed up DOM and universal reconcile's symmetric end-swap branch on reorder-heavy
+patterns (e.g. `<For>` reverse / large rotations).
 
 The trigger condition is unchanged
 (`a[aStart] === b[bEnd-1] && b[bStart] === a[aEnd-1]`), but the body now
