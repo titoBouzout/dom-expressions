@@ -11,23 +11,13 @@ var _tmpl$ = [
     "><div><footer><div></div></footer></div><div><button><span>0</span></button></div></div>"
   ],
   _tmpl$5 = ["<div", "><noscript>No JS!!<style>div { color: red; }</style></noscript></div>"];
-const template = (() => {
-  var _v$ = _$ssrHydrationKey();
-  return _$ssr(_tmpl$, _v$);
-})();
-const template2 = (() => {
-  var _v$2 = _$ssrHydrationKey();
-  return _$ssr(_tmpl$2, _v$2);
-})();
-const template3 = (() => {
-  var _v$3 = _$ssrHydrationKey();
-  return _$ssr(_tmpl$3, _v$3);
-})();
-const template4 = (() => {
-  var _v$4 = _$ssrHydrationKey();
-  return _$ssr(_tmpl$4, _v$4);
-})();
-const template5 = (() => {
-  var _v$5 = _$ssrHydrationKey();
-  return _$ssr(_tmpl$5, _v$5);
-})();
+var _v$ = _$ssrHydrationKey();
+const template = _$ssr(_tmpl$, _v$);
+var _v$2 = _$ssrHydrationKey();
+const template2 = _$ssr(_tmpl$2, _v$2);
+var _v$3 = _$ssrHydrationKey();
+const template3 = _$ssr(_tmpl$3, _v$3);
+var _v$4 = _$ssrHydrationKey();
+const template4 = _$ssr(_tmpl$4, _v$4);
+var _v$5 = _$ssrHydrationKey();
+const template5 = _$ssr(_tmpl$5, _v$5);

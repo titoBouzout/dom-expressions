@@ -88,7 +88,6 @@ export function memo<T>(fn: () => T, equal: boolean): () => T;
 export function createComponent<T>(Comp: (props: T) => JSX.Element, props: T): JSX.Element;
 export function mergeProps(...sources: unknown[]): unknown;
 export function getOwner(): unknown;
-export function ssrRunInScope(fn: () => void, owner: unknown): void;
 export function generateHydrationScript(options?: {
   nonce?: string;
   eventNames?: string[];

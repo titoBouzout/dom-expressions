@@ -12,18 +12,29 @@ export function createTemplate(path, result, wrap) {
     ) {
       return result.decl.declarations[0].init;
     } else {
+      const dynamicsStmt = wrapDynamics(path, result.dynamics);
+      const stmts = [
+        result.decl,
+        ...result.exprs,
+        ...(dynamicsStmt ? [dynamicsStmt] : []),
+        ...(result.postExprs || [])
+      ];
+
+      // Statement-position optimization — see `dom/template.js` for the
+      // rationale and predicate semantics.
+      const isReturnArg = t.isReturnStatement(path.parent) && path.parent.argument === path.node;
+      const isVarInit = t.isVariableDeclarator(path.parent) && path.parent.init === path.node;
+
+      if (isReturnArg || isVarInit) {
+        path.getStatementParent().insertBefore(stmts);
+        return result.id;
+      }
+
+      // Fallback: keep the IIFE for ternary branches / array elements /
+      // function args / logical expressions where lifting would change
+      // observable evaluation semantics.
       return t.callExpression(
-        t.arrowFunctionExpression(
-          [],
-          t.blockStatement([
-            result.decl,
-            ...result.exprs.concat(
-              wrapDynamics(path, result.dynamics) || [],
-              result.postExprs || []
-            ),
-            t.returnStatement(result.id)
-          ])
-        ),
+        t.arrowFunctionExpression([], t.blockStatement([...stmts, t.returnStatement(result.id)])),
         []
       );
     }

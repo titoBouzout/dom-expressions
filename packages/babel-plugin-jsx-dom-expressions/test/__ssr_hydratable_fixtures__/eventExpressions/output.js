@@ -8,7 +8,5 @@ function hoistedCustomEvent1() {
   console.log("hoisted");
 }
 const hoistedcustomevent2 = () => console.log("hoisted");
-const template = (() => {
-  var _v$ = _$ssrHydrationKey();
-  return _$ssr(_tmpl$, _v$);
-})();
+var _v$ = _$ssrHydrationKey();
+const template = _$ssr(_tmpl$, _v$);

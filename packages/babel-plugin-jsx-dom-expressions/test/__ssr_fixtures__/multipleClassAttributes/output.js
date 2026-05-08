@@ -1,4 +1,3 @@
-import { ssrRunInScope as _$ssrRunInScope } from "r-server";
 import { ssrClassName as _$ssrClassName } from "r-server";
 import { ssr as _$ssr } from "r-server";
 var _tmpl$ = '<div class="b">static static</div>',
@@ -13,10 +12,8 @@ var _tmpl$ = '<div class="b">static static</div>',
 const dynamicClass = () => "dyn";
 const flag = true;
 const t1 = _$ssr(_tmpl$);
-const t2 = (() => {
-  var _v$ = _$ssrRunInScope([() => _$ssrClassName(dynamicClass())]);
-  return _$ssr(_tmpl$2, _v$[0]);
-})();
+var _v$ = () => _$ssrClassName(dynamicClass());
+const t2 = _$ssr(_tmpl$2, _v$);
 const t3 = _$ssr(_tmpl$3);
 const t4 = _$ssr(_tmpl$4, "active ");
 const t5 = _$ssr(_tmpl$5);

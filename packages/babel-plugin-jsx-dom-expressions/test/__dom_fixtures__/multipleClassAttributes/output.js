@@ -11,16 +11,14 @@ var _tmpl$ = /*#__PURE__*/ _$template(`<div class=b>static static`),
 const dynamicClass = () => "dyn";
 const flag = true;
 const t1 = _tmpl$();
-const t2 = (() => {
-  var _el$2 = _tmpl$2();
-  _$effect(
-    () => dynamicClass(),
-    (_v$, _$p) => {
-      _$className(_el$2, _v$, _$p);
-    }
-  );
-  return _el$2;
-})();
+var _el$2 = _tmpl$2();
+_$effect(
+  () => dynamicClass(),
+  (_v$, _$p) => {
+    _$className(_el$2, _v$, _$p);
+  }
+);
+const t2 = _el$2;
 const t3 = _tmpl$3();
 const t4 = _tmpl$4();
 const t5 = _tmpl$5();

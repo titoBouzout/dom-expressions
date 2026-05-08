@@ -287,7 +287,17 @@ export default function transformComponent(path) {
     props = [t.callExpression(registerImportMethod(path, "mergeProps"), props)];
   }
   const componentArgs = [tagId, props[0]];
-  exprs.push(t.callExpression(registerImportMethod(path, "createComponent"), componentArgs));
+  // SSR's `createComponent` is literally `Comp(props || {})`. Since the
+  // compiler always emits a real `props[0]` object expression above (see the
+  // `props.push(t.objectExpression(runningObject))` line), the `|| {}` fallback
+  // never fires in compiled output. Inline to a direct `Comp(props)` call to
+  // drop one function-call frame per component invocation. (DOM/dev modes
+  // keep the wrapper since it does real work — `untrack`, dev metadata.)
+  if (getConfig(path).generate === "ssr") {
+    exprs.push(t.callExpression(tagId, [props[0]]));
+  } else {
+    exprs.push(t.callExpression(registerImportMethod(path, "createComponent"), componentArgs));
+  }
 
   // handle hoisting conditionals
   if (exprs.length > 1) {

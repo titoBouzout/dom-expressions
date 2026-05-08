@@ -20,18 +20,38 @@ export function createTemplate(path, result, wrap) {
     ) {
       return result.decl.declarations[0].init;
     } else {
+      const dynamicsStmt = wrapDynamics(path, result.dynamics);
+      const stmts = [
+        result.decl,
+        ...result.exprs,
+        ...(dynamicsStmt ? [dynamicsStmt] : []),
+        ...(result.postExprs || [])
+      ];
+
+      // In statement position (`return <jsx/>;`, `const x = <jsx/>;`),
+      // emit flat statements before the parent instead of wrapping in an
+      // IIFE — saves one closure allocation + one function-call frame
+      // per render. The DOM emission interleaves variable declarations
+      // with side-effecting statements (insert / effect / postExprs), so
+      // each `var` stays in place; `var` is function-scoped + hoisted,
+      // so the bindings remain visible throughout the surrounding
+      // function.
+      const isReturnArg = t.isReturnStatement(path.parent) && path.parent.argument === path.node;
+      const isVarInit = t.isVariableDeclarator(path.parent) && path.parent.init === path.node;
+
+      if (isReturnArg || isVarInit) {
+        path.getStatementParent().insertBefore(stmts);
+        return result.id;
+      }
+
+      // Fallback: JSX is in a ternary branch / array element / function arg
+      // / logical expression — keep the IIFE. Flattening to a sequence
+      // expression here is doable but harder to read for the DOM shape
+      // (mixed variable declarations + side-effecting expression statements
+      // would need to be linearized into commas), and the perf delta in
+      // these rarer positions is negligible.
       return t.callExpression(
-        t.arrowFunctionExpression(
-          [],
-          t.blockStatement([
-            result.decl,
-            ...result.exprs.concat(
-              wrapDynamics(path, result.dynamics) || [],
-              result.postExprs || []
-            ),
-            t.returnStatement(result.id)
-          ])
-        ),
+        t.arrowFunctionExpression([], t.blockStatement([...stmts, t.returnStatement(result.id)])),
         []
       );
     }

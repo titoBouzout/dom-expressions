@@ -1,4 +1,3 @@
-import { ssrRunInScope as _$ssrRunInScope } from "r-server";
 import { ssrAttribute as _$ssrAttribute } from "r-server";
 import { escape as _$escape } from "r-server";
 import { ssr as _$ssr } from "r-server";
@@ -14,10 +13,8 @@ const dynamicId = () => "dyn-id";
 const t1 = _$ssr(_tmpl$);
 
 // Static then dynamic — dynamic wins.
-const t2 = (() => {
-  var _v$ = _$ssrRunInScope([() => _$ssrAttribute("title", _$escape(dynamicId(), true))]);
-  return _$ssr(_tmpl$2, _v$[0]);
-})();
+var _v$ = () => _$ssrAttribute("title", _$escape(dynamicId(), true));
+const t2 = _$ssr(_tmpl$2, _v$);
 
 // Dynamic then static — static wins.
 const t3 = _$ssr(_tmpl$3);

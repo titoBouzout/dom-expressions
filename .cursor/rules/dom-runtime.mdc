@@ -19,7 +19,7 @@ Source is plain JavaScript (no build step). Files are consumed directly by downs
 
 ## `rxcore` Imports
 
-All modules import reactive primitives from `"rxcore"`. This is rewritten at consume time — never add a real `rxcore` dependency. Client imports: `root`, `effect`, `memo`, `getOwner`, `createComponent`, `sharedConfig`, `untrack`, `mergeProps`, `flatten`. Server adds: `ssrHandleError`, `ssrRunInScope`.
+All modules import reactive primitives from `"rxcore"`. This is rewritten at consume time — never add a real `rxcore` dependency. Client imports: `root`, `effect`, `memo`, `getOwner`, `createComponent`, `sharedConfig`, `untrack`, `mergeProps`, `flatten`. Server adds: `ssrHandleError`, `runWithOwner`.
 
 ## Client Patterns
 

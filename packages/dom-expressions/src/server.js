@@ -1,8 +1,9 @@
 import { ChildProperties } from "./constants";
-import { sharedConfig, root, ssrHandleError } from "rxcore";
+import { sharedConfig, root, ssrHandleError, getOwner, runWithOwner } from "rxcore";
 import { createSerializer, getLocalHeaderScript } from "./serializer";
 
-export { getOwner, createComponent, effect, memo, untrack, ssrRunInScope } from "rxcore";
+export { createComponent, effect, memo, untrack } from "rxcore";
+export { getOwner };
 
 export {
   ChildProperties,
@@ -576,9 +577,61 @@ export function HydrationScript(props) {
 }
 
 // rendering
-export function ssr(t, ...nodes) {
-  if (nodes.length) return resolveSSR(t, nodes);
-  return { t };
+export function ssr(t) {
+  // Inlined hole resolution — uses `arguments` instead of a `(t, ...nodes)`
+  // rest parameter to avoid the per-call holes-array allocation. Inline
+  // string/number/null/bool fast paths skip `tryResolveString` entirely
+  // for the typical "all-static-after-eval" hole shape; only the heavy
+  // path (async escalation) materializes the `{ t, h, p }` result shape.
+  const len = arguments.length;
+  if (len === 1) return { t };
+  let s = t[0];
+  let result = null;
+  for (let i = 1; i < len; i++) {
+    const hole = arguments[i];
+    const ht = typeof hole;
+    if (ht === "string") {
+      if (result === null) s += hole;
+      else result.t[result.t.length - 1] += hole;
+    } else if (ht === "number") {
+      if (result === null) s += hole;
+      else result.t[result.t.length - 1] += hole;
+    } else if (hole == null || ht === "boolean") {
+      // skip
+    } else if (result !== null) {
+      resolveSSRNode(hole, result);
+    } else {
+      const r = tryResolveString(hole);
+      if (typeof r === "string") {
+        s += r;
+      } else {
+        // Escalation: allocate the heavy `{ t, h, p }` result shape and
+        // splice in the sync prefix we accumulated.
+        result = { t: [s], h: [], p: [] };
+        s = "";
+        if (r.fn !== undefined) {
+          result.h.push(r.fn);
+          result.p.push(r.promise);
+          result.t.push("");
+        } else if (r.merge !== undefined) {
+          const node = r.merge;
+          result.t[0] += node.t[0];
+          if (node.t.length > 1) {
+            result.t.push(...node.t.slice(1));
+            result.h.push(...node.h);
+            result.p.push(...node.p);
+          }
+        } else {
+          resolveSSRNode(hole, result);
+        }
+      }
+    }
+    const next = t[i];
+    if (result === null) s += next;
+    else result.t[result.t.length - 1] += next;
+  }
+  if (result === null) return { t: s };
+  return result;
 }
 
 export function ssrClassName(value) {
@@ -698,12 +751,31 @@ export function escape(s, attr) {
     if (attr && t === "boolean") return s;
     return s;
   }
-  const delim = attr ? '"' : "<";
-  const escDelim = attr ? "&quot;" : "&lt;";
-  let iDelim = s.indexOf(delim);
-  let iAmp = s.indexOf("&");
+  // Fast path: single forward pass over the string. Most values (color
+  // names, ids, prop strings, plain text) contain none of `&`, `<`, or
+  // `"`, so we bail without allocating. Slow path resumes from the first
+  // hit so we don't re-scan the clean prefix.
+  // Char codes: `&` = 38, `<` = 60, `"` = 34.
+  const delimCode = attr ? 34 : 60;
+  const len = s.length;
+  for (let i = 0; i < len; i++) {
+    const c = s.charCodeAt(i);
+    if (c === 38 || c === delimCode) return escapeSlow(s, attr, i);
+  }
+  return s;
+}
 
-  if (iDelim < 0 && iAmp < 0) return s;
+// Slow path: at least one of `&`, `<`/`"` was found at position `start`.
+// Kept separate so `escape()` stays small and inlinable in the hot path.
+function escapeSlow(s, attr, start) {
+  const delim = attr ? '"' : "<";
+  const delimCode = attr ? 34 : 60;
+  const escDelim = attr ? "&quot;" : "&lt;";
+  // Seed iDelim/iAmp from the first hit we already found, so we don't
+  // re-scan the prefix we just proved is clean.
+  const c0 = s.charCodeAt(start);
+  let iDelim = c0 === delimCode ? start : s.indexOf(delim, start);
+  let iAmp = c0 === 38 ? start : s.indexOf("&", start);
 
   let left = 0,
     out = "";
@@ -904,23 +976,54 @@ function flattenClassList(list, result) {
   }
 }
 
-function resolveSSR(
-  template,
-  holes,
-  result = {
-    t: [""],
-    h: [],
-    p: []
+// Best-effort sync resolution. Returns a string when the entire `node`
+// resolves synchronously to text. Returns an object describing the kind
+// of escalation needed otherwise:
+//   `{ fn, promise }` — function hole that threw `NotReadyError`
+//   `{ merge }` — template object with non-empty `h`
+//   `{ bail: true }` — array (or other) whose interior contains async
+function tryResolveString(node) {
+  const t = typeof node;
+  if (t === "string") return node;
+  if (t === "number") return "" + node;
+  if (node == null || t === "boolean") return "";
+  if (t === "object") {
+    if (Array.isArray(node)) {
+      let s = "";
+      let prev = {};
+      for (let i = 0, len = node.length; i < len; i++) {
+        const item = node[i];
+        if (typeof prev !== "object" && item !== null && typeof item !== "object") {
+          s += "<!--!$-->";
+        }
+        prev = item;
+        const r = tryResolveString(item);
+        if (typeof r !== "string") return { bail: true };
+        s += r;
+      }
+      return s;
+    }
+    if (node.h && node.h.length > 0) return { merge: node };
+    return Array.isArray(node.t) ? node.t[0] : node.t;
   }
-) {
-  for (let i = 0; i < holes.length; i++) {
-    const hole = holes[i];
-    result.t[result.t.length - 1] += template[i];
-    if (hole == null || hole === true || hole === false) continue;
-    resolveSSRNode(hole, result);
+  if (t === "function") {
+    try {
+      return tryResolveString(node());
+    } catch (err) {
+      const p = ssrHandleError(err);
+      if (p) {
+        // Capture owner at escalation so the streaming engine's retry sees
+        // the same context (owner ID counter, contexts) that the original
+        // sync call would have seen. The wrap only happens when we actually
+        // escalate to async, not on every dynamic.
+        const owner = getOwner();
+        const fn = owner ? () => runWithOwner(owner, node) : node;
+        return { fn, promise: p };
+      }
+      return "";
+    }
   }
-  result.t[result.t.length - 1] += template[template.length - 1];
-  return result;
+  return "";
 }
 
 function resolveSSRNode(
@@ -958,7 +1061,8 @@ function resolveSSRNode(
     } catch (err) {
       const p = ssrHandleError(err);
       if (p) {
-        result.h.push(node);
+        const owner = getOwner();
+        result.h.push(owner ? () => runWithOwner(owner, node) : node);
         result.p.push(p);
         result.t.push("");
       }

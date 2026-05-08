@@ -132,73 +132,69 @@ const Child = props => {
   ];
 };
 const Component = props => {
-  return (() => {
-    var _el$14 = _tmpl$4();
-    _$insert(
-      _el$14,
-      (() => {
-        var _c$ = _$memo(() => !!props.three);
-        return () =>
-          _c$()
-            ? (() => {
-                var _el$15 = _$createElement("mesh"),
-                  _el$16 = _$createElement("pointLight");
-                _$insertNode(_el$15, _el$16);
-                _$setProp(_el$15, "scale", 2);
-                _$setProp(_el$15, "position", [0, 0, 0]);
-                _$setProp(
-                  _el$15,
-                  "geometry",
+  var _el$14 = _tmpl$4();
+  _$insert(
+    _el$14,
+    (() => {
+      var _c$ = _$memo(() => !!props.three);
+      return () =>
+        _c$()
+          ? (() => {
+              var _el$15 = _$createElement("mesh"),
+                _el$16 = _$createElement("pointLight");
+              _$insertNode(_el$15, _el$16);
+              _$setProp(_el$15, "scale", 2);
+              _$setProp(_el$15, "position", [0, 0, 0]);
+              _$setProp(
+                _el$15,
+                "geometry",
+                (() => {
+                  var _el$17 = _$createElement("boxBufferGeometry");
+                  _$setProp(_el$17, "args", [0, 1, 2]);
+                  return _el$17;
+                })()
+              );
+              _$effect(
+                () =>
                   (() => {
-                    var _el$17 = _$createElement("boxBufferGeometry");
-                    _$setProp(_el$17, "args", [0, 1, 2]);
-                    return _el$17;
-                  })()
-                );
-                _$effect(
-                  () =>
-                    (() => {
-                      var _el$18 = _$createElement("basicMaterial");
-                      _$setProp(_el$18, "alpha", 0);
-                      _$effect(
-                        () => (s() ? "red" : "green"),
-                        (_v$, _$p) => {
-                          _$setProp(_el$18, "color", _v$, _$p);
-                        }
-                      );
-                      return _el$18;
-                    })(),
-                  (_v$, _$p) => {
-                    _$setProp(_el$15, "material", _v$, _$p);
-                  }
-                );
-                return _el$15;
-              })()
-            : _tmpl$5();
-      })()
-    );
-    return _el$14;
-  })();
+                    var _el$18 = _$createElement("basicMaterial");
+                    _$setProp(_el$18, "alpha", 0);
+                    _$effect(
+                      () => (s() ? "red" : "green"),
+                      (_v$, _$p) => {
+                        _$setProp(_el$18, "color", _v$, _$p);
+                      }
+                    );
+                    return _el$18;
+                  })(),
+                (_v$, _$p) => {
+                  _$setProp(_el$15, "material", _v$, _$p);
+                }
+              );
+              return _el$15;
+            })()
+          : _tmpl$5();
+    })()
+  );
+  return _el$14;
 };
 const Mesh = props => {
-  return (() => {
-    var _el$20 = _$createElement("group");
-    _$spread(_el$20, props, true);
-    _$insert2(_el$20, [
-      (() => {
-        var _el$21 = _$createElement("group");
-        _$insert2(_el$21, a ? _$createElement("mesh") : _$createElement("instancedMesh"));
-        return _el$21;
-      })(),
-      _$createComponent(HTML, {
-        get children() {
-          var _el$22 = _tmpl$4();
-          _$spread2(_el$22, props, true);
-          _$insert(_el$22, b ? _tmpl$4() : _tmpl$2());
-          return _el$22;
-        }
-      })
-    ]);
-    return _el$20;
-  })();
+  var _el$20 = _$createElement("group");
+  _$spread(_el$20, props, true);
+  _$insert2(_el$20, [
+    (() => {
+      var _el$21 = _$createElement("group");
+      _$insert2(_el$21, a ? _$createElement("mesh") : _$createElement("instancedMesh"));
+      return _el$21;
+    })(),
+    _$createComponent(HTML, {
+      get children() {
+        var _el$22 = _tmpl$4();
+        _$spread2(_el$22, props, true);
+        _$insert(_el$22, b ? _tmpl$4() : _tmpl$2());
+        return _el$22;
+      }
+    })
+  ]);
+  return _el$20;
 };

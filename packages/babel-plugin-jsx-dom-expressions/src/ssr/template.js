@@ -93,35 +93,51 @@ export function createTemplate(path, result, wrap) {
     }
   }
 
-  const dynamicDecl = wrapDynamics(path, result.groupId, result.dynamics);
-  if (!result.declarations.length && !dynamicDecl && !result.postDeclarations.length) {
-    return t.callExpression(
-      registerImportMethod(path, "ssr"),
-      Array.isArray(result.template) && result.template.length > 1
-        ? [id, ...result.templateValues]
-        : [id]
-    );
-  }
-  return t.callExpression(
-    t.arrowFunctionExpression(
-      [],
-      t.blockStatement([
-        t.variableDeclaration(
-          "var",
-          [...result.declarations, dynamicDecl, ...result.postDeclarations].filter(Boolean)
-        ),
-        t.returnStatement(
-          t.callExpression(
-            registerImportMethod(path, "ssr"),
-            Array.isArray(result.template) && result.template.length > 1
-              ? [id, ...result.templateValues]
-              : [id]
-          )
-        )
-      ])
-    ),
-    []
+  const ssrCall = t.callExpression(
+    registerImportMethod(path, "ssr"),
+    Array.isArray(result.template) && result.template.length > 1
+      ? [id, ...result.templateValues]
+      : [id]
   );
+
+  const declarators = [...result.declarations, ...result.postDeclarations].filter(Boolean);
+  if (!declarators.length) return ssrCall;
+
+  // IIFE-free emission — declarations live outside the `ssr(...)` call to
+  // save one closure allocation + one function-call frame per render.
+  // Two shapes depending on JSX position:
+  //
+  //   - Statement positions (`return <jsx/>;`, `const x = <jsx/>;`):
+  //     emit a single combined `var _v$ = init1, _v$2 = init2;`
+  //     statement before the parent. `var` declarations hoist to the
+  //     enclosing function so semantics match the old IIFE form.
+  //
+  //   - Expression positions (ternary branches, array elements, function
+  //     args, logical operators): hoist bare `var _v$;` declarations to
+  //     the enclosing function scope via `path.scope.push`, and emit a
+  //     comma sequence expression `(_v$ = init, ssr(...))` at the JSX
+  //     site. The hoist is required — JS forbids `var` declarations
+  //     inside expressions — and the assignment must stay inline so its
+  //     side effects fire only when the surrounding control-flow gate
+  //     selects this branch.
+  const isReturnArg = t.isReturnStatement(path.parent) && path.parent.argument === path.node;
+  const isVarInit = t.isVariableDeclarator(path.parent) && path.parent.init === path.node;
+
+  if (isReturnArg || isVarInit) {
+    path.getStatementParent().insertBefore(
+      t.variableDeclaration(
+        "var",
+        declarators.map(d => t.variableDeclarator(d.id, d.init))
+      )
+    );
+    return ssrCall;
+  }
+
+  for (const d of declarators) path.scope.push({ id: d.id, kind: "var" });
+  return t.sequenceExpression([
+    ...declarators.map(d => t.assignmentExpression("=", d.id, d.init)),
+    ssrCall
+  ]);
 }
 
 export function appendTemplates(path, templates) {
@@ -129,10 +145,4 @@ export function appendTemplates(path, templates) {
     return t.variableDeclarator(template.id, template.template);
   });
   path.node.body.unshift(t.variableDeclaration("var", declarators));
-}
-
-function wrapDynamics(path, groupId, dynamics) {
-  if (!dynamics || !dynamics.length) return null;
-  const run = registerImportMethod(path, "ssrRunInScope");
-  return t.variableDeclarator(groupId, t.callExpression(run, [t.arrayExpression(dynamics)]));
 }

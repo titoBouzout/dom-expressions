@@ -1,6 +1,4 @@
-import { createComponent as _$createComponent } from "r-server";
 import { ssrElement as _$ssrElement } from "r-server";
-import { ssrRunInScope as _$ssrRunInScope } from "r-server";
 import { ssrStyleProperty as _$ssrStyleProperty } from "r-server";
 import { ssrAttribute as _$ssrAttribute } from "r-server";
 import { escape as _$escape } from "r-server";
@@ -27,33 +25,25 @@ var _tmpl$ =
     "</text></svg>"
   ];
 const template = _$ssr(_tmpl$);
-const template2 = (() => {
-  var _v$ = _$ssrRunInScope([
-    () => _$ssrClassName(state.name),
-    () => _$ssrAttribute("stroke-width", _$escape(state.width, true)),
-    () => _$ssrAttribute("x", _$escape(state.x, true)),
-    () => _$ssrAttribute("y", _$escape(state.y, true)),
-    () =>
-      _$ssrStyleProperty("fill:", "red") +
-      _$ssrStyleProperty(";stroke:", "black") +
-      _$ssrStyleProperty(";stroke-width:", _$escape(props.stroke, true)) +
-      _$ssrStyleProperty(";opacity:", 0.5)
-  ]);
-  return _$ssr(_tmpl$2, _v$[0], _v$[1], _v$[2], _v$[3], _v$[4]);
-})();
-const template3 = (() => {
-  var _v$2 = _$ssrElement("rect", props, undefined, false);
-  return _$ssr(_tmpl$3, _v$2);
-})();
+var _v$ = () => _$ssrClassName(state.name),
+  _v$2 = () => _$ssrAttribute("stroke-width", _$escape(state.width, true)),
+  _v$3 = () => _$ssrAttribute("x", _$escape(state.x, true)),
+  _v$4 = () => _$ssrAttribute("y", _$escape(state.y, true)),
+  _v$5 = () =>
+    _$ssrStyleProperty("fill:", "red") +
+    _$ssrStyleProperty(";stroke:", "black") +
+    _$ssrStyleProperty(";stroke-width:", _$escape(props.stroke, true)) +
+    _$ssrStyleProperty(";opacity:", 0.5);
+const template2 = _$ssr(_tmpl$2, _v$, _v$2, _v$3, _v$4, _v$5);
+var _v$6 = _$ssrElement("rect", props, undefined, false);
+const template3 = _$ssr(_tmpl$3, _v$6);
 const template4 = _$ssr(_tmpl$4);
 const template5 = _$ssr(_tmpl$4);
-const template6 = _$createComponent(Component, {
+const template6 = Component({
   get children() {
     return _$ssr(_tmpl$4);
   }
 });
 const template7 = _$ssr(_tmpl$5, _$ssrAttribute("xlink:href", _$escape(url, true)));
-const template8 = (() => {
-  var _v$3 = _$escape(text);
-  return _$ssr(_tmpl$6, _v$3);
-})();
+var _v$7 = _$escape(text);
+const template8 = _$ssr(_tmpl$6, _v$7);

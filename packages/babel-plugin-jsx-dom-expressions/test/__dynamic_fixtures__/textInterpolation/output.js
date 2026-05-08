@@ -20,51 +20,41 @@ const leading = _tmpl$2();
 
 /* prettier-ignore */
 const extraSpaces = _tmpl$3();
-const trailingExpr = (() => {
-  var _el$4 = _tmpl$(),
-    _el$5 = _el$4.firstChild;
-  _$insert(_el$4, name, null);
-  return _el$4;
-})();
-const leadingExpr = (() => {
-  var _el$6 = _tmpl$2(),
-    _el$7 = _el$6.firstChild;
-  _$insert(_el$6, greeting, _el$7);
-  return _el$6;
-})();
+var _el$4 = _tmpl$(),
+  _el$5 = _el$4.firstChild;
+_$insert(_el$4, name, null);
+const trailingExpr = _el$4;
+var _el$6 = _tmpl$2(),
+  _el$7 = _el$6.firstChild;
+_$insert(_el$6, greeting, _el$7);
+const leadingExpr = _el$6;
 
 /* prettier-ignore */
-const multiExpr = (() => {
-  var _el$8 = _tmpl$4(),
-    _el$9 = _el$8.firstChild;
-  _$insert(_el$8, greeting, _el$9);
-  _$insert(_el$8, name, null);
-  return _el$8;
-})();
+var _el$8 = _tmpl$4(),
+  _el$9 = _el$8.firstChild;
+_$insert(_el$8, greeting, _el$9);
+_$insert(_el$8, name, null);
+const multiExpr = _el$8;
 
 /* prettier-ignore */
-const multiExprSpaced = (() => {
-  var _el$10 = _tmpl$5(),
-    _el$11 = _el$10.firstChild,
-    _el$14 = _el$11.nextSibling,
-    _el$12 = _el$14.nextSibling,
-    _el$15 = _el$12.nextSibling,
-    _el$13 = _el$15.nextSibling;
-  _$insert(_el$10, greeting, _el$14);
-  _$insert(_el$10, name, _el$15);
-  return _el$10;
-})();
+var _el$10 = _tmpl$5(),
+  _el$11 = _el$10.firstChild,
+  _el$14 = _el$11.nextSibling,
+  _el$12 = _el$14.nextSibling,
+  _el$15 = _el$12.nextSibling,
+  _el$13 = _el$15.nextSibling;
+_$insert(_el$10, greeting, _el$14);
+_$insert(_el$10, name, _el$15);
+const multiExprSpaced = _el$10;
 
 /* prettier-ignore */
-const multiExprTogether = (() => {
-  var _el$16 = _tmpl$6(),
-    _el$17 = _el$16.firstChild,
-    _el$19 = _el$17.nextSibling,
-    _el$18 = _el$19.nextSibling;
-  _$insert(_el$16, greeting, _el$19);
-  _$insert(_el$16, name, _el$19);
-  return _el$16;
-})();
+var _el$16 = _tmpl$6(),
+  _el$17 = _el$16.firstChild,
+  _el$19 = _el$17.nextSibling,
+  _el$18 = _el$19.nextSibling;
+_$insert(_el$16, greeting, _el$19);
+_$insert(_el$16, name, _el$19);
+const multiExprTogether = _el$16;
 
 /* prettier-ignore */
 const multiLine = _tmpl$7();
@@ -90,39 +80,31 @@ let value = "World";
 const evaluated = _tmpl$10();
 let number = 4 + 5;
 const evaluatedNonString = _tmpl$11();
-const newLineLiteral = (() => {
-  var _el$27 = _tmpl$12(),
-    _el$28 = _el$27.firstChild;
-  _$insert(_el$27, s, _el$28);
-  return _el$27;
-})();
-const trailingSpace = (() => {
-  var _el$29 = _tmpl$13();
-  _$insert(_el$29, expr);
-  return _el$29;
-})();
+var _el$27 = _tmpl$12(),
+  _el$28 = _el$27.firstChild;
+_$insert(_el$27, s, _el$28);
+const newLineLiteral = _el$27;
+var _el$29 = _tmpl$13();
+_$insert(_el$29, expr);
+const trailingSpace = _el$29;
 const trailingSpaceComp = _$createComponent(Comp, {
   children: expr
 });
 const trailingSpaceFrag = expr;
-const leadingSpaceElement = (() => {
-  var _el$30 = _tmpl$4(),
-    _el$31 = _el$30.firstChild;
-  _$insert(_el$30, expr, null);
-  return _el$30;
-})();
+var _el$30 = _tmpl$4(),
+  _el$31 = _el$30.firstChild;
+_$insert(_el$30, expr, null);
+const leadingSpaceElement = _el$30;
 const leadingSpaceComponent = _$createComponent(Div, {
   get children() {
     return [" ", expr];
   }
 });
 const leadingSpaceFragment = [" ", expr];
-const trailingSpaceElement = (() => {
-  var _el$32 = _tmpl$4(),
-    _el$33 = _el$32.firstChild;
-  _$insert(_el$32, expr, _el$33);
-  return _el$32;
-})();
+var _el$32 = _tmpl$4(),
+  _el$33 = _el$32.firstChild;
+_$insert(_el$32, expr, _el$33);
+const trailingSpaceElement = _el$32;
 const trailingSpaceComponent = _$createComponent(Div, {
   get children() {
     return [expr, " "];

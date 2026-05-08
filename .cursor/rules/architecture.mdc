@@ -31,7 +31,7 @@ Reactive library (e.g. @solidjs/signals)
 All runtime modules (`client.js`, `server.js`, `universal.js`) import from `"rxcore"` — a virtual module that doesn't exist at publish time. Downstream consumers use `babel-plugin-transform-rename-import` to rewrite `rxcore` to their actual reactive core module. Expected exports from `rxcore`:
 
 - `root`, `effect`, `memo`, `getOwner`, `createComponent`, `sharedConfig`, `untrack`, `mergeProps`, `flatten`
-- Server-only: `ssrHandleError`, `ssrRunInScope`
+- Server-only: `ssrHandleError`, `runWithOwner`
 
 ## Runtime Modules
 

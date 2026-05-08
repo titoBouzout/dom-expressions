@@ -30,15 +30,17 @@ function appendToTemplate(template, value) {
 }
 
 function hoistExpression(path, results, expr, { group, post, skipWrap } = {}) {
-  if (group && !post) {
-    results.groupId ||= path.scope.generateUidIdentifier("v$");
-    results.dynamics.push(expr);
-    return t.memberExpression(results.groupId, t.numericLiteral(results.dynamics.length - 1), true);
-  }
+  // Each dynamic gets a temp `_v$N` variable that's later assigned + passed
+  // to `ssr(_tmpl, _v$N, …)`. The temp-var indirection is a V8 call-site
+  // IC stability tactic: when `ssr()` always sees stable `Identifier`
+  // references at its argument positions (rather than mixed call
+  // expressions / arrow literals / string results inlined directly), the
+  // call site stays specialized. Inlining destabilizes the IC and
+  // measurably regresses throughput.
+  //
+  // Evaluation ordering is preserved by JS left-to-right semantics — the
+  // temp var exists solely for IC stability.
   const variable = path.scope.generateUidIdentifier("v$");
-  !skipWrap &&
-    t.isFunction(expr) &&
-    (expr = t.callExpression(registerImportMethod(path, "ssrRunInScope"), [expr]));
   post
     ? results.postDeclarations.push(t.variableDeclarator(variable, expr))
     : results.declarations.push(t.variableDeclarator(variable, expr));

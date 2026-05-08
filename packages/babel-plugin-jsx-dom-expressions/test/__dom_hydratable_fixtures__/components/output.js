@@ -49,83 +49,81 @@ const Child = props => {
 const template = props => {
   let childRef;
   const { content } = props;
-  return (() => {
-    var _el$6 = _$getNextElement(_tmpl$4),
-      _el$9 = _el$6.firstChild,
-      [_el$10, _co$2] = _$getNextMarker(_el$9.nextSibling),
-      _el$11 = _el$10.nextSibling,
-      [_el$12, _co$3] = _$getNextMarker(_el$11.nextSibling),
-      _el$13 = _el$12.nextSibling,
-      [_el$14, _co$4] = _$getNextMarker(_el$13.nextSibling);
-    _$insert(
-      _el$6,
-      _$createComponent(
-        Child,
-        _$mergeProps(
-          {
-            name: "John"
-          },
-          props,
-          {
-            ref(r$) {
-              var _ref$2 = childRef;
-              typeof _ref$2 === "function" || Array.isArray(_ref$2)
-                ? _$applyRef(_ref$2, r$)
-                : (childRef = r$);
-            },
-            booleanProperty: true,
-            get children() {
-              return _$getNextElement(_tmpl$3);
-            }
-          }
-        )
-      ),
-      _el$10,
-      _co$2
-    );
-    _$insert(
-      _el$6,
-      _$createComponent(
-        Child,
-        _$mergeProps(
-          {
-            name: "Jason"
-          },
-          dynamicSpread,
-          {
-            ref(r$) {
-              var _ref$3 = props.ref;
-              typeof _ref$3 === "function" || Array.isArray(_ref$3)
-                ? _$applyRef(_ref$3, r$)
-                : (props.ref = r$);
-            },
-            get children() {
-              var _el$8 = _$getNextElement(_tmpl$2);
-              _$insert(_el$8, content);
-              return _el$8;
-            }
-          }
-        )
-      ),
-      _el$12,
-      _co$3
-    );
-    _$insert(
-      _el$6,
-      (() => {
-        var _ref$4 = props.consumerRef();
-        return _$createComponent(Context.Consumer, {
+  var _el$6 = _$getNextElement(_tmpl$4),
+    _el$9 = _el$6.firstChild,
+    [_el$10, _co$2] = _$getNextMarker(_el$9.nextSibling),
+    _el$11 = _el$10.nextSibling,
+    [_el$12, _co$3] = _$getNextMarker(_el$11.nextSibling),
+    _el$13 = _el$12.nextSibling,
+    [_el$14, _co$4] = _$getNextMarker(_el$13.nextSibling);
+  _$insert(
+    _el$6,
+    _$createComponent(
+      Child,
+      _$mergeProps(
+        {
+          name: "John"
+        },
+        props,
+        {
           ref(r$) {
-            (typeof _ref$4 === "function" || Array.isArray(_ref$4)) && _$applyRef(_ref$4, r$);
+            var _ref$2 = childRef;
+            typeof _ref$2 === "function" || Array.isArray(_ref$2)
+              ? _$applyRef(_ref$2, r$)
+              : (childRef = r$);
           },
-          children: context => context
-        });
-      })(),
-      _el$14,
-      _co$4
-    );
-    return _el$6;
-  })();
+          booleanProperty: true,
+          get children() {
+            return _$getNextElement(_tmpl$3);
+          }
+        }
+      )
+    ),
+    _el$10,
+    _co$2
+  );
+  _$insert(
+    _el$6,
+    _$createComponent(
+      Child,
+      _$mergeProps(
+        {
+          name: "Jason"
+        },
+        dynamicSpread,
+        {
+          ref(r$) {
+            var _ref$3 = props.ref;
+            typeof _ref$3 === "function" || Array.isArray(_ref$3)
+              ? _$applyRef(_ref$3, r$)
+              : (props.ref = r$);
+          },
+          get children() {
+            var _el$8 = _$getNextElement(_tmpl$2);
+            _$insert(_el$8, content);
+            return _el$8;
+          }
+        }
+      )
+    ),
+    _el$12,
+    _co$3
+  );
+  _$insert(
+    _el$6,
+    (() => {
+      var _ref$4 = props.consumerRef();
+      return _$createComponent(Context.Consumer, {
+        ref(r$) {
+          (typeof _ref$4 === "function" || Array.isArray(_ref$4)) && _$applyRef(_ref$4, r$);
+        },
+        children: context => context
+      });
+    })(),
+    _el$14,
+    _co$4
+  );
+  return _el$6;
 };
 const template2 = _$createComponent(Child, {
   name: "Jake",
@@ -194,169 +192,163 @@ const template8 = _$createComponent(Child, {
 const template9 = _$createComponent(_garbage, {
   children: "Hi"
 });
-const template10 = (() => {
-  var _el$20 = _$getNextElement(_tmpl$5),
-    _el$26 = _el$20.firstChild,
-    [_el$27, _co$5] = _$getNextMarker(_el$26.nextSibling),
-    _el$21 = _el$27.nextSibling,
-    _el$28 = _el$21.nextSibling,
-    [_el$29, _co$6] = _$getNextMarker(_el$28.nextSibling),
-    _el$22 = _el$29.nextSibling,
-    _el$30 = _el$22.nextSibling,
-    [_el$31, _co$7] = _$getNextMarker(_el$30.nextSibling),
-    _el$23 = _el$31.nextSibling,
-    _el$32 = _el$23.nextSibling,
-    [_el$33, _co$8] = _$getNextMarker(_el$32.nextSibling),
-    _el$24 = _el$33.nextSibling,
-    _el$34 = _el$24.nextSibling,
-    [_el$35, _co$9] = _$getNextMarker(_el$34.nextSibling),
-    _el$25 = _el$35.nextSibling,
-    _el$36 = _el$25.nextSibling,
-    [_el$37, _co$10] = _$getNextMarker(_el$36.nextSibling);
-  _$insert(
-    _el$20,
-    _$createComponent(Link, {
-      children: "new"
-    }),
-    _el$27,
-    _co$5
-  );
-  _$insert(
-    _el$20,
-    _$createComponent(Link, {
-      children: "comments"
-    }),
-    _el$29,
-    _co$6
-  );
-  _$insert(
-    _el$20,
-    _$createComponent(Link, {
-      children: "show"
-    }),
-    _el$31,
-    _co$7
-  );
-  _$insert(
-    _el$20,
-    _$createComponent(Link, {
-      children: "ask"
-    }),
-    _el$33,
-    _co$8
-  );
-  _$insert(
-    _el$20,
-    _$createComponent(Link, {
-      children: "jobs"
-    }),
-    _el$35,
-    _co$9
-  );
-  _$insert(
-    _el$20,
-    _$createComponent(Link, {
-      children: "submit"
-    }),
-    _el$37,
-    _co$10
-  );
-  return _el$20;
-})();
-const template11 = (() => {
-  var _el$38 = _$getNextElement(_tmpl$6),
-    _el$42 = _el$38.firstChild,
-    [_el$43, _co$11] = _$getNextMarker(_el$42.nextSibling),
-    _el$39 = _el$43.nextSibling,
-    _el$44 = _el$39.nextSibling,
-    [_el$45, _co$12] = _$getNextMarker(_el$44.nextSibling),
-    _el$46 = _el$45.nextSibling,
-    [_el$47, _co$13] = _$getNextMarker(_el$46.nextSibling),
-    _el$40 = _el$47.nextSibling,
-    _el$48 = _el$40.nextSibling,
-    [_el$49, _co$14] = _$getNextMarker(_el$48.nextSibling),
-    _el$50 = _el$49.nextSibling,
-    [_el$51, _co$15] = _$getNextMarker(_el$50.nextSibling),
-    _el$41 = _el$51.nextSibling,
-    _el$52 = _el$41.nextSibling,
-    [_el$53, _co$16] = _$getNextMarker(_el$52.nextSibling);
-  _$insert(
-    _el$38,
-    _$createComponent(Link, {
-      children: "new"
-    }),
-    _el$43,
-    _co$11
-  );
-  _$insert(
-    _el$38,
-    _$createComponent(Link, {
-      children: "comments"
-    }),
-    _el$45,
-    _co$12
-  );
-  _$insert(
-    _el$38,
-    _$createComponent(Link, {
-      children: "show"
-    }),
-    _el$47,
-    _co$13
-  );
-  _$insert(
-    _el$38,
-    _$createComponent(Link, {
-      children: "ask"
-    }),
-    _el$49,
-    _co$14
-  );
-  _$insert(
-    _el$38,
-    _$createComponent(Link, {
-      children: "jobs"
-    }),
-    _el$51,
-    _co$15
-  );
-  _$insert(
-    _el$38,
-    _$createComponent(Link, {
-      children: "submit"
-    }),
-    _el$53,
-    _co$16
-  );
-  return _el$38;
-})();
-const template12 = (() => {
-  var _el$54 = _$getNextElement(_tmpl$7),
-    _el$55 = _el$54.firstChild,
-    _el$60 = _el$55.nextSibling,
-    [_el$61, _co$17] = _$getNextMarker(_el$60.nextSibling),
-    _el$56 = _el$61.nextSibling,
-    _el$62 = _el$56.nextSibling,
-    [_el$63, _co$18] = _$getNextMarker(_el$62.nextSibling),
-    _el$59 = _el$63.nextSibling;
-  _$insert(
-    _el$54,
-    _$createComponent(Link, {
-      children: "comments"
-    }),
-    _el$61,
-    _co$17
-  );
-  _$insert(
-    _el$54,
-    _$createComponent(Link, {
-      children: "show"
-    }),
-    _el$63,
-    _co$18
-  );
-  return _el$54;
-})();
+var _el$20 = _$getNextElement(_tmpl$5),
+  _el$26 = _el$20.firstChild,
+  [_el$27, _co$5] = _$getNextMarker(_el$26.nextSibling),
+  _el$21 = _el$27.nextSibling,
+  _el$28 = _el$21.nextSibling,
+  [_el$29, _co$6] = _$getNextMarker(_el$28.nextSibling),
+  _el$22 = _el$29.nextSibling,
+  _el$30 = _el$22.nextSibling,
+  [_el$31, _co$7] = _$getNextMarker(_el$30.nextSibling),
+  _el$23 = _el$31.nextSibling,
+  _el$32 = _el$23.nextSibling,
+  [_el$33, _co$8] = _$getNextMarker(_el$32.nextSibling),
+  _el$24 = _el$33.nextSibling,
+  _el$34 = _el$24.nextSibling,
+  [_el$35, _co$9] = _$getNextMarker(_el$34.nextSibling),
+  _el$25 = _el$35.nextSibling,
+  _el$36 = _el$25.nextSibling,
+  [_el$37, _co$10] = _$getNextMarker(_el$36.nextSibling);
+_$insert(
+  _el$20,
+  _$createComponent(Link, {
+    children: "new"
+  }),
+  _el$27,
+  _co$5
+);
+_$insert(
+  _el$20,
+  _$createComponent(Link, {
+    children: "comments"
+  }),
+  _el$29,
+  _co$6
+);
+_$insert(
+  _el$20,
+  _$createComponent(Link, {
+    children: "show"
+  }),
+  _el$31,
+  _co$7
+);
+_$insert(
+  _el$20,
+  _$createComponent(Link, {
+    children: "ask"
+  }),
+  _el$33,
+  _co$8
+);
+_$insert(
+  _el$20,
+  _$createComponent(Link, {
+    children: "jobs"
+  }),
+  _el$35,
+  _co$9
+);
+_$insert(
+  _el$20,
+  _$createComponent(Link, {
+    children: "submit"
+  }),
+  _el$37,
+  _co$10
+);
+const template10 = _el$20;
+var _el$38 = _$getNextElement(_tmpl$6),
+  _el$42 = _el$38.firstChild,
+  [_el$43, _co$11] = _$getNextMarker(_el$42.nextSibling),
+  _el$39 = _el$43.nextSibling,
+  _el$44 = _el$39.nextSibling,
+  [_el$45, _co$12] = _$getNextMarker(_el$44.nextSibling),
+  _el$46 = _el$45.nextSibling,
+  [_el$47, _co$13] = _$getNextMarker(_el$46.nextSibling),
+  _el$40 = _el$47.nextSibling,
+  _el$48 = _el$40.nextSibling,
+  [_el$49, _co$14] = _$getNextMarker(_el$48.nextSibling),
+  _el$50 = _el$49.nextSibling,
+  [_el$51, _co$15] = _$getNextMarker(_el$50.nextSibling),
+  _el$41 = _el$51.nextSibling,
+  _el$52 = _el$41.nextSibling,
+  [_el$53, _co$16] = _$getNextMarker(_el$52.nextSibling);
+_$insert(
+  _el$38,
+  _$createComponent(Link, {
+    children: "new"
+  }),
+  _el$43,
+  _co$11
+);
+_$insert(
+  _el$38,
+  _$createComponent(Link, {
+    children: "comments"
+  }),
+  _el$45,
+  _co$12
+);
+_$insert(
+  _el$38,
+  _$createComponent(Link, {
+    children: "show"
+  }),
+  _el$47,
+  _co$13
+);
+_$insert(
+  _el$38,
+  _$createComponent(Link, {
+    children: "ask"
+  }),
+  _el$49,
+  _co$14
+);
+_$insert(
+  _el$38,
+  _$createComponent(Link, {
+    children: "jobs"
+  }),
+  _el$51,
+  _co$15
+);
+_$insert(
+  _el$38,
+  _$createComponent(Link, {
+    children: "submit"
+  }),
+  _el$53,
+  _co$16
+);
+const template11 = _el$38;
+var _el$54 = _$getNextElement(_tmpl$7),
+  _el$55 = _el$54.firstChild,
+  _el$60 = _el$55.nextSibling,
+  [_el$61, _co$17] = _$getNextMarker(_el$60.nextSibling),
+  _el$56 = _el$61.nextSibling,
+  _el$62 = _el$56.nextSibling,
+  [_el$63, _co$18] = _$getNextMarker(_el$62.nextSibling),
+  _el$59 = _el$63.nextSibling;
+_$insert(
+  _el$54,
+  _$createComponent(Link, {
+    children: "comments"
+  }),
+  _el$61,
+  _co$17
+);
+_$insert(
+  _el$54,
+  _$createComponent(Link, {
+    children: "show"
+  }),
+  _el$63,
+  _co$18
+);
+const template12 = _el$54;
 class Template13 {
   render() {
     const _self$ = this;

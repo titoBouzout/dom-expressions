@@ -40,74 +40,72 @@ const Child = props => {
 const template = props => {
   let childRef;
   const { content } = props;
-  return (() => {
-    var _el$4 = _tmpl$2();
-    _$insert(
-      _el$4,
-      _$createComponent(
-        Child,
-        _$mergeProps(
-          {
-            name: "John"
-          },
-          props,
-          {
-            ref(r$) {
-              var _ref$2 = childRef;
-              typeof _ref$2 === "function" || Array.isArray(_ref$2)
-                ? _$applyRef(_ref$2, r$)
-                : (childRef = r$);
-            },
-            booleanProperty: true,
-            get children() {
-              return _tmpl$3();
-            }
-          }
-        )
-      ),
-      null
-    );
-    _$insert(
-      _el$4,
-      _$createComponent(
-        Child,
-        _$mergeProps(
-          {
-            name: "Jason"
-          },
-          dynamicSpread,
-          {
-            ref(r$) {
-              var _ref$3 = props.ref;
-              typeof _ref$3 === "function" || Array.isArray(_ref$3)
-                ? _$applyRef(_ref$3, r$)
-                : (props.ref = r$);
-            },
-            get children() {
-              var _el$6 = _tmpl$2();
-              _$insert(_el$6, content);
-              return _el$6;
-            }
-          }
-        )
-      ),
-      null
-    );
-    _$insert(
-      _el$4,
-      (() => {
-        var _ref$4 = props.consumerRef();
-        return _$createComponent(Context.Consumer, {
+  var _el$4 = _tmpl$2();
+  _$insert(
+    _el$4,
+    _$createComponent(
+      Child,
+      _$mergeProps(
+        {
+          name: "John"
+        },
+        props,
+        {
           ref(r$) {
-            (typeof _ref$4 === "function" || Array.isArray(_ref$4)) && _$applyRef(_ref$4, r$);
+            var _ref$2 = childRef;
+            typeof _ref$2 === "function" || Array.isArray(_ref$2)
+              ? _$applyRef(_ref$2, r$)
+              : (childRef = r$);
           },
-          children: context => context
-        });
-      })(),
-      null
-    );
-    return _el$4;
-  })();
+          booleanProperty: true,
+          get children() {
+            return _tmpl$3();
+          }
+        }
+      )
+    ),
+    null
+  );
+  _$insert(
+    _el$4,
+    _$createComponent(
+      Child,
+      _$mergeProps(
+        {
+          name: "Jason"
+        },
+        dynamicSpread,
+        {
+          ref(r$) {
+            var _ref$3 = props.ref;
+            typeof _ref$3 === "function" || Array.isArray(_ref$3)
+              ? _$applyRef(_ref$3, r$)
+              : (props.ref = r$);
+          },
+          get children() {
+            var _el$6 = _tmpl$2();
+            _$insert(_el$6, content);
+            return _el$6;
+          }
+        }
+      )
+    ),
+    null
+  );
+  _$insert(
+    _el$4,
+    (() => {
+      var _ref$4 = props.consumerRef();
+      return _$createComponent(Context.Consumer, {
+        ref(r$) {
+          (typeof _ref$4 === "function" || Array.isArray(_ref$4)) && _$applyRef(_ref$4, r$);
+        },
+        children: context => context
+      });
+    })(),
+    null
+  );
+  return _el$4;
 };
 const template2 = _$createComponent(Child, {
   name: "Jake",
@@ -171,135 +169,129 @@ const template8 = _$createComponent(Child, {
 const template9 = _$createComponent(_garbage, {
   children: "Hi"
 });
-const template10 = (() => {
-  var _el$12 = _tmpl$4(),
-    _el$13 = _el$12.firstChild,
-    _el$18 = _el$13.nextSibling,
-    _el$14 = _el$18.nextSibling,
-    _el$19 = _el$14.nextSibling,
-    _el$15 = _el$19.nextSibling,
-    _el$20 = _el$15.nextSibling,
-    _el$16 = _el$20.nextSibling,
-    _el$21 = _el$16.nextSibling,
-    _el$17 = _el$21.nextSibling;
-  _$insert(
-    _el$12,
-    _$createComponent(Link, {
-      children: "new"
-    }),
-    _el$13
-  );
-  _$insert(
-    _el$12,
-    _$createComponent(Link, {
-      children: "comments"
-    }),
-    _el$18
-  );
-  _$insert(
-    _el$12,
-    _$createComponent(Link, {
-      children: "show"
-    }),
-    _el$19
-  );
-  _$insert(
-    _el$12,
-    _$createComponent(Link, {
-      children: "ask"
-    }),
-    _el$20
-  );
-  _$insert(
-    _el$12,
-    _$createComponent(Link, {
-      children: "jobs"
-    }),
-    _el$21
-  );
-  _$insert(
-    _el$12,
-    _$createComponent(Link, {
-      children: "submit"
-    }),
-    null
-  );
-  return _el$12;
-})();
-const template11 = (() => {
-  var _el$22 = _tmpl$5(),
-    _el$23 = _el$22.firstChild,
-    _el$26 = _el$23.nextSibling,
-    _el$24 = _el$26.nextSibling,
-    _el$27 = _el$24.nextSibling,
-    _el$25 = _el$27.nextSibling;
-  _$insert(
-    _el$22,
-    _$createComponent(Link, {
-      children: "new"
-    }),
-    _el$23
-  );
-  _$insert(
-    _el$22,
-    _$createComponent(Link, {
-      children: "comments"
-    }),
-    _el$26
-  );
-  _$insert(
-    _el$22,
-    _$createComponent(Link, {
-      children: "show"
-    }),
-    _el$26
-  );
-  _$insert(
-    _el$22,
-    _$createComponent(Link, {
-      children: "ask"
-    }),
-    _el$27
-  );
-  _$insert(
-    _el$22,
-    _$createComponent(Link, {
-      children: "jobs"
-    }),
-    _el$27
-  );
-  _$insert(
-    _el$22,
-    _$createComponent(Link, {
-      children: "submit"
-    }),
-    null
-  );
-  return _el$22;
-})();
-const template12 = (() => {
-  var _el$28 = _tmpl$6(),
-    _el$29 = _el$28.firstChild,
-    _el$34 = _el$29.nextSibling,
-    _el$30 = _el$34.nextSibling,
-    _el$35 = _el$30.nextSibling,
-    _el$33 = _el$35.nextSibling;
-  _$insert(
-    _el$28,
-    _$createComponent(Link, {
-      children: "comments"
-    }),
-    _el$34
-  );
-  _$insert(
-    _el$28,
-    _$createComponent(Link, {
-      children: "show"
-    }),
-    _el$35
-  );
-  return _el$28;
-})();
+var _el$12 = _tmpl$4(),
+  _el$13 = _el$12.firstChild,
+  _el$18 = _el$13.nextSibling,
+  _el$14 = _el$18.nextSibling,
+  _el$19 = _el$14.nextSibling,
+  _el$15 = _el$19.nextSibling,
+  _el$20 = _el$15.nextSibling,
+  _el$16 = _el$20.nextSibling,
+  _el$21 = _el$16.nextSibling,
+  _el$17 = _el$21.nextSibling;
+_$insert(
+  _el$12,
+  _$createComponent(Link, {
+    children: "new"
+  }),
+  _el$13
+);
+_$insert(
+  _el$12,
+  _$createComponent(Link, {
+    children: "comments"
+  }),
+  _el$18
+);
+_$insert(
+  _el$12,
+  _$createComponent(Link, {
+    children: "show"
+  }),
+  _el$19
+);
+_$insert(
+  _el$12,
+  _$createComponent(Link, {
+    children: "ask"
+  }),
+  _el$20
+);
+_$insert(
+  _el$12,
+  _$createComponent(Link, {
+    children: "jobs"
+  }),
+  _el$21
+);
+_$insert(
+  _el$12,
+  _$createComponent(Link, {
+    children: "submit"
+  }),
+  null
+);
+const template10 = _el$12;
+var _el$22 = _tmpl$5(),
+  _el$23 = _el$22.firstChild,
+  _el$26 = _el$23.nextSibling,
+  _el$24 = _el$26.nextSibling,
+  _el$27 = _el$24.nextSibling,
+  _el$25 = _el$27.nextSibling;
+_$insert(
+  _el$22,
+  _$createComponent(Link, {
+    children: "new"
+  }),
+  _el$23
+);
+_$insert(
+  _el$22,
+  _$createComponent(Link, {
+    children: "comments"
+  }),
+  _el$26
+);
+_$insert(
+  _el$22,
+  _$createComponent(Link, {
+    children: "show"
+  }),
+  _el$26
+);
+_$insert(
+  _el$22,
+  _$createComponent(Link, {
+    children: "ask"
+  }),
+  _el$27
+);
+_$insert(
+  _el$22,
+  _$createComponent(Link, {
+    children: "jobs"
+  }),
+  _el$27
+);
+_$insert(
+  _el$22,
+  _$createComponent(Link, {
+    children: "submit"
+  }),
+  null
+);
+const template11 = _el$22;
+var _el$28 = _tmpl$6(),
+  _el$29 = _el$28.firstChild,
+  _el$34 = _el$29.nextSibling,
+  _el$30 = _el$34.nextSibling,
+  _el$35 = _el$30.nextSibling,
+  _el$33 = _el$35.nextSibling;
+_$insert(
+  _el$28,
+  _$createComponent(Link, {
+    children: "comments"
+  }),
+  _el$34
+);
+_$insert(
+  _el$28,
+  _$createComponent(Link, {
+    children: "show"
+  }),
+  _el$35
+);
+const template12 = _el$28;
 class Template13 {
   render() {
     const _self$ = this;
