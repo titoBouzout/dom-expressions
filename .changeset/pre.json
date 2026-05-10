@@ -13,6 +13,7 @@
     "add-sld-dom-expressions",
     "export-void-rawtext-element-sets",
     "expose-void-rawtext-everywhere",
+    "fix-composite-class-tokens",
     "fix-document-root-reactivity",
     "fix-effect-compute-prev-leak",
     "fix-insert-double-bind",
@@ -22,12 +23,17 @@
     "hyper-mapArray-row-overexec",
     "hyper-tagged-thunks",
     "normalize-repository-urls",
+    "optimize-leading-static-classes",
+    "perf-reconcile-single-anchor-end-swap",
     "pr-511-ssr-dedupe-and-xlink-removal",
     "release-0-50-0-next-1",
     "sld-create-sld-runtime-returns-tag",
     "sld-flat-return-and-jsx-element-type",
     "sld-inline-csstype",
     "sld-public-type-exports",
-    "unify-babel-void-elements"
+    "ssr-group-attribute-closures",
+    "ssr-perf-pass-and-remove-ssr-run-in-scope",
+    "unify-babel-void-elements",
+    "wrap-dynamics-optional-chaining"
   ]
 }

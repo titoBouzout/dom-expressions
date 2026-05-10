@@ -1,5 +1,88 @@
 # babel-plugin-jsx-dom-expressions
 
+## 0.50.0-next.7
+
+### Patch Changes
+
+- 0bd165e: Preserve shared class tokens when diffing object keys that contain multiple class names.
+  Ensure class-method JSX captures `this` before lifted DOM setup statements run.
+- e7831bd: Optimize class arrays with leading static class strings and a fixed-shape class object so the static classes are emitted in the template and dynamic object entries compile to class toggles.
+- 10f3250: SSR: group contiguous attribute and `textContent` closures into a single
+  `_$ssrGroup(() => […], N)` call per element so the runtime can resolve
+  all `N` hole positions with one closure invocation instead of `N`. The
+  compiler walks each top-level element's `templateValues`, identifies
+  runs of `≥2` groupable entries (inserts/children break a run, preserving
+  child isolation), and replaces them with one grouped declarator repeated
+  `N` times in the `ssr(...)` argument list. `_$ssrGroup` tags the
+  function with `fn.$g = N` so `ssr()` can dispatch through a fast path
+  that's gated at the end of the typeof chain — non-function holes pay
+  nothing for the new branch.
+
+  For the async escalation path (group fn throws `NotReadyError`), every
+  retry slot for the group shares a module-scoped cache keyed on `fn`:
+  slot 0 evaluates and caches `arr` (success) or `err` (still-pending),
+  slots `1..N-1` short-circuit on the cached outcome, and the cache
+  invalidates when slot 0 re-fires next pass. Net retry cost: 1 evaluation
+  per group per pass on either outcome — `N²` → `N` on success, `N²` → `1`
+  on failure — with no per-state bookkeeping.
+
+  Bench: `+15%` on `search-results` (heavy attribute usage), neutral on
+  `color-picker` (no qualifying groups). Hydration ids are unaffected:
+  attribute/textContent expressions never allocate ids, and inserts (which
+  do) stay outside groups by construction.
+
+- 3574228: SSR rendering performance pass.
+
+  **Runtime (`dom-expressions`):**
+  - Inline hole resolution in `ssr()`. Switch from a `(t, ...nodes)` rest
+    parameter to an `arguments` walk, eliminating the per-call holes-array
+    allocation. Inline `string`/`number`/`null`/`boolean` fast paths skip
+    `tryResolveString` for the typical "all-static-after-eval" hole shape; only
+    the heavy path (async escalation) materializes the `{ t, h, p }` result.
+  - Single forward-pass `escape()`. The previous implementation walked the
+    string twice in the hot path (`indexOf(delim)` + `indexOf("&")` upfront
+    then early-exit on the no-hit case). Replaced with a `charCodeAt` loop
+    that bails after one pass for clean strings (the common case), and
+    resumes the slow path from the first hit so the clean prefix isn't
+    re-scanned.
+  - Remove the `ssrRunInScope` public export. The function had been a true
+    pass-through identity (`fn => fn`) since owner-capture moved into
+    `tryResolveString`'s `NotReadyError` handler, and the compiler stopped
+    emitting it. With no internal callers and no behavior, the export was
+    dead surface area. User code that called it can drop the wrap (it was a
+    no-op) or replicate the original deferred-callback owner-capture intent
+    in two lines with `getOwner()` + `runWithOwner()`.
+
+  **Compiler (`babel-plugin-jsx-dom-expressions`):**
+  - IIFE elision in statement-position JSX. When `<jsx/>` is the argument of
+    a `return` or the initializer of a `const` (the overwhelmingly common
+    shapes), the surrounding IIFE is removed and the body lifts to flat
+    statements before the parent. Saves one closure allocation + one
+    function-call frame per render. Applies to `dom`, `ssr`, and `universal`
+    emissions; expression-position JSX (ternary branches, array elements,
+    function args) keeps the IIFE since lifting would change observable
+    evaluation semantics.
+  - SSR templates emit hoisted `var` declarations for dynamic-expression temp
+    vars instead of wrapping the whole thing in an IIFE. In statement
+    position the declarations precede the `ssr(...)` call; in expression
+    position they hoist to the enclosing function scope and the
+    assignment + call become a comma sequence expression.
+  - Drop `ssrRunInScope` emission around dynamic SSR expressions. The
+    temp-var hoist stays — it's a V8 IC-stability tactic (keeps the `ssr()`
+    call site specialized on `Identifier` argument shapes), not an
+    evaluation-order requirement. Ordering is preserved by JS left-to-right
+    semantics.
+  - Drop `createComponent` wrap on SSR component invocations. The SSR
+    runtime's `createComponent` is `Comp(props || {})`; the compiler always
+    emits a real `props` object, so the `|| {}` fallback never fires. Inline
+    to a direct `Comp(props)` call. DOM / dev modes keep the wrapper since
+    it does real work (`untrack`, dev metadata).
+
+  Net effect on representative SSR shapes (color-picker, search-results) is
+  fewer allocations per render and a flatter call graph through the hot path.
+
+- 6ae1a40: Replace the `wrapDynamics` previous-value default-object initializer with optional chaining for both DOM and universal generators. The combined-effect arrow now takes `(_v$, _p$) => …` and reads `_p$?.<n>` instead of receiving an `_p$ = { 0: undefined, 1: undefined, … }` defaulted object literal. Removes a per-render-effect setup allocation, shrinks compiled output, and matches the shape used elsewhere in the runtime. The DOM generator special-cases `textContent` (`!_p$ || a !== _p$.a`) to keep the first-run write semantics.
+
 ## 0.50.0-next.6
 
 ## 0.50.0-next.5
