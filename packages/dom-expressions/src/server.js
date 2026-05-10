@@ -576,6 +576,58 @@ export function HydrationScript(props) {
   return ssr(generateHydrationScript({ nonce, ...props }));
 }
 
+// Compiler-emitted: tags `fn` so `ssr()` routes it through the grouped
+// fast-path. One grouped fn per element collapses N attribute/textContent
+// closures into one array-returning call.
+export function ssrGroup(fn, n) {
+  fn.$g = n;
+  return fn;
+}
+
+// Cold-path helper for the first hit of a group. Isolates `try/catch`
+// from the hot `ssr()` loop. Returns the value array on sync success,
+// `{ fn, p }` on `NotReadyError` escalation, or `null` for non-NotReady
+// errors (matches `tryResolveString`'s "" path).
+function ssrFirstGroupHit(hole) {
+  try {
+    return hole();
+  } catch (err) {
+    const p = ssrHandleError(err);
+    if (!p) return null;
+    const owner = getOwner();
+    return { fn: owner ? () => runWithOwner(owner, hole) : hole, p };
+  }
+}
+
+// Module-scoped cache for grouped retry slots. Slots fire contiguously
+// in queue order, so slot 0 evaluates `fn` once and caches `arr`
+// (success) or `err` (NotReady) on the module slots; slots `1..N-1`
+// short-circuit on `_lastGroupFn === fn`. Cache invalidates on a
+// different fn (next group) or when slot 0 re-fires (next retry pass
+// for the same group). Net: 1 evaluation per group per pass.
+let _lastGroupFn = null;
+let _lastGroupArr = null;
+let _lastGroupErr = null;
+
+function ssrGroupSlot(fn, idx) {
+  return () => {
+    if (idx > 0 && _lastGroupFn === fn) {
+      if (_lastGroupArr !== null) return _lastGroupArr[idx];
+      throw _lastGroupErr;
+    }
+    _lastGroupFn = fn;
+    _lastGroupArr = null;
+    _lastGroupErr = null;
+    try {
+      _lastGroupArr = fn();
+      return _lastGroupArr[idx];
+    } catch (err) {
+      _lastGroupErr = err;
+      throw err;
+    }
+  };
+}
+
 // rendering
 export function ssr(t) {
   // Inlined hole resolution — uses `arguments` instead of a `(t, ...nodes)`
@@ -583,10 +635,18 @@ export function ssr(t) {
   // string/number/null/bool fast paths skip `tryResolveString` entirely
   // for the typical "all-static-after-eval" hole shape; only the heavy
   // path (async escalation) materializes the `{ t, h, p }` result shape.
+  //
+  // Group fast-path (`hole.$g` set by compiler `_$ssrGroup`): one call
+  // returns an array of values for >=N hole positions. The check is at
+  // the END of the typeof chain so non-function holes don't pay for it.
   const len = arguments.length;
   if (len === 1) return { t };
   let s = t[0];
   let result = null;
+  let lastGroup = null;
+  // Array on sync success, `{ fn, p }` on escalation, null otherwise.
+  let lastGroupVal = null;
+  let lastGroupIdx = 0;
   for (let i = 1; i < len; i++) {
     const hole = arguments[i];
     const ht = typeof hole;
@@ -598,6 +658,66 @@ export function ssr(t) {
       else result.t[result.t.length - 1] += hole;
     } else if (hole == null || ht === "boolean") {
       // skip
+    } else if (ht === "function" && hole.$g) {
+      let value;
+      let hasValue = false;
+      if (lastGroup !== hole) {
+        const r = ssrFirstGroupHit(hole);
+        if (r !== null) {
+          lastGroup = hole;
+          lastGroupVal = r;
+          lastGroupIdx = 0;
+          if (!Array.isArray(r) && result === null) {
+            result = { t: [s], h: [], p: [] };
+            s = "";
+          }
+        }
+        // r === null: non-NotReady error, contribute nothing — matches
+        // the `return ""` path in `tryResolveString`.
+      }
+      if (lastGroup === hole) {
+        if (Array.isArray(lastGroupVal)) {
+          value = lastGroupVal[lastGroupIdx++];
+          hasValue = true;
+        } else {
+          result.h.push(ssrGroupSlot(lastGroupVal.fn, lastGroupIdx++));
+          result.p.push(lastGroupVal.p);
+          result.t.push("");
+        }
+      }
+      if (hasValue) {
+        // Type dispatch on the dequeued value. textContent expressions
+        // (e.g., `_$escape(item().title)`) can return arrays when the
+        // input is an array, so we cannot assume strings here.
+        const vt = typeof value;
+        if (vt === "string" || vt === "number") {
+          if (result === null) s += value;
+          else result.t[result.t.length - 1] += value;
+        } else if (value == null || vt === "boolean") {
+          // skip
+        } else if (result !== null) {
+          resolveSSRNode(value, result);
+        } else {
+          const rs = tryResolveString(value);
+          if (typeof rs === "string") {
+            s += rs;
+          } else {
+            result = { t: [s], h: [], p: [] };
+            s = "";
+            if (rs.merge !== undefined) {
+              const node = rs.merge;
+              result.t[0] += node.t[0];
+              if (node.t.length > 1) {
+                result.t.push(...node.t.slice(1));
+                result.h.push(...node.h);
+                result.p.push(...node.p);
+              }
+            } else {
+              resolveSSRNode(value, result);
+            }
+          }
+        }
+      }
     } else if (result !== null) {
       resolveSSRNode(hole, result);
     } else {

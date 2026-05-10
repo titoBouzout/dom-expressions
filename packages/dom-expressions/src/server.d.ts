@@ -73,6 +73,7 @@ export function ssrClassName(value: string | { [k: string]: boolean } | Array<an
 export function ssrStyle(value: string | { [k: string]: string }): string;
 export function ssrStyleProperty(name: string, value: any): string;
 export function ssrAttribute(key: string, value: any): string;
+export function ssrGroup<T extends () => any[]>(fn: T, n: number): T;
 export function ssrHydrationKey(): string;
 export function resolveSSRNode(node: any, result?: any, top?: boolean): any;
 export function escape(s: any, attr?: boolean): any;

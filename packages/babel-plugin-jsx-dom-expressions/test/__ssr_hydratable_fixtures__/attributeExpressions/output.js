@@ -1,5 +1,6 @@
 import { ssrClassName as _$ssrClassName } from "r-server";
 import { ssrStyle as _$ssrStyle } from "r-server";
+import { ssrGroup as _$ssrGroup } from "r-server";
 import { ssrStyleProperty as _$ssrStyleProperty } from "r-server";
 import { ssrAttribute as _$ssrAttribute } from "r-server";
 import { ssrHydrationKey as _$ssrHydrationKey } from "r-server";
@@ -136,15 +137,20 @@ const template2 = _$ssrElement(
   true
 );
 var _v$3 = _$ssrHydrationKey(),
-  _v$4 = () => _$ssrAttribute("name", _$escape(state.name, true)),
-  _v$5 = _$escape(/*@once*/ state.content || " ");
+  _g$ = _$ssrGroup(
+    () => [
+      _$ssrAttribute("name", _$escape(state.name, true)),
+      _$escape(/*@once*/ state.content || " ")
+    ],
+    2
+  );
 const template3 = _$ssr(
   _tmpl$4,
   _v$3,
   _$ssrAttribute("id", _$escape(state.id, true)),
   _$ssrStyleProperty("background-color:", _$escape(state.color, true)),
-  _v$4,
-  _v$5
+  _g$,
+  _g$
 );
 var _v$6 = _$ssrHydrationKey(),
   _v$7 = () => _$ssrAttribute("className", _$escape(state.class, true));
@@ -223,21 +229,31 @@ const template19 = _$ssr(
   ])
 );
 var _v$24 = _$ssrHydrationKey(),
-  _v$26 = () => _$ssrAttribute("min", _$escape(min(), true)),
-  _v$27 = () => _$ssrAttribute("max", _$escape(max(), true)),
-  _v$29 = () => _$ssrAttribute("min", _$escape(min(), true)),
-  _v$30 = () => _$ssrAttribute("max", _$escape(max(), true)),
+  _g$3 = _$ssrGroup(
+    () => [
+      _$ssrAttribute("min", _$escape(min(), true)),
+      _$ssrAttribute("max", _$escape(max(), true))
+    ],
+    2
+  ),
+  _g$2 = _$ssrGroup(
+    () => [
+      _$ssrAttribute("min", _$escape(min(), true)),
+      _$ssrAttribute("max", _$escape(max(), true))
+    ],
+    2
+  ),
   _v$25 = () => _$ssrAttribute("value", _$escape(s(), true)),
   _v$28 = () => _$ssrAttribute("checked", _$escape(s2(), true));
 const template20 = _$ssr(
   _tmpl$17,
   _v$24,
   _v$25,
-  _v$26,
-  _v$27,
+  _g$3,
+  _g$3,
   _v$28,
-  _v$29,
-  _v$30,
+  _g$2,
+  _g$2,
   _$ssrAttribute("readonly", _$escape(value, true))
 );
 var _v$31 = _$ssrHydrationKey(),

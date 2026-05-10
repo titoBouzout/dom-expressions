@@ -44,7 +44,81 @@ function hoistExpression(path, results, expr, { group, post, skipWrap } = {}) {
   post
     ? results.postDeclarations.push(t.variableDeclarator(variable, expr))
     : results.declarations.push(t.variableDeclarator(variable, expr));
+  // `group: true` marks the entry eligible for `groupAttributeClosures`.
+  // `post` entries live in a separate declaration bucket and never group.
+  if (group && !post) {
+    if (!results.groupable) results.groupable = new Set();
+    results.groupable.add(variable.name);
+  }
   return variable;
+}
+
+// Coalesce contiguous runs of >=2 groupable templateValues entries into
+// `_$ssrGroup(() => [...bodies], N)`, repeated N times in the `ssr(...)`
+// arg list. Inserts/children break a run, so child isolation is preserved.
+function groupAttributeClosures(path, results) {
+  const groupable = results.groupable;
+  if (!groupable || groupable.size < 2) return;
+  const tv = results.templateValues;
+
+  const runs = [];
+  let runStart = -1;
+  let runIds = [];
+  for (let i = 0; i <= tv.length; i++) {
+    const v = i < tv.length ? tv[i] : null;
+    if (v && t.isIdentifier(v) && groupable.has(v.name)) {
+      if (runStart === -1) {
+        runStart = i;
+        runIds = [];
+      }
+      runIds.push(v.name);
+    } else if (runStart !== -1) {
+      if (runIds.length >= 2) runs.push({ start: runStart, end: i, ids: runIds });
+      runStart = -1;
+      runIds = [];
+    }
+  }
+  if (!runs.length) return;
+
+  // Name → declarator index. Consumed slots are nulled in place (kept
+  // stable for the whole pass, then filtered at the end).
+  const declMap = new Map();
+  for (let i = 0; i < results.declarations.length; i++) {
+    const d = results.declarations[i];
+    if (d && t.isIdentifier(d.id)) declMap.set(d.id.name, i);
+  }
+
+  // Reverse so `tv.splice` for earlier runs doesn't shift later indices.
+  for (let r = runs.length - 1; r >= 0; r--) {
+    const run = runs[r];
+    const bodies = [];
+    let firstIdx = -1;
+    for (let k = 0; k < run.ids.length; k++) {
+      const di = declMap.get(run.ids[k]);
+      const init = results.declarations[di].init;
+      // Arrow w/ expression body → inline its body. Anything else
+      // (bare identifier, `_$escape(/*@once*/ x)`, …) gets dropped in
+      // as-is; the runtime's type dispatch handles both fn and value slots.
+      bodies.push(
+        t.isArrowFunctionExpression(init) && !t.isBlockStatement(init.body) ? init.body : init
+      );
+      if (k === 0) firstIdx = di;
+      else results.declarations[di] = null;
+    }
+
+    const groupId = path.scope.generateUidIdentifier("g$");
+    const groupInit = t.callExpression(registerImportMethod(path, "ssrGroup"), [
+      t.arrowFunctionExpression([], t.arrayExpression(bodies)),
+      t.numericLiteral(bodies.length)
+    ]);
+    results.declarations[firstIdx] = t.variableDeclarator(groupId, groupInit);
+
+    const replacements = new Array(run.ids.length);
+    for (let k = 0; k < run.ids.length; k++) replacements[k] = t.cloneNode(groupId);
+    tv.splice(run.start, run.end - run.start, ...replacements);
+  }
+
+  results.declarations = results.declarations.filter(d => d !== null);
 }
 
 export function transformElement(path, info) {
@@ -119,6 +193,9 @@ export function transformElement(path, info) {
     transformChildren(path, results, { ...config, ...info });
     appendToTemplate(results.template, `</${tagName}>`);
   }
+  // Run grouping once at the top-level element so contiguous closures
+  // across nested elements can collapse into a single grouped function.
+  if (info.topLevel) groupAttributeClosures(path, results);
   return results;
 }
 
@@ -397,6 +474,8 @@ function transformAttributes(path, results, info) {
           comments && (value.expression.leadingComments = comments);
         }
         if (key === "innerHTML") path.doNotEscape = true;
+        // textContent groups with attributes; innerHTML stays opaque.
+        if (key === "textContent") value._groupableTextContent = true;
         children = value;
       } else {
         const isDynamicValue = isDynamic(attribute.get("value").get("expression"), {
@@ -569,20 +648,28 @@ function transformChildren(path, results, { hydratable }) {
     results.templateValues.push.apply(results.templateValues, child.templateValues || []);
     child.declarations && results.declarations.push(...child.declarations);
     child.postDeclarations && results.postDeclarations.push(...child.postDeclarations);
+    if (child.groupable) {
+      if (!results.groupable) results.groupable = new Set();
+      for (const name of child.groupable) results.groupable.add(name);
+    }
     results.groupId ||= child.groupId;
     if (child.exprs.length) {
       if (!doNotEscape && !child.spreadElement)
         child.exprs[0] = escapeExpression(path, child.exprs[0]);
 
+      // textContent flows through here as a synthesized child; flag it
+      // for grouping (see `transformAttributes`).
+      const hoistOpts = node.node && node.node._groupableTextContent ? { group: true } : undefined;
+
       // boxed by textNodes
       if (markers && !child.spreadElement) {
         appendToTemplate(results.template, `<!--$-->`);
         results.template.push("");
-        results.templateValues.push(hoistExpression(path, results, child.exprs[0]));
+        results.templateValues.push(hoistExpression(path, results, child.exprs[0], hoistOpts));
         appendToTemplate(results.template, `<!--/-->`);
       } else {
         results.template.push("");
-        results.templateValues.push(hoistExpression(path, results, child.exprs[0]));
+        results.templateValues.push(hoistExpression(path, results, child.exprs[0], hoistOpts));
       }
     }
   });

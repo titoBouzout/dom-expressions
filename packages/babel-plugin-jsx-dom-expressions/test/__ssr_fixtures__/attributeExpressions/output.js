@@ -1,6 +1,7 @@
 import { memo as _$memo } from "r-server";
 import { ssrClassName as _$ssrClassName } from "r-server";
 import { ssrStyle as _$ssrStyle } from "r-server";
+import { ssrGroup as _$ssrGroup } from "r-server";
 import { ssrStyleProperty as _$ssrStyleProperty } from "r-server";
 import { ssrAttribute as _$ssrAttribute } from "r-server";
 import { escape as _$escape } from "r-server";
@@ -139,14 +140,16 @@ const template2 = _$ssrElement(
   ],
   false
 );
-var _v$3 = () => _$ssrAttribute("name", _$escape(state.name, true)),
-  _v$4 = _$escape(/*@once*/ state.content);
+var _g$ = _$ssrGroup(
+  () => [_$ssrAttribute("name", _$escape(state.name, true)), _$escape(/*@once*/ state.content)],
+  2
+);
 const template3 = _$ssr(
   _tmpl$4,
   _$ssrAttribute("id", _$escape(state.id, true)),
   _$ssrStyleProperty("background-color:", _$escape(state.color, true)),
-  _v$3,
-  _v$4
+  _g$,
+  _g$
 );
 var _v$5 = () => _$ssrAttribute("className", _$escape(state.class, true));
 const template4 = _$ssr(_tmpl$5, _v$5, "ccc:ddd");
@@ -203,20 +206,30 @@ const template19 = _$ssr(
     "flex flex-col"
   ])
 );
-var _v$10 = () => _$ssrAttribute("min", _$escape(min(), true)),
-  _v$11 = () => _$ssrAttribute("max", _$escape(max(), true)),
-  _v$13 = () => _$ssrAttribute("min", _$escape(min(), true)),
-  _v$14 = () => _$ssrAttribute("max", _$escape(max(), true)),
+var _g$3 = _$ssrGroup(
+    () => [
+      _$ssrAttribute("min", _$escape(min(), true)),
+      _$ssrAttribute("max", _$escape(max(), true))
+    ],
+    2
+  ),
+  _g$2 = _$ssrGroup(
+    () => [
+      _$ssrAttribute("min", _$escape(min(), true)),
+      _$ssrAttribute("max", _$escape(max(), true))
+    ],
+    2
+  ),
   _v$9 = () => _$ssrAttribute("value", _$escape(s(), true)),
   _v$12 = () => _$ssrAttribute("checked", _$escape(s2(), true));
 const template20 = _$ssr(
   _tmpl$17,
   _v$9,
-  _v$10,
-  _v$11,
+  _g$3,
+  _g$3,
   _v$12,
-  _v$13,
-  _v$14,
+  _g$2,
+  _g$2,
   _$ssrAttribute("readonly", _$escape(value, true))
 );
 var _v$15 = () =>
