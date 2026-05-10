@@ -157,13 +157,13 @@ export function className(node, value, prev) {
   for (i = 0, len = prevKeys.length; i < len; i++) {
     const key = prevKeys[i];
     if (!key || key === "undefined" || value[key]) continue;
-    toggleClassKey(node, key, false);
+    node.classList.remove(key);
   }
   for (i = 0, len = classKeys.length; i < len; i++) {
     const key = classKeys[i],
       classValue = !!value[key];
     if (!key || key === "undefined" || prev[key] === classValue || !classValue) continue;
-    toggleClassKey(node, key, true);
+    node.classList.add(key);
   }
 }
 
@@ -545,16 +545,22 @@ function getChildRoot(node) {
   return node && node.localName === "template" ? node.content : node;
 }
 
-function toggleClassKey(node, key, value) {
-  const classNames = key.trim().split(/\s+/);
-  for (let i = 0, nameLen = classNames.length; i < nameLen; i++)
-    node.classList.toggle(classNames[i], value);
-}
-
 function classListToObject(classList) {
   if (Array.isArray(classList)) {
     const result = {};
     flattenClassList(classList, result);
+    classList = result;
+  }
+  if (classList && typeof classList === "object") {
+    const result = {},
+      keys = Object.keys(classList);
+    for (let i = 0, len = keys.length; i < len; i++) {
+      const key = keys[i];
+      if (!classList[key]) continue;
+      const classNames = key.trim().split(/\s+/);
+      for (let j = 0, nameLen = classNames.length; j < nameLen; j++)
+        classNames[j] && (result[classNames[j]] = true);
+    }
     return result;
   }
   return classList;

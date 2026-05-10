@@ -83,7 +83,7 @@ function getTargetFunctionParent(path, parent) {
 
 export function transformThis(path) {
   const parent = path.scope.getFunctionParent();
-  let thisId;
+  let thisId, inserted;
   path.traverse({
     ThisExpression(path) {
       const current = getTargetFunctionParent(path, parent);
@@ -110,8 +110,16 @@ export function transformThis(path) {
       }
     }
   });
+  if (thisId && parent && parent.block.type === "ClassMethod") {
+    path
+      .getStatementParent()
+      .insertBefore(
+        t.variableDeclaration("const", [t.variableDeclarator(thisId, t.thisExpression())])
+      );
+    inserted = true;
+  }
   return node => {
-    if (thisId) {
+    if (thisId && !inserted) {
       if (!parent || parent.block.type === "ClassMethod") {
         const decl = t.variableDeclaration("const", [
           t.variableDeclarator(thisId, t.thisExpression())
