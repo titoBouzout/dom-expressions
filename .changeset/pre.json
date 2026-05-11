@@ -19,6 +19,7 @@
     "fix-insert-double-bind",
     "fix-numbered-id-reserved-words",
     "fix-sld-template-content",
+    "fix-ssr-bail-double-invocation",
     "harden-ssr-escape",
     "hyper-mapArray-row-overexec",
     "hyper-tagged-thunks",
