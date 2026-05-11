@@ -1,5 +1,11 @@
 # sld-dom-expressions
 
+## 0.50.0-next.9
+
+### Patch Changes
+
+- 9994328: Support line and block comments inside SLD tags.
+
 ## 0.50.0-next.8
 
 ## 0.50.0-next.7
