@@ -159,14 +159,14 @@ export const tokenize = (
             // "="
             tokens.push({ type: EQUALS_TOKEN });
             cursor++;
-          } else if (code === 47) {            
+          } else if (code === 47) {
             // "/"
-            const next = str.charCodeAt(cursor +1)
-            if (next===47 && tokens[tokens.length-1].type !== OPEN_TAG_TOKEN){
+            const next = str.charCodeAt(cursor + 1)
+            if (next === 47 && tokens[tokens.length - 1].type !== OPEN_TAG_TOKEN) {
               state = STATE_LINE_COMMENT
-            }else if(next===42){
+            } else if (next === 42) {
               state = STATE_BLOCK_COMMENT
-            }else{
+            } else {
               tokens.push({ type: SLASH_TOKEN });
               cursor++;
             }
@@ -223,51 +223,25 @@ export const tokenize = (
           }
           break;
         }
-        case STATE_COMMENT: {
-          // LOOK FOR END OF COMMENT: - - >
-          const endComment = str.indexOf("-->", cursor);
+        case STATE_COMMENT:
+        case STATE_LINE_COMMENT:
+        case STATE_BLOCK_COMMENT:
+          {
+            const commentEnd = STATE_LINE_COMMENT ? "\n" : STATE_BLOCK_COMMENT ? "*/" : "-->"
+            // LOOK FOR END OF COMMENT: - - >
+            const commentEndIndex = str.indexOf("-->", cursor);
 
-          if (endComment === -1) {
-            // If we don't find the closer in this string chunk,
-            // we consume the rest of the string and stay in STATE_COMMENT
-            cursor = len;
-          } else {
-            // Found it! Return to normal text parsing
-            state = STATE_TEXT;
-            cursor = endComment + 3;
+            if (commentEndIndex === -1) {
+              // If we don't find the closer in this string chunk,
+              // we consume the rest of the string and stay in STATE_COMMENT
+              cursor = len;
+            } else {
+              // Found it! Return to normal text parsing
+              state = STATE_COMMENT ? STATE_TEXT : STATE_TAG;
+              cursor = commentEndIndex + commentEnd.length;
+            }
+            break;
           }
-          break;
-        }
-        case STATE_LINE_COMMENT: {
-          // LOOK FOR END OF COMMENT: - - >
-          const endComment = str.indexOf("\n", cursor);
-
-          if (endComment === -1) {
-            // If we don't find the closer in this string chunk,
-            // we consume the rest of the string and stay in STATE_COMMENT
-            cursor = len;
-          } else {
-            // Found it! Return to normal text parsing
-            state = STATE_TAG;
-            cursor = endComment + 1;
-          }
-          break;
-        }
-        case STATE_BLOCK_COMMENT: {
-          // LOOK FOR END OF COMMENT: - - >
-          const endComment = str.indexOf("*/", cursor);
-
-          if (endComment === -1) {
-            // If we don't find the closer in this string chunk,
-            // we consume the rest of the string and stay in STATE_COMMENT
-            cursor = len;
-          } else {
-            // Found it! Return to normal text parsing
-            state = STATE_TAG;
-            cursor = endComment + 2;
-          }
-          break;
-        }
       }
     }
 
