@@ -1,14 +1,15 @@
-// @ts-nocheck
 import * as t from "@babel/types";
 import { getConfig, getNumberedId, registerImportMethod, wrapForEffect } from "../shared/utils";
 import { setAttr } from "./element";
+import type { NodePath } from "@babel/traverse";
+import type { DynamicBinding, TransformResult } from "../types";
 
-export function createTemplate(path, result, wrap) {
+export function createTemplate(path: NodePath, result: TransformResult, wrap: boolean) {
   const config = getConfig(path);
   if (result.id) {
     result.decl = t.variableDeclaration("var", result.declarations);
     if (
-      !(result.exprs.length || result.dynamics.length || result.postExprs.length) &&
+      !(result.exprs.length || result.dynamics.length || result.postExprs?.length) &&
       result.decl.declarations.length === 1
     ) {
       return result.decl.declarations[0].init;
@@ -27,7 +28,7 @@ export function createTemplate(path, result, wrap) {
       const isVarInit = t.isVariableDeclarator(path.parent) && path.parent.init === path.node;
 
       if (isReturnArg || isVarInit) {
-        path.getStatementParent().insertBefore(stmts);
+        path.getStatementParent()?.insertBefore(stmts as t.Statement[]);
         return result.id;
       }
 
@@ -41,16 +42,18 @@ export function createTemplate(path, result, wrap) {
     }
   }
   if (wrap && result.dynamic && config.memoWrapper) {
-    return t.callExpression(registerImportMethod(path, config.memoWrapper), [result.exprs[0]]);
+    return t.callExpression(registerImportMethod(path, config.memoWrapper, undefined), [
+      result.exprs[0]
+    ]);
   }
   return result.exprs[0];
 }
 
-function wrapDynamics(path, dynamics) {
+function wrapDynamics(path: NodePath, dynamics: DynamicBinding[]) {
   if (!dynamics.length) return;
   const config = getConfig(path);
 
-  const effectWrapperId = registerImportMethod(path, config.effectWrapper);
+  const effectWrapperId = registerImportMethod(path, config.effectWrapper, undefined);
 
   if (dynamics.length === 1) {
     const prevValue = t.identifier("_$p");
@@ -76,12 +79,9 @@ function wrapDynamics(path, dynamics) {
 
   const prevId = t.identifier("_p$");
 
-  /** @type {t.ObjectProperty[]} */
-  const values = [];
-  /** @type {t.ExpressionStatement[]} */
-  const statements = [];
-  /** @type {t.Identifier[]} */
-  const properties = [];
+  const values: t.ObjectProperty[] = [];
+  const statements: t.ExpressionStatement[] = [];
+  const properties: t.Identifier[] = [];
 
   dynamics.forEach(({ elem, key, value }, index) => {
     const propIdent = t.identifier(getNumberedId(index));

@@ -9,8 +9,8 @@ export interface JSXDOMExpressionsPass {
 
 export interface TemplateRecord {
   id: t.Identifier;
-  template: string | t.Expression;
-  templateWithClosingTags?: string | t.Expression;
+  template: string | t.Expression | t.ArrayExpression;
+  templateWithClosingTags?: string | t.Expression | t.ArrayExpression;
   isImportNode?: boolean;
   isWrapped?: boolean;
   renderer: RendererName;
@@ -23,14 +23,18 @@ export interface ProgramScopeData {
 }
 
 export interface TransformResult {
-  template: string;
-  declarations: t.Statement[];
-  exprs: t.Expression[];
-  dynamics: t.Expression[];
-  postExprs?: t.Expression[];
+  template: any;
+  templateValues?: any[];
+  declarations: any[];
+  postDeclarations?: any[];
+  exprs: any[];
+  dynamics: DynamicBinding[];
+  postExprs?: any[];
+  decl?: t.VariableDeclaration;
   id?: t.Identifier;
   text?: boolean;
   dynamic?: boolean;
+  wontEscape?: boolean;
   tagName?: string;
   renderer?: RendererName;
   isImportNode?: boolean;
@@ -38,6 +42,19 @@ export interface TransformResult {
   skipTemplate?: boolean;
   templateWithClosingTags?: string;
   children?: TransformResult[];
+}
+
+export interface DynamicBinding {
+  elem: t.Expression;
+  key: string;
+  value: t.Expression;
+  tagName?: string;
+}
+
+export interface SetAttrOptions {
+  tagName?: string;
+  dynamic?: boolean;
+  prevId?: t.Expression;
 }
 
 export type BabelPath<TNode extends t.Node = t.Node> = NodePath<TNode>;
