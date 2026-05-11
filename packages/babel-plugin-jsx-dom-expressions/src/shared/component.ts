@@ -1,4 +1,3 @@
-// @ts-nocheck
 import * as t from "@babel/types";
 import { decode } from "html-entities";
 import {
@@ -11,14 +10,15 @@ import {
   convertJSXIdentifier
 } from "./utils";
 import { transformNode, getCreateTemplate } from "./transform";
+import type { JSXDOMExpressionsConfig } from "../config";
 
-function convertComponentIdentifier(node) {
+function convertComponentIdentifier(node: any): any {
   if (t.isJSXIdentifier(node)) {
     if (node.name === "this") return t.thisExpression();
-    if (t.isValidIdentifier(node.name)) node.type = "Identifier";
+    if (t.isValidIdentifier(node.name)) (node as any).type = "Identifier";
     else return t.stringLiteral(node.name);
   } else if (t.isJSXMemberExpression(node)) {
-    const prop = convertComponentIdentifier(node.property);
+    const prop: any = convertComponentIdentifier(node.property);
     const computed = t.isStringLiteral(prop);
     return t.memberExpression(convertComponentIdentifier(node.object), prop, computed);
   }
@@ -26,12 +26,12 @@ function convertComponentIdentifier(node) {
   return node;
 }
 
-export default function transformComponent(path) {
-  let exprs = [],
+export default function transformComponent(path: any): any {
+  let exprs: any[] = [],
     config = getConfig(path),
     tagId = convertComponentIdentifier(path.node.openingElement.name),
-    props = [],
-    runningObject = [],
+    props: any[] = [],
+    runningObject: any[] = [],
     dynamicSpread = false,
     hasChildren = path.node.children.length > 0;
 
@@ -43,7 +43,7 @@ export default function transformComponent(path) {
   path
     .get("openingElement")
     .get("attributes")
-    .forEach(attribute => {
+    .forEach((attribute: any) => {
       const node = attribute.node;
       if (t.isJSXSpreadAttribute(node)) {
         if (runningObject.length) {
@@ -153,13 +153,16 @@ export default function transformComponent(path) {
                           "&&",
                           t.unaryExpression(
                             "!",
-                            t.unaryExpression("!", t.identifier(value.expression.object.name))
+                            t.unaryExpression(
+                              "!",
+                              t.identifier((value.expression.object as any).name)
+                            )
                           ),
                           t.assignmentExpression(
                             "=",
                             t.memberExpression(
-                              t.identifier(value.expression.object.name),
-                              t.identifier(value.expression.property.name)
+                              t.identifier((value.expression.object as any).name),
+                              t.identifier((value.expression.property as any).name)
                             ),
                             t.identifier("r$")
                           )
@@ -174,7 +177,7 @@ export default function transformComponent(path) {
               t.isFunction(value.expression) ||
               t.isArrayExpression(value.expression)
             ) {
-              runningObject.push(t.objectProperty(t.identifier("ref"), value.expression));
+              runningObject.push(t.objectProperty(t.identifier("ref"), value.expression as any));
             } else if (t.isCallExpression(value.expression)) {
               const refIdentifier = path.scope.generateUidIdentifier("_ref$");
               exprs.push(
@@ -232,7 +235,7 @@ export default function transformComponent(path) {
                   "get",
                   id,
                   [],
-                  t.blockStatement([t.returnStatement(expr.body)]),
+                  t.blockStatement([t.returnStatement((expr as any).body)]),
                   !t.isValidIdentifier(key)
                 )
               );
@@ -253,12 +256,12 @@ export default function transformComponent(path) {
                   "get",
                   id,
                   [],
-                  t.blockStatement([t.returnStatement(value.expression)]),
+                  t.blockStatement([t.returnStatement(value.expression as any)]),
                   !t.isValidIdentifier(key)
                 )
               );
             }
-          } else runningObject.push(t.objectProperty(id, value.expression));
+          } else runningObject.push(t.objectProperty(id, value.expression as any));
         else runningObject.push(t.objectProperty(id, value));
       }
     });
@@ -268,7 +271,7 @@ export default function transformComponent(path) {
     if (childResult[1]) {
       const body =
         t.isCallExpression(childResult[0]) && t.isFunction(childResult[0].arguments[0])
-          ? childResult[0].arguments[0].body
+          ? (childResult[0].arguments[0] as any).body
           : childResult[0].body
             ? childResult[0].body
             : childResult[0];
@@ -305,7 +308,10 @@ export default function transformComponent(path) {
     const ret = exprs.pop();
     exprs = [
       t.callExpression(
-        t.arrowFunctionExpression([], t.blockStatement([...exprs, t.returnStatement(ret)])),
+        t.arrowFunctionExpression(
+          [],
+          t.blockStatement([...(exprs as t.Statement[]), t.returnStatement(ret as any)])
+        ),
         []
       )
     ];
@@ -313,15 +319,15 @@ export default function transformComponent(path) {
   return { exprs, template: "", component: true };
 }
 
-function transformComponentChildren(children, config) {
+function transformComponentChildren(children: any[], config: JSXDOMExpressionsConfig): any {
   const filteredChildren = filterChildren(children);
   if (!filteredChildren.length) return;
   let dynamic = false;
-  let pathNodes = [];
+  let pathNodes: any[] = [];
 
-  let transformedChildren = filteredChildren.reduce((memo, path) => {
+  let transformedChildren: any = filteredChildren.reduce((memo: any[], path: any) => {
     if (t.isJSXText(path.node)) {
-      const v = decode(trimWhitespace(path.node.extra.raw));
+      const v = decode(trimWhitespace((path.node.extra as any)?.raw ?? ""));
       if (v.length) {
         pathNodes.push(path.node);
         memo.push(t.stringLiteral(v));
@@ -332,6 +338,7 @@ function transformComponentChildren(children, config) {
         componentChild: true,
         lastElement: true
       });
+      if (!child) return memo;
       dynamic = dynamic || child.dynamic;
       if (
         config.generate === "ssr" &&
