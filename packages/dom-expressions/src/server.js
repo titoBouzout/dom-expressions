@@ -584,6 +584,19 @@ export function ssrGroup(fn, n) {
   return fn;
 }
 
+// Cold-path NotReady catch + owner-capture wrap, shared by every site
+// that escalates a sync throw to a streaming retry slot. Returns
+// `{ fn, p }` on `NotReadyError` (with `fn` bound to the original owner
+// so retries see the same id counter / contexts) or `null` for
+// non-NotReady errors so callers can fall back to their contribute-
+// nothing path.
+function buildAsyncWrap(err, node) {
+  const p = ssrHandleError(err);
+  if (!p) return null;
+  const owner = getOwner();
+  return { fn: owner ? () => runWithOwner(owner, node) : node, p };
+}
+
 // Cold-path helper for the first hit of a group. Isolates `try/catch`
 // from the hot `ssr()` loop. Returns the value array on sync success,
 // `{ fn, p }` on `NotReadyError` escalation, or `null` for non-NotReady
@@ -592,10 +605,19 @@ function ssrFirstGroupHit(hole) {
   try {
     return hole();
   } catch (err) {
-    const p = ssrHandleError(err);
-    if (!p) return null;
-    const owner = getOwner();
-    return { fn: owner ? () => runWithOwner(owner, hole) : hole, p };
+    return buildAsyncWrap(err, hole);
+  }
+}
+
+// Cold-path: splice a nested `{ t, h, p }` template into `result` at
+// its current last segment. Used when `tryResolveString` walks into a
+// template object that itself carries async holes.
+function mergeTemplateInto(result, node) {
+  result.t[result.t.length - 1] += node.t[0];
+  if (node.t.length > 1) {
+    result.t.push(...node.t.slice(1));
+    result.h.push(...node.h);
+    result.p.push(...node.p);
   }
 }
 
@@ -704,17 +726,8 @@ export function ssr(t) {
           } else {
             result = { t: [s], h: [], p: [] };
             s = "";
-            if (rs.merge !== undefined) {
-              const node = rs.merge;
-              result.t[0] += node.t[0];
-              if (node.t.length > 1) {
-                result.t.push(...node.t.slice(1));
-                result.h.push(...node.h);
-                result.p.push(...node.p);
-              }
-            } else {
-              resolveSSRNode(value, result);
-            }
+            if (rs.merge !== undefined) mergeTemplateInto(result, rs.merge);
+            else resolveSSRNode(rs.bail, result);
           }
         }
       }
@@ -731,19 +744,10 @@ export function ssr(t) {
         s = "";
         if (r.fn !== undefined) {
           result.h.push(r.fn);
-          result.p.push(r.promise);
+          result.p.push(r.p);
           result.t.push("");
-        } else if (r.merge !== undefined) {
-          const node = r.merge;
-          result.t[0] += node.t[0];
-          if (node.t.length > 1) {
-            result.t.push(...node.t.slice(1));
-            result.h.push(...node.h);
-            result.p.push(...node.p);
-          }
-        } else {
-          resolveSSRNode(hole, result);
-        }
+        } else if (r.merge !== undefined) mergeTemplateInto(result, r.merge);
+        else resolveSSRNode(r.bail, result);
       }
     }
     const next = t[i];
@@ -862,7 +866,6 @@ export function ssrHydrationKey() {
 export function escape(s, attr) {
   const t = typeof s;
   if (t !== "string") {
-    // if (!attr && t === "function") return escape(s());
     if (!attr && Array.isArray(s)) {
       s = s.slice(); // avoids double escaping - https://github.com/ryansolid/dom-expressions/issues/393
       for (let i = 0; i < s.length; i++) s[i] = escape(s[i]);
@@ -1097,11 +1100,20 @@ function flattenClassList(list, result) {
 }
 
 // Best-effort sync resolution. Returns a string when the entire `node`
-// resolves synchronously to text. Returns an object describing the kind
-// of escalation needed otherwise:
-//   `{ fn, promise }` — function hole that threw `NotReadyError`
-//   `{ merge }` — template object with non-empty `h`
-//   `{ bail: true }` — array (or other) whose interior contains async
+// resolves synchronously to text. Otherwise returns one of three shapes
+// shared with `ssrFirstGroupHit`:
+//   `{ fn, p }` — function hole that threw `NotReadyError`; `fn` is
+//                 wrapped in `runWithOwner(owner, ...)` so the streaming
+//                 engine's retry sees the same context the original sync
+//                 call did.
+//   `{ merge }` — template object with non-empty `h`.
+//   `{ bail }`  — interior contains async; `bail` carries the evaluated
+//                 form (typically the array we walked) so the caller can
+//                 hand it to `resolveSSRNode` without re-invoking the
+//                 original closure. Re-invocation is unsafe — a hole may
+//                 read stateful getters such as JSX `props.children`
+//                 whose backing component rebuilds an owner subtree on
+//                 each access, producing a divergent hydration tree.
 function tryResolveString(node) {
   const t = typeof node;
   if (t === "string") return node;
@@ -1110,15 +1122,14 @@ function tryResolveString(node) {
   if (t === "object") {
     if (Array.isArray(node)) {
       let s = "";
-      let prev = {};
+      let prevNonObj = false;
       for (let i = 0, len = node.length; i < len; i++) {
         const item = node[i];
-        if (typeof prev !== "object" && item !== null && typeof item !== "object") {
-          s += "<!--!$-->";
-        }
-        prev = item;
+        const itemNonObj = item !== null && typeof item !== "object";
+        if (prevNonObj && itemNonObj) s += "<!--!$-->";
+        prevNonObj = itemNonObj;
         const r = tryResolveString(item);
-        if (typeof r !== "string") return { bail: true };
+        if (typeof r !== "string") return { bail: node };
         s += r;
       }
       return s;
@@ -1127,21 +1138,16 @@ function tryResolveString(node) {
     return Array.isArray(node.t) ? node.t[0] : node.t;
   }
   if (t === "function") {
+    let v;
     try {
-      return tryResolveString(node());
+      v = node();
     } catch (err) {
-      const p = ssrHandleError(err);
-      if (p) {
-        // Capture owner at escalation so the streaming engine's retry sees
-        // the same context (owner ID counter, contexts) that the original
-        // sync call would have seen. The wrap only happens when we actually
-        // escalate to async, not on every dynamic.
-        const owner = getOwner();
-        const fn = owner ? () => runWithOwner(owner, node) : node;
-        return { fn, promise: p };
-      }
-      return "";
+      return buildAsyncWrap(err, node) || "";
     }
+    // Recurse on the evaluated value. If recursion bails, propagate the
+    // bail object unchanged — its `bail` field already carries the
+    // deepest evaluated form, so the caller never re-invokes `node`.
+    return tryResolveString(v);
   }
   return "";
 }
@@ -1160,11 +1166,13 @@ function resolveSSRNode(
     result.t[result.t.length - 1] += node;
   } else if (node == null || t === "boolean") {
   } else if (Array.isArray(node)) {
-    let prev = {};
+    let prevNonObj = false;
     for (let i = 0, len = node.length; i < len; i++) {
-      if (!top && typeof prev !== "object" && typeof node[i] !== "object")
-        result.t[result.t.length - 1] += `<!--!$-->`;
-      resolveSSRNode((prev = node[i]), result);
+      const item = node[i];
+      const itemNonObj = item !== null && typeof item !== "object";
+      if (!top && prevNonObj && itemNonObj) result.t[result.t.length - 1] += `<!--!$-->`;
+      prevNonObj = itemNonObj;
+      resolveSSRNode(item, result);
     }
   } else if (t === "object") {
     if (node.h) {
@@ -1179,11 +1187,10 @@ function resolveSSRNode(
     try {
       resolveSSRNode(node(), result);
     } catch (err) {
-      const p = ssrHandleError(err);
-      if (p) {
-        const owner = getOwner();
-        result.h.push(owner ? () => runWithOwner(owner, node) : node);
-        result.p.push(p);
+      const wrap = buildAsyncWrap(err, node);
+      if (wrap) {
+        result.h.push(wrap.fn);
+        result.p.push(wrap.p);
         result.t.push("");
       }
     }

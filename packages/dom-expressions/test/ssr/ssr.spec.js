@@ -704,6 +704,87 @@ describe("cascading root holes in streaming shell", () => {
     const html = await streamToString(stream);
     expect(html).toContain("<div>hello-world</div>");
   });
+
+  // Regression: prior to the bail-value fix in `tryResolveString` /
+  // `ssr()`, a function hole whose return value walked into the
+  // bail path (an array containing a NotReady-throwing item) was
+  // invoked twice — once by `tryResolveString` for sync probing and
+  // a second time by the fallback `resolveSSRNode(hole, result)`.
+  // For closures that read stateful getters (notably JSX's
+  // `props.children`, which rebuilds an owner subtree on every read),
+  // the duplicate invocation produced a second owner tree with a
+  // divergent hydration-key prefix, which the client could never
+  // claim. The hole must execute exactly once.
+  //
+  // Companion test below (`...survives repeated NotReady retries`)
+  // verifies the bail path still composes correctly with the
+  // streaming engine's per-hole retry loop, which lives in
+  // `resolveSSRNode` (not `ssr()`/`tryResolveString`).
+  it("function hole returning a mixed sync/async array is invoked only once", async () => {
+    const pending = asyncError();
+    let outerCalls = 0;
+    let innerCalls = 0;
+
+    const stream = r.renderToStream(() => {
+      return r.ssr`<div>${() => {
+        outerCalls++;
+        return [
+          "sync ",
+          () => {
+            if (++innerCalls === 1) throw pending.err;
+            return "async";
+          }
+        ];
+      }}</div>`;
+    });
+
+    setTimeout(() => pending.resolve(), 5);
+    const html = await streamToString(stream);
+
+    expect(html).toContain("sync ");
+    expect(html).toContain("async");
+    // Pre-fix: outerCalls === 2 (closure called via tryResolveString,
+    // then again via resolveSSRNode after bail). With the fix the
+    // bail path consumes the already-evaluated value.
+    expect(outerCalls).toBe(1);
+  });
+
+  // Confirms the bail-value fix composes with multi-iteration retries:
+  // an inner hole that throws `NotReadyError` repeatedly must keep
+  // being captured for retry without leaking duplicate invocations of
+  // the outer closure on each pass.
+  it("function hole returning a bail-array survives repeated NotReady retries", async () => {
+    const gates = [asyncError(), asyncError(), asyncError()];
+    let outerCalls = 0;
+    let innerCalls = 0;
+
+    const stream = r.renderToStream(() => {
+      return r.ssr`<div>${() => {
+        outerCalls++;
+        return [
+          "begin ",
+          () => {
+            const n = ++innerCalls;
+            if (n <= gates.length) throw gates[n - 1].err;
+            return "done";
+          },
+          " end"
+        ];
+      }}</div>`;
+    });
+
+    gates.forEach((g, i) => setTimeout(() => g.resolve(), 5 + i * 5));
+    const html = await streamToString(stream);
+
+    expect(html).toContain("begin ");
+    expect(html).toContain("done");
+    expect(html).toContain(" end");
+    // Outer closure must still fire exactly once even though the
+    // inner async hole was retried multiple times.
+    expect(outerCalls).toBe(1);
+    // Inner closure: 3 NotReady throws + 1 final success = 4 calls.
+    expect(innerCalls).toBe(gates.length + 1);
+  });
 });
 
 describe("root-level module asset serialization", () => {
