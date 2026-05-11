@@ -14,11 +14,14 @@ import {
   escapeStringForTemplate
 } from "../shared/utils";
 import { transformNode } from "../shared/transform";
-import type { TransformInfo, TransformResult } from "../types";
+import type { BabelPath, TransformInfo, TransformResult, UniversalTransformResult } from "../types";
 
-type ElementResult = TransformResult & { id: t.Identifier; tagName: string; renderer: "universal" };
+type JSXAttributePath = BabelPath<t.JSXAttribute | t.JSXSpreadAttribute>;
 
-export function transformElement(path: any, info: TransformInfo = {}): ElementResult {
+export function transformElement(
+  path: BabelPath<t.JSXElement>,
+  info: TransformInfo = {}
+): UniversalTransformResult {
   path
     .get("openingElement")
     .get("attributes")
@@ -27,7 +30,7 @@ export function transformElement(path: any, info: TransformInfo = {}): ElementRe
     });
 
   let tagName = getTagName(path.node),
-    results = {
+    results: UniversalTransformResult = {
       template: "",
       id: path.scope.generateUidIdentifier("el$"),
       declarations: [],
@@ -36,7 +39,7 @@ export function transformElement(path: any, info: TransformInfo = {}): ElementRe
       postExprs: [],
       tagName,
       renderer: "universal"
-    } as unknown as ElementResult;
+    };
 
   results.declarations.push(
     t.variableDeclarator(
@@ -58,15 +61,18 @@ export function transformElement(path: any, info: TransformInfo = {}): ElementRe
   return results;
 }
 
-function transformAttributes(path: any, results: ElementResult): void {
-  let children, spreadExpr;
-  let attributes = path.get("openingElement").get("attributes");
+function transformAttributes(
+  path: BabelPath<t.JSXElement>,
+  results: UniversalTransformResult
+): void {
+  let children: t.JSXExpressionContainer | undefined, spreadExpr: t.ExpressionStatement | undefined;
+  let attributes = path.get("openingElement").get("attributes") as JSXAttributePath[];
   const elem = results.id,
     hasChildren = path.node.children.length > 0,
     config = getConfig(path);
 
   // preprocess spreads
-  if (attributes.some((attribute: any) => t.isJSXSpreadAttribute(attribute.node))) {
+  if (attributes.some(attribute => t.isJSXSpreadAttribute(attribute.node))) {
     [attributes, spreadExpr] = processSpreads(path, attributes, {
       elem,
       hasChildren,
@@ -74,15 +80,16 @@ function transformAttributes(path: any, results: ElementResult): void {
     });
     path.get("openingElement").set(
       "attributes",
-      attributes.map((a: any) => a.node)
+      attributes.map(a => a.node)
     );
   }
 
   path
     .get("openingElement")
     .get("attributes")
-    .forEach((attribute: any) => {
+    .forEach(attribute => {
       const node = attribute.node;
+      if (t.isJSXSpreadAttribute(node)) return;
 
       let value = node.value,
         key = t.isJSXNamespacedName(node.name)
@@ -209,7 +216,7 @@ function transformAttributes(path: any, results: ElementResult): void {
 }
 
 export function setAttr(
-  path: any,
+  path: BabelPath,
   elem: t.Expression,
   name: string,
   value: t.Expression | t.JSXAttribute["value"],
@@ -225,12 +232,12 @@ export function setAttr(
   );
 }
 
-function transformChildren(path: any, results: ElementResult): void {
+function transformChildren(path: BabelPath<t.JSXElement>, results: UniversalTransformResult): void {
   const filteredChildren = filterChildren(path.get("children")),
     multi = checkLength(filteredChildren),
     childNodes = filteredChildren
-      .map((path: any) => transformNode(path))
-      .reduce((memo: any[], child: any) => {
+      .map(path => transformNode(path))
+      .reduce((memo: TransformResult[], child) => {
         if (!child) return memo;
         const i = memo.length;
         if (child.text && i && memo[i - 1].text) {
@@ -253,7 +260,7 @@ function transformChildren(path: any, results: ElementResult): void {
         "insertNode",
         getRendererConfig(path, "universal").moduleName
       );
-      let insert = child.id;
+      let insert: t.Expression = child.id;
       if (child.text) {
         let createTextNode = registerImportMethod(
           path,
@@ -310,32 +317,32 @@ function transformChildren(path: any, results: ElementResult): void {
   results.exprs.unshift(...appends);
 }
 
-function nextChild(children: any[], index: number): any {
+function nextChild(children: TransformResult[], index: number): t.Identifier | undefined {
   return children[index + 1] && (children[index + 1].id || nextChild(children, index + 1));
 }
 
 function processSpreads(
-  path: any,
-  attributes: any[],
+  path: BabelPath<t.JSXElement>,
+  attributes: JSXAttributePath[],
   {
     elem,
     hasChildren,
     wrapConditionals
   }: { elem: t.Identifier; hasChildren: boolean; wrapConditionals: boolean }
-): [any[], t.ExpressionStatement] {
+): [JSXAttributePath[], t.ExpressionStatement] {
   // TODO: skip but collect the names of any properties after the last spread to not overwrite them
-  const filteredAttributes: any[] = [];
+  const filteredAttributes: JSXAttributePath[] = [];
   const spreadArgs: t.Expression[] = [];
-  let runningObject: any[] = [];
+  let runningObject: Array<t.ObjectProperty | t.ObjectMethod> = [];
   let dynamicSpread = false;
   let firstSpread = false;
-  attributes.forEach((attribute: any) => {
+  attributes.forEach(attribute => {
     const node = attribute.node;
-    const key =
-      !t.isJSXSpreadAttribute(node) &&
-      (t.isJSXNamespacedName(node.name)
+    const key = t.isJSXSpreadAttribute(node)
+      ? undefined
+      : t.isJSXNamespacedName(node.name)
         ? `${node.name.namespace.name}:${node.name.name.name}`
-        : node.name.name);
+        : node.name.name;
     if (t.isJSXSpreadAttribute(node)) {
       firstSpread = true;
       if (runningObject.length) {
@@ -358,6 +365,7 @@ function processSpreads(
       (firstSpread ||
         (t.isJSXExpressionContainer(node.value) &&
           isDynamic(attribute.get("value").get("expression"), { checkMember: true }))) &&
+      key &&
       canNativeSpread(key, { checkNameSpaces: true })
     ) {
       const isContainer = t.isJSXExpressionContainer(node.value);
@@ -365,12 +373,12 @@ function processSpreads(
         isContainer && isDynamic(attribute.get("value").get("expression"), { checkMember: true });
       if (dynamic) {
         const id = convertJSXIdentifier(node.name);
+        const expression = (node.value as t.JSXExpressionContainer).expression as t.Expression;
         let expr =
           wrapConditionals &&
-          (t.isLogicalExpression(node.value.expression) ||
-            t.isConditionalExpression(node.value.expression))
+          (t.isLogicalExpression(expression) || t.isConditionalExpression(expression))
             ? transformCondition(attribute.get("value").get("expression"), true)
-            : t.arrowFunctionExpression([], node.value.expression);
+            : t.arrowFunctionExpression([], expression);
         runningObject.push(
           t.objectMethod(
             "get",
@@ -384,7 +392,9 @@ function processSpreads(
         runningObject.push(
           t.objectProperty(
             t.stringLiteral(key),
-            (isContainer ? node.value.expression : node.value || t.booleanLiteral(true)) as any
+            (isContainer
+              ? (node.value as t.JSXExpressionContainer).expression
+              : node.value || t.booleanLiteral(true)) as t.Expression
           )
         );
       }

@@ -22,6 +22,10 @@ export interface ProgramScopeData {
   events?: Set<string>;
 }
 
+export type TemplateResult = string | string[] | t.Expression | t.ArrayExpression;
+export type ResultDeclaration = t.VariableDeclarator | t.Statement | null;
+export type ResultExpression = t.Expression | t.Statement;
+
 export interface TransformResult {
   template: any;
   templateValues?: any[];
@@ -42,6 +46,43 @@ export interface TransformResult {
   skipTemplate?: boolean;
   templateWithClosingTags?: string;
   children?: TransformResult[];
+  spreadElement?: boolean;
+  groupable?: Set<string>;
+  groupId?: t.Identifier;
+}
+
+export interface UniversalTransformResult extends TransformResult {
+  template: "";
+  id: t.Identifier;
+  tagName: string;
+  renderer: "universal";
+  declarations: t.VariableDeclarator[];
+  exprs: t.Statement[];
+  postExprs: t.Statement[];
+}
+
+export interface DOMTransformResult extends TransformResult {
+  template: string;
+  templateWithClosingTags: string;
+  tagName: string;
+  renderer: "dom";
+  declarations: t.VariableDeclarator[];
+  exprs: t.Statement[];
+  dynamics: DynamicBinding[];
+  postExprs: t.Statement[];
+  toBeClosed?: Set<string>;
+  hasHydratableEvent?: boolean;
+}
+
+export interface SSRTransformResult extends TransformResult {
+  template: string[];
+  templateValues: t.Expression[];
+  declarations: Array<t.VariableDeclarator | null>;
+  postDeclarations: t.VariableDeclarator[];
+  exprs: t.Expression[];
+  renderer: "ssr";
+  tagName: string;
+  wontEscape?: boolean;
 }
 
 export interface DynamicBinding {
@@ -65,13 +106,15 @@ export interface DynamicOptions {
 }
 
 export interface TransformInfo {
-  [key: string]: any;
   topLevel?: boolean;
   lastElement?: boolean;
   fragmentChild?: boolean;
   componentChild?: boolean;
   doNotEscape?: boolean;
   skipId?: boolean;
+  toBeClosed?: Set<string>;
+  parentResults?: TransformResult;
+  hydratable?: boolean;
 }
 
 export type BabelPath<TNode extends t.Node = t.Node> = NodePath<TNode>;
