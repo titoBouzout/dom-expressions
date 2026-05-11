@@ -57,4 +57,10 @@ export interface SetAttrOptions {
   prevId?: t.Expression;
 }
 
+export interface DynamicOptions {
+  checkMember?: boolean;
+  checkTags?: boolean;
+  checkCallExpressions?: boolean;
+}
+
 export type BabelPath<TNode extends t.Node = t.Node> = NodePath<TNode>;

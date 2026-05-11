@@ -13,3 +13,15 @@ declare module "@babel/core" {
     config?: import("./config").JSXDOMExpressionsConfig;
   }
 }
+
+declare module "@babel/helper-module-imports" {
+  import type { NodePath } from "@babel/traverse";
+  import type * as t from "@babel/types";
+
+  export function addNamed(
+    path: NodePath,
+    name: string,
+    moduleName: string,
+    opts?: { nameHint?: string }
+  ): t.Identifier;
+}

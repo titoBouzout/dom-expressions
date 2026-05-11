@@ -14,7 +14,7 @@ export default function transformFragmentChildren(
   const filteredChildren = filterChildren(children) as NodePath[],
     childNodes = filteredChildren.reduce((memo: t.Expression[], path: NodePath) => {
       if (t.isJSXText(path.node)) {
-        const v = decode(trimWhitespace(path.node.extra?.raw ?? ""));
+        const v = decode(trimWhitespace((path.node.extra as any)?.raw ?? ""));
         if (v.length) memo.push(t.stringLiteral(v));
       } else {
         const child = transformNode(path, {
