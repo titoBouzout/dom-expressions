@@ -175,3 +175,13 @@ export function getNextElement(template?: HTMLTemplateElement): Element;
 export function getNextMatch(start: Node, elementName: string): Element;
 /** @deprecated not supported on the server side */
 export function getNextMarker(start: Node): [Node, Array<Node>];
+/** @deprecated not supported on the server side */
+export function runHydrationEvents(): void;
+/** @deprecated not supported on the server side */
+export function use<Arg, Ret>(fn: (node: Element, arg: Arg) => Ret, node: Element, arg?: Arg): Ret;
+/** @deprecated not supported on the server side */
+export function setBoolAttribute(node: Element, name: string, value: any): void;
+/** @deprecated not supported on the server side */
+export function setStyleProperty(node: Element, name: string, value: any): void;
+/** @deprecated not supported on the server side */
+export function clearDelegatedEvents(d?: Document): void;
