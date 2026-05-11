@@ -1,4 +1,3 @@
-// @ts-nocheck
 import * as t from "@babel/types";
 import {
   evaluateAndInline,
@@ -15,17 +14,21 @@ import {
   escapeStringForTemplate
 } from "../shared/utils";
 import { transformNode } from "../shared/transform";
+import type { TransformInfo, TransformResult } from "../types";
 
-export function transformElement(path, info) {
+type ElementResult = TransformResult & { id: t.Identifier; tagName: string; renderer: "universal" };
+
+export function transformElement(path: any, info: TransformInfo = {}): ElementResult {
   path
     .get("openingElement")
     .get("attributes")
-    .forEach(attr => {
+    .forEach((attr: any) => {
       evaluateAndInline(attr.node.value, attr.get("value"));
     });
 
   let tagName = getTagName(path.node),
     results = {
+      template: "",
       id: path.scope.generateUidIdentifier("el$"),
       declarations: [],
       exprs: [],
@@ -33,7 +36,7 @@ export function transformElement(path, info) {
       postExprs: [],
       tagName,
       renderer: "universal"
-    };
+    } as unknown as ElementResult;
 
   results.declarations.push(
     t.variableDeclarator(
@@ -55,7 +58,7 @@ export function transformElement(path, info) {
   return results;
 }
 
-function transformAttributes(path, results) {
+function transformAttributes(path: any, results: ElementResult): void {
   let children, spreadExpr;
   let attributes = path.get("openingElement").get("attributes");
   const elem = results.id,
@@ -63,7 +66,7 @@ function transformAttributes(path, results) {
     config = getConfig(path);
 
   // preprocess spreads
-  if (attributes.some(attribute => t.isJSXSpreadAttribute(attribute.node))) {
+  if (attributes.some((attribute: any) => t.isJSXSpreadAttribute(attribute.node))) {
     [attributes, spreadExpr] = processSpreads(path, attributes, {
       elem,
       hasChildren,
@@ -71,14 +74,14 @@ function transformAttributes(path, results) {
     });
     path.get("openingElement").set(
       "attributes",
-      attributes.map(a => a.node)
+      attributes.map((a: any) => a.node)
     );
   }
 
   path
     .get("openingElement")
     .get("attributes")
-    .forEach(attribute => {
+    .forEach((attribute: any) => {
       const node = attribute.node;
 
       let value = node.value,
@@ -102,7 +105,9 @@ function transformAttributes(path, results) {
           if (!isConstant && t.isLVal(value.expression)) {
             const refIdentifier = path.scope.generateUidIdentifier("_ref$");
             results.exprs.unshift(
-              t.variableDeclaration("var", [t.variableDeclarator(refIdentifier, value.expression)]),
+              t.variableDeclaration("var", [
+                t.variableDeclarator(refIdentifier, value.expression as any)
+              ]),
               t.expressionStatement(
                 t.conditionalExpression(
                   t.logicalExpression(
@@ -142,14 +147,16 @@ function transformAttributes(path, results) {
                     "ref",
                     getRendererConfig(path, "universal").moduleName
                   ),
-                  [t.arrowFunctionExpression([], value.expression), elem]
+                  [t.arrowFunctionExpression([], value.expression as any), elem]
                 )
               )
             );
           } else {
             const refIdentifier = path.scope.generateUidIdentifier("_ref$");
             results.exprs.unshift(
-              t.variableDeclaration("var", [t.variableDeclarator(refIdentifier, value.expression)]),
+              t.variableDeclaration("var", [
+                t.variableDeclarator(refIdentifier, value.expression as any)
+              ]),
               t.expressionStatement(
                 t.logicalExpression(
                   "&&",
@@ -185,14 +192,14 @@ function transformAttributes(path, results) {
             checkMember: true
           })
         ) {
-          results.dynamics.push({ elem, key, value: value.expression });
+          results.dynamics.push({ elem, key, value: value.expression as any });
         } else {
           results.exprs.push(
-            t.expressionStatement(setAttr(attribute, elem, key, value.expression))
+            t.expressionStatement(setAttr(attribute, elem, key, value.expression as any))
           );
         }
       } else {
-        results.exprs.push(t.expressionStatement(setAttr(attribute, elem, key, value)));
+        results.exprs.push(t.expressionStatement(setAttr(attribute, elem, key, value as any)));
       }
     });
   if (spreadExpr) results.exprs.push(spreadExpr);
@@ -201,28 +208,39 @@ function transformAttributes(path, results) {
   }
 }
 
-export function setAttr(path, elem, name, value, { prevId } = {}) {
+export function setAttr(
+  path: any,
+  elem: t.Expression,
+  name: string,
+  value: t.Expression | t.JSXAttribute["value"],
+  { prevId }: { prevId?: t.Expression; dynamic?: boolean } = {}
+) {
   if (!value) value = t.booleanLiteral(true);
+  const args = prevId
+    ? ([elem, t.stringLiteral(name), value as t.Expression, prevId] as t.Expression[])
+    : ([elem, t.stringLiteral(name), value as t.Expression] as t.Expression[]);
   return t.callExpression(
     registerImportMethod(path, "setProp", getRendererConfig(path, "universal").moduleName),
-    prevId ? [elem, t.stringLiteral(name), value, prevId] : [elem, t.stringLiteral(name), value]
+    args
   );
 }
 
-function transformChildren(path, results) {
+function transformChildren(path: any, results: ElementResult): void {
   const filteredChildren = filterChildren(path.get("children")),
     multi = checkLength(filteredChildren),
-    childNodes = filteredChildren.map(transformNode).reduce((memo, child) => {
-      if (!child) return memo;
-      const i = memo.length;
-      if (child.text && i && memo[i - 1].text) {
-        memo[i - 1].template += child.template;
-        memo[i - 1].templateWithClosingTags += child.templateWithClosingTags || child.template;
-      } else memo.push(child);
-      return memo;
-    }, []);
+    childNodes = filteredChildren
+      .map((path: any) => transformNode(path))
+      .reduce((memo: any[], child: any) => {
+        if (!child) return memo;
+        const i = memo.length;
+        if (child.text && i && memo[i - 1].text) {
+          memo[i - 1].template += child.template;
+          memo[i - 1].templateWithClosingTags += child.templateWithClosingTags || child.template;
+        } else memo.push(child);
+        return memo;
+      }, []);
 
-  const appends = [];
+  const appends: t.ExpressionStatement[] = [];
   childNodes.forEach((child, index) => {
     if (!child) return;
     if (child.tagName && child.renderer !== "universal") {
@@ -292,18 +310,26 @@ function transformChildren(path, results) {
   results.exprs.unshift(...appends);
 }
 
-function nextChild(children, index) {
+function nextChild(children: any[], index: number): any {
   return children[index + 1] && (children[index + 1].id || nextChild(children, index + 1));
 }
 
-function processSpreads(path, attributes, { elem, hasChildren, wrapConditionals }) {
+function processSpreads(
+  path: any,
+  attributes: any[],
+  {
+    elem,
+    hasChildren,
+    wrapConditionals
+  }: { elem: t.Identifier; hasChildren: boolean; wrapConditionals: boolean }
+): [any[], t.ExpressionStatement] {
   // TODO: skip but collect the names of any properties after the last spread to not overwrite them
-  const filteredAttributes = [];
-  const spreadArgs = [];
-  let runningObject = [];
+  const filteredAttributes: any[] = [];
+  const spreadArgs: t.Expression[] = [];
+  let runningObject: any[] = [];
   let dynamicSpread = false;
   let firstSpread = false;
-  attributes.forEach(attribute => {
+  attributes.forEach((attribute: any) => {
     const node = attribute.node;
     const key =
       !t.isJSXSpreadAttribute(node) &&
@@ -324,9 +350,9 @@ function processSpreads(path, attributes, { elem, hasChildren, wrapConditionals 
             !node.argument.arguments.length &&
             !t.isCallExpression(node.argument.callee) &&
             !t.isMemberExpression(node.argument.callee)
-            ? node.argument.callee
+            ? (node.argument.callee as t.Expression)
             : t.arrowFunctionExpression([], node.argument)
-          : node.argument
+          : (node.argument as t.Expression)
       );
     } else if (
       (firstSpread ||
@@ -350,7 +376,7 @@ function processSpreads(path, attributes, { elem, hasChildren, wrapConditionals 
             "get",
             id,
             [],
-            t.blockStatement([t.returnStatement(expr.body)]),
+            t.blockStatement([t.returnStatement((expr as any).body as any)]),
             !t.isValidIdentifier(key)
           )
         );
@@ -358,7 +384,7 @@ function processSpreads(path, attributes, { elem, hasChildren, wrapConditionals 
         runningObject.push(
           t.objectProperty(
             t.stringLiteral(key),
-            isContainer ? node.value.expression : node.value || t.booleanLiteral(true)
+            (isContainer ? node.value.expression : node.value || t.booleanLiteral(true)) as any
           )
         );
       }
