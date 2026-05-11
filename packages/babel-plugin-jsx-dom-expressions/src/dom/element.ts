@@ -1,5 +1,6 @@
-// @ts-nocheck
-import * as t from "@babel/types";
+import * as babelTypes from "@babel/types";
+
+const t: any = babelTypes;
 
 import {
   ChildProperties,
@@ -59,13 +60,13 @@ const alwaysClose = [
   "fieldset"
 ];
 
-export function transformElement(path, info) {
+export function transformElement(path: any, info: any) {
   let tagName = getTagName(path.node);
 
   path
     .get("openingElement")
     .get("attributes")
-    .forEach(attr => {
+    .forEach((attr: any) => {
       evaluateAndInline(attr.node.value, attr.get("value"));
     });
 
@@ -111,15 +112,15 @@ export function transformElement(path, info) {
       path
         .get("openingElement")
         .get("attributes")
-        .some(a => a.node?.name?.name === "is" || a.name?.name === "is"),
+        .some((a: any) => a.node?.name?.name === "is" || a.name?.name === "is"),
     isImportNode =
       hasCustomElement ||
       ((tagName === "img" || tagName === "iframe") &&
         path
           .get("openingElement")
           .get("attributes")
-          .some(a => a.node.name?.name === "loading")),
-    results = {
+          .some((a: any) => a.node.name?.name === "loading")),
+    results: any = {
       template: `<${tagName}`,
       templateWithClosingTags: `<${tagName}`,
       declarations: [],
@@ -137,7 +138,7 @@ export function transformElement(path, info) {
     path
       .get("openingElement")
       .get("attributes")
-      .forEach(a => {
+      .forEach((a: any) => {
         if (a.node.name?.name === "style") {
           let value = a.node.value.expression ? a.node.value.expression : a.node.value;
           if (t.isStringLiteral(value)) {
@@ -157,7 +158,7 @@ export function transformElement(path, info) {
   path
     .get("openingElement")
     .get("attributes")
-    .some(a => {
+    .some((a: any) => {
       if (a.node.name?.name === "_hk") {
         a.remove();
         let filename = "";
@@ -200,7 +201,8 @@ export function transformElement(path, info) {
     if (toBeClosed) {
       results.toBeClosed = new Set(info.toBeClosed || alwaysClose);
       results.toBeClosed.add(tagName);
-      if (InlineElements.includes(tagName)) BlockElements.forEach(i => results.toBeClosed.add(i));
+      if (InlineElements.includes(tagName))
+        BlockElements.forEach((i: any) => results.toBeClosed.add(i));
     } else results.toBeClosed = info.toBeClosed;
     if (tagName !== "noscript") transformChildren(path, results, config);
     if (toBeClosed) results.template += `</${tagName}>`;
@@ -221,7 +223,13 @@ export function transformElement(path, info) {
   return results;
 }
 
-export function setAttr(path, elem, name, value, { dynamic, prevId, tagName }) {
+export function setAttr(
+  path: any,
+  elem: any,
+  name: any,
+  value: any,
+  { dynamic, prevId, tagName }: any = {}
+) {
   // pull out namespace
   const config = getConfig(path);
   let parts, namespace;
@@ -340,7 +348,7 @@ export function setAttr(path, elem, name, value, { dynamic, prevId, tagName }) {
   }
 }
 
-function detectResolvableEventHandler(attribute, handler) {
+function detectResolvableEventHandler(attribute: any, handler: any) {
   while (t.isIdentifier(handler)) {
     const lookup = attribute.scope.getBinding(handler.name);
     if (lookup) {
@@ -354,7 +362,7 @@ function detectResolvableEventHandler(attribute, handler) {
   return t.isFunction(handler);
 }
 
-function transformAttributes(path, results) {
+function transformAttributes(path: any, results: any) {
   let elem = results.id,
     hasHydratableEvent = false,
     children,
@@ -365,7 +373,7 @@ function transformAttributes(path, results) {
     config = getConfig(path);
 
   // preprocess spreads
-  if (attributes.some(attribute => t.isJSXSpreadAttribute(attribute.node))) {
+  if (attributes.some((attribute: any) => t.isJSXSpreadAttribute(attribute.node))) {
     [attributes, spreadExpr] = processSpreads(path, attributes, {
       elem,
       hasChildren,
@@ -373,17 +381,17 @@ function transformAttributes(path, results) {
     });
     path.get("openingElement").set(
       "attributes",
-      attributes.map(a => a.node)
+      attributes.map((a: any) => a.node)
     );
     //NOTE: can't be checked at compile time so add to compiled output
     hasHydratableEvent = true;
   } else {
-    const seenAttributes = {};
-    const duplicates = [];
+    const seenAttributes: Record<string, any> = {};
+    const duplicates: any[] = [];
     path
       .get("openingElement")
       .get("attributes")
-      .forEach(attr => {
+      .forEach((attr: any) => {
         const key = t.isJSXNamespacedName(attr.node.name)
           ? `${attr.node.name.namespace.name}:${attr.node.name.name.name}`
           : attr.node.name.name;
@@ -411,7 +419,9 @@ function transformAttributes(path, results) {
 
   attributes = path.get("openingElement").get("attributes");
 
-  const styleAttributes = attributes.filter(a => a.node.name && a.node.name.name === "style");
+  const styleAttributes = attributes.filter(
+    (a: any) => a.node.name && a.node.name.name === "style"
+  );
   if (styleAttributes.length > 0) {
     let inlinedStyle = "";
 
@@ -486,17 +496,17 @@ function transformAttributes(path, results) {
     .get("openingElement")
     .get("attributes")
     .find(
-      a =>
+      (a: any) =>
         a.node.name &&
         a.node.name.name === "style" &&
         t.isJSXExpressionContainer(a.node.value) &&
         t.isObjectExpression(a.node.value.expression) &&
-        !a.node.value.expression.properties.some(p => t.isSpreadElement(p))
+        !a.node.value.expression.properties.some((p: any) => t.isSpreadElement(p))
     );
   if (styleAttribute) {
     let i = 0,
       leading = styleAttribute.node.value.expression.leadingComments;
-    styleAttribute.node.value.expression.properties.slice().forEach((p, index) => {
+    styleAttribute.node.value.expression.properties.slice().forEach((p: any, index: any) => {
       if (!p.computed) {
         if (leading) p.value.leadingComments = leading;
         path
@@ -522,7 +532,7 @@ function transformAttributes(path, results) {
   // preprocess leading static classes in fixed-shape class arrays
   attributes = path.get("openingElement").get("attributes");
   const classArrayAttribute = attributes.find(
-    a =>
+    (a: any) =>
       a.node.name &&
       a.node.name.name === "class" &&
       t.isJSXExpressionContainer(a.node.value) &&
@@ -531,7 +541,7 @@ function transformAttributes(path, results) {
   if (classArrayAttribute) {
     const elements = classArrayAttribute.get("value").get("expression").get("elements");
     let i = 0,
-      staticClasses = [];
+      staticClasses: string[] = [];
     while (t.isStringLiteral(elements[i]?.node)) {
       staticClasses.push(elements[i].node.value);
       i++;
@@ -544,7 +554,7 @@ function transformAttributes(path, results) {
       i === elements.length - 1 &&
       t.isObjectExpression(elements[i].node) &&
       !elements[i].node.properties.some(
-        p =>
+        (p: any) =>
           t.isSpreadElement(p) ||
           p.computed ||
           (t.isStringLiteral(p.key) && (p.key.value.includes(" ") || p.key.value.includes(":"))) ||
@@ -565,13 +575,13 @@ function transformAttributes(path, results) {
   // preprocess optimal class objects
   attributes = path.get("openingElement").get("attributes");
   const classListAttribute = attributes.find(
-    a =>
+    (a: any) =>
       a.node.name &&
       a.node.name.name === "class" &&
       t.isJSXExpressionContainer(a.node.value) &&
       t.isObjectExpression(a.node.value.expression) &&
       !a.node.value.expression.properties.some(
-        p =>
+        (p: any) =>
           t.isSpreadElement(p) ||
           p.computed ||
           (t.isStringLiteral(p.key) && (p.key.value.includes(" ") || p.key.value.includes(":")))
@@ -581,7 +591,7 @@ function transformAttributes(path, results) {
     let i = 0,
       leading = classListAttribute.node.value.expression.leadingComments,
       classListProperties = classListAttribute.get("value").get("expression").get("properties");
-    classListProperties.slice().forEach((propPath, index) => {
+    classListProperties.slice().forEach((propPath: any, index: any) => {
       const p = propPath.node;
       const { confident, value: computed } = propPath.get("value").evaluate();
       if (leading) p.value.leadingComments = leading;
@@ -619,10 +629,12 @@ function transformAttributes(path, results) {
 
   // combine class properties
   attributes = path.get("openingElement").get("attributes");
-  const classAttributes = attributes.filter(a => a.node.name && a.node.name.name === "class");
+  const classAttributes = attributes.filter(
+    (a: any) => a.node.name && a.node.name.name === "class"
+  );
   if (classAttributes.length > 1) {
     const first = classAttributes[0].node,
-      values = [],
+      values: any[] = [],
       quasis = [t.templateElement({ raw: "" })];
     for (let i = 0; i < classAttributes.length; i++) {
       const attr = classAttributes[i].node,
@@ -645,13 +657,13 @@ function transformAttributes(path, results) {
   }
   path.get("openingElement").set(
     "attributes",
-    attributes.map(a => a.node)
+    attributes.map((a: any) => a.node)
   );
 
   let needsSpacing = true;
 
   // scoped because of `needsSpacing`
-  function inlineAttributeOnTemplate(key, results, value) {
+  function inlineAttributeOnTemplate(key: any, results: any, value: any) {
     results.template += `${needsSpacing ? " " : ""}${key}`;
 
     if (!value) {
@@ -707,7 +719,7 @@ function transformAttributes(path, results) {
   path
     .get("openingElement")
     .get("attributes")
-    .forEach(attribute => {
+    .forEach((attribute: any) => {
       const node = attribute.node;
       let value = node.value,
         key = t.isJSXNamespacedName(node.name)
@@ -1007,7 +1019,7 @@ function transformAttributes(path, results) {
   results.hasHydratableEvent = results.hasHydratableEvent || hasHydratableEvent;
 }
 
-function findLastElement(children, hydratable) {
+function findLastElement(children: any[], hydratable: any) {
   let lastElement = -1,
     tagName;
   for (let i = children.length - 1; i >= 0; i--) {
@@ -1025,15 +1037,15 @@ function findLastElement(children, hydratable) {
   return lastElement;
 }
 
-function transformChildren(path, results, config) {
+function transformChildren(path: any, results: any, config: any) {
   let tempPath = results.id && results.id.name,
     tagName = getTagName(path.node),
-    nextPlaceholder,
-    childPostExprs = [],
+    nextPlaceholder: any,
+    childPostExprs: any[] = [],
     i = 0;
   const filteredChildren = filterChildren(path.get("children")),
     lastElement = findLastElement(filteredChildren, config.hydratable),
-    childNodes = filteredChildren.reduce((memo, child, index) => {
+    childNodes = filteredChildren.reduce((memo: any[], child: any, index: number) => {
       if (child.isJSXFragment()) {
         throw new Error(
           `Fragments can only be used top level in JSX. Not used under a <${tagName}>.`
@@ -1054,7 +1066,7 @@ function transformChildren(path, results, config) {
       return memo;
     }, []);
 
-  childNodes.forEach((child, index) => {
+  childNodes.forEach((child: any, index: any) => {
     if (!child) return;
     if (child.tagName && child.renderer !== "dom") {
       throw new Error(`<${child.tagName}> is not supported in <${tagName}>.
@@ -1152,7 +1164,7 @@ function transformChildren(path, results, config) {
   results.postExprs.unshift(...childPostExprs);
 }
 
-function createPlaceholder(path, results, tempPath, i, char) {
+function createPlaceholder(path: any, results: any, tempPath: any, i: any, char: any) {
   const exprId = path.scope.generateUidIdentifier("el$"),
     config = getConfig(path);
   let contentId;
@@ -1182,12 +1194,12 @@ function createPlaceholder(path, results, tempPath, i, char) {
   return [exprId, contentId];
 }
 
-function nextChild(children, index) {
+function nextChild(children: any[], index: number): any {
   return children[index + 1] && (children[index + 1].id || nextChild(children, index + 1));
 }
 
 // reduce unnecessary refs
-function detectExpressions(children, index, config) {
+function detectExpressions(children: any[], index: number, config: any): any {
   if (children[index - 1]) {
     const node = children[index - 1].node;
     if (
@@ -1211,12 +1223,12 @@ function detectExpressions(children, index, config) {
         config.contextToCustomElements &&
         (tagName === "slot" ||
           tagName.indexOf("-") > -1 ||
-          child.openingElement.attributes.some(a => a.name?.name === "is"))
+          child.openingElement.attributes.some((a: any) => a.name?.name === "is"))
       )
         return true;
       if (
         child.openingElement.attributes.some(
-          attr =>
+          (attr: any) =>
             t.isJSXSpreadAttribute(attr) ||
             ["textContent", "innerHTML", "innerText"].includes(attr.name.name) ||
             (attr.name.namespace && attr.name.namespace.name === "prop") ||
@@ -1234,7 +1246,7 @@ function detectExpressions(children, index, config) {
   }
 }
 
-function contextToCustomElement(path, results) {
+function contextToCustomElement(path: any, results: any) {
   results.exprs.push(
     t.expressionStatement(
       t.assignmentExpression(
@@ -1249,16 +1261,20 @@ function contextToCustomElement(path, results) {
   );
 }
 
-function processSpreads(path, attributes, { elem, hasChildren, wrapConditionals }) {
+function processSpreads(
+  path: any,
+  attributes: any[],
+  { elem, hasChildren, wrapConditionals }: any
+) {
   const config = getConfig(path);
   const tagName = getTagName(path.node);
 
   // TODO: skip but collect the names of any properties after the last spread to not overwrite them
-  const filteredAttributes = [];
-  const spreadArgs = [];
-  let runningObject = [];
+  const filteredAttributes: any[] = [];
+  const spreadArgs: any[] = [];
+  let runningObject: any[] = [];
   let dynamicSpread = false;
-  attributes.forEach(attribute => {
+  attributes.forEach((attribute: any) => {
     const node = attribute.node;
     const key =
       !t.isJSXSpreadAttribute(node) &&

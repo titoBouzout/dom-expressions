@@ -1,5 +1,6 @@
-// @ts-nocheck
-import * as t from "@babel/types";
+import * as babelTypes from "@babel/types";
+
+const t: any = babelTypes;
 import { decode } from "html-entities";
 import { ChildProperties, VoidElements } from "dom-expressions/src/constants";
 import {
@@ -21,7 +22,7 @@ import {
 import { transformNode, getCreateTemplate } from "../shared/transform";
 import { createTemplate } from "./template";
 
-function appendToTemplate(template, value) {
+function appendToTemplate(template: any, value: any) {
   let array;
   if (Array.isArray(value)) {
     [value, ...array] = value;
@@ -30,7 +31,7 @@ function appendToTemplate(template, value) {
   if (array && array.length) template.push.apply(template, array);
 }
 
-function hoistExpression(path, results, expr, { group, post, skipWrap } = {}) {
+function hoistExpression(path: any, results: any, expr: any, { group, post, skipWrap }: any = {}) {
   // Each dynamic gets a temp `_v$N` variable that's later assigned + passed
   // to `ssr(_tmpl, _v$N, …)`. The temp-var indirection is a V8 call-site
   // IC stability tactic: when `ssr()` always sees stable `Identifier`
@@ -57,14 +58,14 @@ function hoistExpression(path, results, expr, { group, post, skipWrap } = {}) {
 // Coalesce contiguous runs of >=2 groupable templateValues entries into
 // `_$ssrGroup(() => [...bodies], N)`, repeated N times in the `ssr(...)`
 // arg list. Inserts/children break a run, so child isolation is preserved.
-function groupAttributeClosures(path, results) {
+function groupAttributeClosures(path: any, results: any) {
   const groupable = results.groupable;
   if (!groupable || groupable.size < 2) return;
   const tv = results.templateValues;
 
-  const runs = [];
+  const runs: any[] = [];
   let runStart = -1;
-  let runIds = [];
+  let runIds: any[] = [];
   for (let i = 0; i <= tv.length; i++) {
     const v = i < tv.length ? tv[i] : null;
     if (v && t.isIdentifier(v) && groupable.has(v.name)) {
@@ -83,7 +84,7 @@ function groupAttributeClosures(path, results) {
 
   // Name → declarator index. Consumed slots are nulled in place (kept
   // stable for the whole pass, then filtered at the end).
-  const declMap = new Map();
+  const declMap = new Map<string, number>();
   for (let i = 0; i < results.declarations.length; i++) {
     const d = results.declarations[i];
     if (d && t.isIdentifier(d.id)) declMap.set(d.id.name, i);
@@ -92,10 +93,10 @@ function groupAttributeClosures(path, results) {
   // Reverse so `tv.splice` for earlier runs doesn't shift later indices.
   for (let r = runs.length - 1; r >= 0; r--) {
     const run = runs[r];
-    const bodies = [];
+    const bodies: any[] = [];
     let firstIdx = -1;
     for (let k = 0; k < run.ids.length; k++) {
-      const di = declMap.get(run.ids[k]);
+      const di = declMap.get(run.ids[k])!;
       const init = results.declarations[di].init;
       // Arrow w/ expression body → inline its body. Anything else
       // (bare identifier, `_$escape(/*@once*/ x)`, …) gets dropped in
@@ -107,6 +108,7 @@ function groupAttributeClosures(path, results) {
       else results.declarations[di] = null;
     }
 
+    if (firstIdx < 0) continue;
     const groupId = path.scope.generateUidIdentifier("g$");
     const groupInit = t.callExpression(registerImportMethod(path, "ssrGroup"), [
       t.arrowFunctionExpression([], t.arrayExpression(bodies)),
@@ -119,16 +121,16 @@ function groupAttributeClosures(path, results) {
     tv.splice(run.start, run.end - run.start, ...replacements);
   }
 
-  results.declarations = results.declarations.filter(d => d !== null);
+  results.declarations = results.declarations.filter((d: any) => d !== null);
 }
 
-export function transformElement(path, info) {
+export function transformElement(path: any, info: any) {
   const tagName = getTagName(path.node);
 
   path
     .get("openingElement")
     .get("attributes")
-    .forEach(attr => {
+    .forEach((attr: any) => {
       evaluateAndInline(attr.node.value, attr.get("value"));
     });
 
@@ -136,19 +138,19 @@ export function transformElement(path, info) {
   if (tagName === "script" || tagName === "style") path.doNotEscape = true;
 
   // contains spread attributes
-  if (path.node.openingElement.attributes.some(a => t.isJSXSpreadAttribute(a)))
+  if (path.node.openingElement.attributes.some((a: any) => t.isJSXSpreadAttribute(a)))
     return createElement(path, { ...info, ...config });
 
   // Duplicate same-named attributes on the same element resolve to the
   // last value (matching DOM-mode and JSX spread semantics). Strip the
   // earlier occurrences before the rest of the SSR transform runs.
   {
-    const seenAttributes = {};
-    const duplicates = [];
+    const seenAttributes: Record<string, any> = {};
+    const duplicates: any[] = [];
     path
       .get("openingElement")
       .get("attributes")
-      .forEach(attr => {
+      .forEach((attr: any) => {
         const key = t.isJSXNamespacedName(attr.node.name)
           ? `${attr.node.name.namespace.name}:${attr.node.name.name.name}`
           : attr.node.name.name;
@@ -164,7 +166,7 @@ export function transformElement(path, info) {
   }
 
   const voidTag = VoidElements.has(tagName),
-    results = {
+    results: any = {
       template: [`<${tagName}`],
       templateValues: [],
       declarations: [],
@@ -200,7 +202,15 @@ export function transformElement(path, info) {
   return results;
 }
 
-function setAttr(tagName, attribute, results, name, value, isDynamic, isBoolean) {
+function setAttr(
+  tagName: any,
+  attribute: any,
+  results: any,
+  name: any,
+  value: any,
+  isDynamic: any,
+  isBoolean: any
+) {
   // strip out namespaces for now, everything at this point is an attribute
   let parts;
   if ((parts = name.split(":")) && parts[1] && reservedNameSpaces.has(parts[0])) {
@@ -229,7 +239,7 @@ function setAttr(tagName, attribute, results, name, value, isDynamic, isBoolean)
   }
 }
 
-function escapeExpression(path, expression, attr, escapeLiterals) {
+function escapeExpression(path: any, expression: any, attr?: any, escapeLiterals?: any) {
   if (
     t.isStringLiteral(expression) ||
     t.isNumericLiteral(expression) ||
@@ -243,7 +253,7 @@ function escapeExpression(path, expression, attr, escapeLiterals) {
     return expression;
   } else if (t.isFunction(expression)) {
     if (t.isBlockStatement(expression.body)) {
-      expression.body.body = expression.body.body.map(e => {
+      expression.body.body = expression.body.body.map((e: any) => {
         if (t.isReturnStatement(e))
           e.argument = escapeExpression(path, e.argument, attr, escapeLiterals);
         return e;
@@ -251,7 +261,7 @@ function escapeExpression(path, expression, attr, escapeLiterals) {
     } else expression.body = escapeExpression(path, expression.body, attr, escapeLiterals);
     return expression;
   } else if (t.isTemplateLiteral(expression)) {
-    expression.expressions = expression.expressions.map(e =>
+    expression.expressions = expression.expressions.map((e: any) =>
       escapeExpression(path, e, attr, escapeLiterals)
     );
     return expression;
@@ -274,7 +284,7 @@ function escapeExpression(path, expression, attr, escapeLiterals) {
     }
   } else if (t.isCallExpression(expression) && t.isFunction(expression.callee)) {
     if (t.isBlockStatement(expression.callee.body)) {
-      expression.callee.body.body = expression.callee.body.body.map(e => {
+      expression.callee.body.body = expression.callee.body.body.map((e: any) => {
         if (t.isReturnStatement(e))
           e.argument = escapeExpression(path, e.argument, attr, escapeLiterals);
         return e;
@@ -321,7 +331,7 @@ function escapeExpression(path, expression, attr, escapeLiterals) {
 //   B. `<><native /></>` — a single native (non-component) JSXElement.
 //      `createTemplate` emits `_$ssr(_tmpl$N, …)`, which returns an
 //      SSRNode object; `escape(object)` is a pass-through.
-function fragmentWillSelfEscape(fragment) {
+function fragmentWillSelfEscape(fragment: any) {
   let only = null;
   for (const c of fragment.children) {
     if (t.isJSXText(c)) {
@@ -348,9 +358,9 @@ function fragmentWillSelfEscape(fragment) {
   return false;
 }
 
-function transformToObject(attrName, attributes, selectedAttributes) {
+function transformToObject(attrName: any, attributes: any[], selectedAttributes: any[]) {
   const properties = [];
-  const existingAttribute = attributes.find(a => a.node.name.name === attrName);
+  const existingAttribute = attributes.find((a: any) => a.node.name.name === attrName);
   for (let i = 0; i < selectedAttributes.length; i++) {
     const attr = selectedAttributes[i].node;
     const computed = !t.isValidIdentifier(attr.name.name.name);
@@ -379,21 +389,23 @@ function transformToObject(attrName, attributes, selectedAttributes) {
   }
 }
 
-function normalizeAttributes(path) {
+function normalizeAttributes(path: any) {
   const attributes = path.get("openingElement").get("attributes"),
     styleAttributes = attributes.filter(
-      a => t.isJSXNamespacedName(a.node.name) && a.node.name.namespace.name === "style"
+      (a: any) => t.isJSXNamespacedName(a.node.name) && a.node.name.namespace.name === "style"
     ),
     classNamespaceAttributes = attributes.filter(
-      a => t.isJSXNamespacedName(a.node.name) && a.node.name.namespace.name === "class"
+      (a: any) => t.isJSXNamespacedName(a.node.name) && a.node.name.namespace.name === "class"
     );
   if (classNamespaceAttributes.length)
     transformToObject("class", attributes, classNamespaceAttributes);
-  const classAttributes = attributes.filter(a => a.node.name && a.node.name.name === "class");
+  const classAttributes = attributes.filter(
+    (a: any) => a.node.name && a.node.name.name === "class"
+  );
   // combine class propertoes
   if (classAttributes.length > 1) {
     const first = classAttributes[0].node,
-      values = [],
+      values: any[] = [],
       quasis = [t.templateElement({ raw: "" })];
     for (let i = 0; i < classAttributes.length; i++) {
       const attr = classAttributes[i].node,
@@ -408,7 +420,10 @@ function normalizeAttributes(path) {
       } else {
         let expr = attr.value.expression;
         if (attr.name.name === "class") {
-          if (t.isObjectExpression(expr) && !expr.properties.some(p => t.isSpreadElement(p))) {
+          if (
+            t.isObjectExpression(expr) &&
+            !expr.properties.some((p: any) => t.isSpreadElement(p))
+          ) {
             transformClasslistObject(path, expr, values, quasis);
             if (!isLast) quasis[quasis.length - 1].value.raw += " ";
             i && attributes.splice(attributes.indexOf(classAttributes[i]), 1);
@@ -428,14 +443,14 @@ function normalizeAttributes(path) {
   return attributes;
 }
 
-function transformAttributes(path, results, info) {
+function transformAttributes(path: any, results: any, info: any) {
   const tagName = getTagName(path.node);
 
   const hasChildren = path.node.children.length > 0,
     attributes = normalizeAttributes(path);
   let children;
 
-  attributes.forEach(attribute => {
+  attributes.forEach((attribute: any) => {
     const node = attribute.node;
 
     let value = node.value,
@@ -492,12 +507,12 @@ function transformAttributes(path, results, info) {
           if (
             t.isJSXExpressionContainer(value) &&
             t.isObjectExpression(value.expression) &&
-            !value.expression.properties.some(p => t.isSpreadElement(p))
+            !value.expression.properties.some((p: any) => t.isSpreadElement(p))
           ) {
             if (value.expression.properties.length === 0) {
               return;
             }
-            const props = value.expression.properties.map((p, i) => {
+            const props = value.expression.properties.map((p: any, i: any) => {
               if (p.computed) {
                 // Computed keys are user-controlled at runtime; wrap with
                 // `_$escape(..., true)` so ssrStyleProperty can stay a pure
@@ -535,9 +550,9 @@ function transformAttributes(path, results, info) {
         if (key === "class") {
           if (
             t.isObjectExpression(value.expression) &&
-            !value.expression.properties.some(p => t.isSpreadElement(p))
+            !value.expression.properties.some((p: any) => t.isSpreadElement(p))
           ) {
-            const values = [],
+            const values: any[] = [],
               quasis = [t.templateElement({ raw: "" })];
             transformClasslistObject(path, value.expression, values, quasis);
             if (!values.length) value.expression = t.stringLiteral(quasis[0].value.raw);
@@ -598,8 +613,8 @@ function transformAttributes(path, results, info) {
   }
 }
 
-function transformClasslistObject(path, expr, values, quasis) {
-  expr.properties.forEach((prop, i) => {
+function transformClasslistObject(path: any, expr: any, values: any[], quasis: any[]) {
+  expr.properties.forEach((prop: any, i: any) => {
     const isLast = expr.properties.length - 1 === i;
     let key = prop.key;
     if (t.isIdentifier(prop.key) && !prop.computed) key = t.stringLiteral(key.name);
@@ -631,13 +646,13 @@ function transformClasslistObject(path, expr, values, quasis) {
   });
 }
 
-function transformChildren(path, results, { hydratable }) {
+function transformChildren(path: any, results: any, { hydratable }: any) {
   const doNotEscape = path.doNotEscape;
   const tagName = getTagName(path.node);
   const filteredChildren = filterChildren(path.get("children"));
   const multi = checkLength(filteredChildren),
     markers = hydratable && multi;
-  filteredChildren.forEach(node => {
+  filteredChildren.forEach((node: any) => {
     if (node.isJSXFragment()) {
       throw new Error(
         `Fragments can only be used top level in JSX. Not used under a <${tagName}>.`
@@ -676,7 +691,7 @@ function transformChildren(path, results, { hydratable }) {
   });
 }
 
-function createElement(path, { topLevel, hydratable }) {
+function createElement(path: any, { topLevel, hydratable }: any) {
   const tagName = getTagName(path.node),
     config = getConfig(path),
     attributes = normalizeAttributes(path),
@@ -707,16 +722,16 @@ function createElement(path, { topLevel, hydratable }) {
       return memo;
     }, []);
 
-  let props;
+  let props: any[];
   if (attributes.length === 1) {
     props = [attributes[0].node.argument];
   } else {
     props = [];
-    let runningObject = [],
+    let runningObject: any[] = [],
       dynamicSpread = false,
       hasChildren = path.node.children.length > 0;
 
-    attributes.forEach(attribute => {
+    attributes.forEach((attribute: any) => {
       const node = attribute.node;
       if (t.isJSXSpreadAttribute(node)) {
         if (runningObject.length) {

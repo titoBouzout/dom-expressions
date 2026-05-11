@@ -65,6 +65,7 @@ export interface DynamicOptions {
 }
 
 export interface TransformInfo {
+  [key: string]: any;
   topLevel?: boolean;
   lastElement?: boolean;
   fragmentChild?: boolean;
