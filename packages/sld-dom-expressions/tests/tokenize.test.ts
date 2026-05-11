@@ -957,6 +957,7 @@ describe("comments handling", () => {
       //handle with expression=${1}
       class="btn"
     />`;
+    console.log(tokens)
     expect(tokens).toBeDefined();
     expect(tokens.length).toBe(8);
     expect(tokens[2].value).toBe("disabled")

@@ -227,9 +227,9 @@ export const tokenize = (
         case STATE_LINE_COMMENT:
         case STATE_BLOCK_COMMENT:
           {
-            const commentEnd = STATE_LINE_COMMENT ? "\n" : STATE_BLOCK_COMMENT ? "*/" : "-->"
+            const commentEnd = state ===STATE_LINE_COMMENT ? "\n" : state === STATE_BLOCK_COMMENT ? "*/" : "-->"
             // LOOK FOR END OF COMMENT: - - >
-            const commentEndIndex = str.indexOf("-->", cursor);
+            const commentEndIndex = str.indexOf(commentEnd, cursor);
 
             if (commentEndIndex === -1) {
               // If we don't find the closer in this string chunk,
@@ -237,7 +237,7 @@ export const tokenize = (
               cursor = len;
             } else {
               // Found it! Return to normal text parsing
-              state = STATE_COMMENT ? STATE_TEXT : STATE_TAG;
+              state = state === STATE_COMMENT ? STATE_TEXT : STATE_TAG;
               cursor = commentEndIndex + commentEnd.length;
             }
             break;
