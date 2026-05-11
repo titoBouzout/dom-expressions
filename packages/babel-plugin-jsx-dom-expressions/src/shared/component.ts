@@ -11,31 +11,55 @@ import {
 } from "./utils";
 import { transformNode, getCreateTemplate } from "./transform";
 import type { JSXDOMExpressionsConfig } from "../config";
+import type { BabelPath, TransformResult } from "../types";
 
-function convertComponentIdentifier(node: any): any {
+type ComponentTransformResult = TransformResult & {
+  template: "";
+  component: true;
+  exprs: Array<t.Expression | t.Statement>;
+};
+
+type ComponentChildrenResult = [t.Expression, boolean] | undefined;
+
+function convertComponentIdentifier(
+  node: t.JSXIdentifier | t.JSXMemberExpression | t.JSXNamespacedName
+): t.Expression {
   if (t.isJSXIdentifier(node)) {
     if (node.name === "this") return t.thisExpression();
-    if (t.isValidIdentifier(node.name)) (node as any).type = "Identifier";
-    else return t.stringLiteral(node.name);
+    if (t.isValidIdentifier(node.name)) {
+      const identifier = node as unknown as t.Identifier;
+      identifier.type = "Identifier";
+      return identifier;
+    } else return t.stringLiteral(node.name);
   } else if (t.isJSXMemberExpression(node)) {
-    const prop: any = convertComponentIdentifier(node.property);
+    const prop = convertComponentIdentifier(node.property);
     const computed = t.isStringLiteral(prop);
-    return t.memberExpression(convertComponentIdentifier(node.object), prop, computed);
+    return t.memberExpression(
+      convertComponentIdentifier(node.object),
+      prop as t.Identifier | t.Expression,
+      computed
+    );
   }
 
-  return node;
+  return t.stringLiteral(`${node.namespace.name}:${node.name.name}`);
 }
 
-export default function transformComponent(path: any): any {
-  let exprs: any[] = [],
+export default function transformComponent(
+  path: BabelPath<t.JSXElement>
+): ComponentTransformResult {
+  let exprs: Array<t.Expression | t.Statement> = [],
     config = getConfig(path),
     tagId = convertComponentIdentifier(path.node.openingElement.name),
-    props: any[] = [],
-    runningObject: any[] = [],
+    props: t.Expression[] = [],
+    runningObject: Array<t.ObjectProperty | t.ObjectMethod> = [],
     dynamicSpread = false,
     hasChildren = path.node.children.length > 0;
 
-  if (config.builtIns.indexOf(tagId.name) > -1 && !path.scope.hasBinding(tagId.name)) {
+  if (
+    t.isIdentifier(tagId) &&
+    config.builtIns.indexOf(tagId.name) > -1 &&
+    !path.scope.hasBinding(tagId.name)
+  ) {
     const newTagId = registerImportMethod(path, tagId.name);
     tagId.name = newTagId.name;
   }
@@ -58,9 +82,9 @@ export default function transformComponent(path: any): any {
               !node.argument.arguments.length &&
               !t.isCallExpression(node.argument.callee) &&
               !t.isMemberExpression(node.argument.callee)
-              ? node.argument.callee
+              ? (node.argument.callee as t.Expression)
               : t.arrowFunctionExpression([], node.argument)
-            : node.argument
+            : (node.argument as t.Expression)
         );
       } else {
         // handle weird babel bug around HTML entities
@@ -272,8 +296,8 @@ export default function transformComponent(path: any): any {
       const body =
         t.isCallExpression(childResult[0]) && t.isFunction(childResult[0].arguments[0])
           ? (childResult[0].arguments[0] as any).body
-          : childResult[0].body
-            ? childResult[0].body
+          : (childResult[0] as any).body
+            ? (childResult[0] as any).body
             : childResult[0];
       runningObject.push(
         t.objectMethod(
@@ -316,46 +340,58 @@ export default function transformComponent(path: any): any {
       )
     ];
   }
-  return { exprs, template: "", component: true };
+  return { exprs, template: "", component: true, declarations: [], dynamics: [] };
 }
 
-function transformComponentChildren(children: any[], config: JSXDOMExpressionsConfig): any {
+function transformComponentChildren(
+  children: BabelPath[],
+  config: JSXDOMExpressionsConfig
+): ComponentChildrenResult {
   const filteredChildren = filterChildren(children);
   if (!filteredChildren.length) return;
   let dynamic = false;
-  let pathNodes: any[] = [];
+  let pathNodes: t.Node[] = [];
 
-  let transformedChildren: any = filteredChildren.reduce((memo: any[], path: any) => {
-    if (t.isJSXText(path.node)) {
-      const v = decode(trimWhitespace((path.node.extra as any)?.raw ?? ""));
-      if (v.length) {
+  let transformedChildren: t.Expression | t.Expression[] = filteredChildren.reduce(
+    (memo: t.Expression[], path: BabelPath) => {
+      if (t.isJSXText(path.node)) {
+        const v = decode(trimWhitespace((path.node.extra as any)?.raw ?? ""));
+        if (v.length) {
+          pathNodes.push(path.node);
+          memo.push(t.stringLiteral(v));
+        }
+      } else {
+        const child = transformNode(path, {
+          topLevel: true,
+          componentChild: true,
+          lastElement: true
+        });
+        if (!child) return memo;
+        dynamic = dynamic || child.dynamic;
+        if (
+          config.generate === "ssr" &&
+          !config.memoWrapper &&
+          filteredChildren.length > 1 &&
+          child.dynamic &&
+          t.isFunction(child.exprs[0])
+        ) {
+          child.exprs[0] = child.exprs[0].body;
+        }
         pathNodes.push(path.node);
-        memo.push(t.stringLiteral(v));
+        memo.push(
+          getCreateTemplate(config, path, child)(
+            path,
+            child,
+            filteredChildren.length > 1
+          ) as t.Expression
+        );
       }
-    } else {
-      const child = transformNode(path, {
-        topLevel: true,
-        componentChild: true,
-        lastElement: true
-      });
-      if (!child) return memo;
-      dynamic = dynamic || child.dynamic;
-      if (
-        config.generate === "ssr" &&
-        !config.memoWrapper &&
-        filteredChildren.length > 1 &&
-        child.dynamic &&
-        t.isFunction(child.exprs[0])
-      ) {
-        child.exprs[0] = child.exprs[0].body;
-      }
-      pathNodes.push(path.node);
-      memo.push(getCreateTemplate(config, path, child)(path, child, filteredChildren.length > 1));
-    }
-    return memo;
-  }, []);
+      return memo;
+    },
+    []
+  );
 
-  if (transformedChildren.length === 1) {
+  if (Array.isArray(transformedChildren) && transformedChildren.length === 1) {
     transformedChildren = transformedChildren[0];
     if (
       !t.isJSXExpressionContainer(pathNodes[0]) &&
@@ -366,13 +402,13 @@ function transformComponentChildren(children: any[], config: JSXDOMExpressionsCo
         t.isCallExpression(transformedChildren) &&
         !transformedChildren.arguments.length &&
         !t.isIdentifier(transformedChildren.callee)
-          ? transformedChildren.callee
+          ? (transformedChildren.callee as t.Expression)
           : t.arrowFunctionExpression([], transformedChildren);
       dynamic = true;
     }
-  } else {
+  } else if (Array.isArray(transformedChildren)) {
     transformedChildren = t.arrowFunctionExpression([], t.arrayExpression(transformedChildren));
     dynamic = true;
   }
-  return [transformedChildren, dynamic];
+  return [transformedChildren as t.Expression, dynamic];
 }
