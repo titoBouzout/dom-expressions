@@ -35,6 +35,7 @@ import {
 } from "../shared/utils";
 import { transformNode } from "../shared/transform";
 import { InlineElements, BlockElements } from "./constants";
+import type { DOMTransformResult } from "../types";
 
 const alwaysClose = [
   "title",
@@ -60,7 +61,7 @@ const alwaysClose = [
   "fieldset"
 ];
 
-export function transformElement(path: any, info: any) {
+export function transformElement(path: any, info: any): DOMTransformResult {
   let tagName = getTagName(path.node);
 
   path
@@ -120,7 +121,7 @@ export function transformElement(path: any, info: any) {
           .get("openingElement")
           .get("attributes")
           .some((a: any) => a.node.name?.name === "loading")),
-    results: any = {
+    results: DOMTransformResult = {
       template: `<${tagName}`,
       templateWithClosingTags: `<${tagName}`,
       declarations: [],
@@ -202,7 +203,7 @@ export function transformElement(path: any, info: any) {
       results.toBeClosed = new Set(info.toBeClosed || alwaysClose);
       results.toBeClosed.add(tagName);
       if (InlineElements.includes(tagName))
-        BlockElements.forEach((i: any) => results.toBeClosed.add(i));
+        BlockElements.forEach((i: any) => results.toBeClosed!.add(i));
     } else results.toBeClosed = info.toBeClosed;
     if (tagName !== "noscript") transformChildren(path, results, config);
     if (toBeClosed) results.template += `</${tagName}>`;
@@ -362,7 +363,7 @@ function detectResolvableEventHandler(attribute: any, handler: any) {
   return t.isFunction(handler);
 }
 
-function transformAttributes(path: any, results: any) {
+function transformAttributes(path: any, results: DOMTransformResult) {
   let elem = results.id,
     hasHydratableEvent = false,
     children,
@@ -963,7 +964,7 @@ function transformAttributes(path: any, results: any) {
               !hasStaticMarker(value, path)))
         ) {
           // own effect
-          let nextElem = elem;
+          let nextElem = elem as babelTypes.Expression;
           if (key === "textContent") {
             nextElem = attribute.scope.generateUidIdentifier("el$");
             children = t.jsxText(" ");
@@ -1037,7 +1038,7 @@ function findLastElement(children: any[], hydratable: any) {
   return lastElement;
 }
 
-function transformChildren(path: any, results: any, config: any) {
+function transformChildren(path: any, results: DOMTransformResult, config: any) {
   let tempPath = results.id && results.id.name,
     tagName = getTagName(path.node),
     nextPlaceholder: any,
@@ -1164,7 +1165,13 @@ function transformChildren(path: any, results: any, config: any) {
   results.postExprs.unshift(...childPostExprs);
 }
 
-function createPlaceholder(path: any, results: any, tempPath: any, i: any, char: any) {
+function createPlaceholder(
+  path: any,
+  results: DOMTransformResult,
+  tempPath: any,
+  i: any,
+  char: any
+) {
   const exprId = path.scope.generateUidIdentifier("el$"),
     config = getConfig(path);
   let contentId;
@@ -1246,7 +1253,7 @@ function detectExpressions(children: any[], index: number, config: any): any {
   }
 }
 
-function contextToCustomElement(path: any, results: any) {
+function contextToCustomElement(path: any, results: DOMTransformResult) {
   results.exprs.push(
     t.expressionStatement(
       t.assignmentExpression(

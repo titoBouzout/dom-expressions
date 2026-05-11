@@ -21,6 +21,7 @@ import {
 } from "../shared/utils";
 import { transformNode, getCreateTemplate } from "../shared/transform";
 import { createTemplate } from "./template";
+import type { SSRTransformResult } from "../types";
 
 function appendToTemplate(template: any, value: any) {
   let array;
@@ -166,7 +167,7 @@ export function transformElement(path: any, info: any) {
   }
 
   const voidTag = VoidElements.has(tagName),
-    results: any = {
+    results: SSRTransformResult = {
       template: [`<${tagName}`],
       templateValues: [],
       declarations: [],
