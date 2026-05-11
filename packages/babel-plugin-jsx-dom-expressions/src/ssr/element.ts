@@ -21,10 +21,22 @@ import {
 } from "../shared/utils";
 import { transformNode, getCreateTemplate } from "../shared/transform";
 import { createTemplate } from "./template";
-import type { SSRTransformResult } from "../types";
+import type { BabelPath, SSRTransformResult } from "../types";
 
-function appendToTemplate(template: any, value: any) {
-  let array;
+interface HoistOptions {
+  group?: boolean;
+  post?: boolean;
+  skipWrap?: boolean;
+}
+
+interface GroupRun {
+  start: number;
+  end: number;
+  ids: string[];
+}
+
+function appendToTemplate(template: string[], value: string | string[]) {
+  let array: string[] | undefined;
   if (Array.isArray(value)) {
     [value, ...array] = value;
   }
@@ -32,7 +44,12 @@ function appendToTemplate(template: any, value: any) {
   if (array && array.length) template.push.apply(template, array);
 }
 
-function hoistExpression(path: any, results: any, expr: any, { group, post, skipWrap }: any = {}) {
+function hoistExpression(
+  path: BabelPath,
+  results: SSRTransformResult,
+  expr: babelTypes.Expression,
+  { group, post }: HoistOptions = {}
+): babelTypes.Identifier {
   // Each dynamic gets a temp `_v$N` variable that's later assigned + passed
   // to `ssr(_tmpl, _v$N, …)`. The temp-var indirection is a V8 call-site
   // IC stability tactic: when `ssr()` always sees stable `Identifier`
@@ -59,17 +76,17 @@ function hoistExpression(path: any, results: any, expr: any, { group, post, skip
 // Coalesce contiguous runs of >=2 groupable templateValues entries into
 // `_$ssrGroup(() => [...bodies], N)`, repeated N times in the `ssr(...)`
 // arg list. Inserts/children break a run, so child isolation is preserved.
-function groupAttributeClosures(path: any, results: any) {
+function groupAttributeClosures(path: BabelPath, results: SSRTransformResult): void {
   const groupable = results.groupable;
   if (!groupable || groupable.size < 2) return;
-  const tv = results.templateValues;
+  const tv = results.templateValues as babelTypes.Expression[];
 
-  const runs: any[] = [];
+  const runs: GroupRun[] = [];
   let runStart = -1;
-  let runIds: any[] = [];
+  let runIds: string[] = [];
   for (let i = 0; i <= tv.length; i++) {
     const v = i < tv.length ? tv[i] : null;
-    if (v && t.isIdentifier(v) && groupable.has(v.name)) {
+    if (v && babelTypes.isIdentifier(v) && groupable.has(v.name)) {
       if (runStart === -1) {
         runStart = i;
         runIds = [];
@@ -88,22 +105,24 @@ function groupAttributeClosures(path: any, results: any) {
   const declMap = new Map<string, number>();
   for (let i = 0; i < results.declarations.length; i++) {
     const d = results.declarations[i];
-    if (d && t.isIdentifier(d.id)) declMap.set(d.id.name, i);
+    if (d && babelTypes.isIdentifier(d.id)) declMap.set(d.id.name, i);
   }
 
   // Reverse so `tv.splice` for earlier runs doesn't shift later indices.
   for (let r = runs.length - 1; r >= 0; r--) {
     const run = runs[r];
-    const bodies: any[] = [];
+    const bodies: babelTypes.Expression[] = [];
     let firstIdx = -1;
     for (let k = 0; k < run.ids.length; k++) {
       const di = declMap.get(run.ids[k])!;
-      const init = results.declarations[di].init;
+      const init = results.declarations[di]!.init as babelTypes.Expression;
       // Arrow w/ expression body → inline its body. Anything else
       // (bare identifier, `_$escape(/*@once*/ x)`, …) gets dropped in
       // as-is; the runtime's type dispatch handles both fn and value slots.
       bodies.push(
-        t.isArrowFunctionExpression(init) && !t.isBlockStatement(init.body) ? init.body : init
+        babelTypes.isArrowFunctionExpression(init) && !babelTypes.isBlockStatement(init.body)
+          ? (init.body as babelTypes.Expression)
+          : init
       );
       if (k === 0) firstIdx = di;
       else results.declarations[di] = null;
@@ -117,15 +136,20 @@ function groupAttributeClosures(path: any, results: any) {
     ]);
     results.declarations[firstIdx] = t.variableDeclarator(groupId, groupInit);
 
-    const replacements = new Array(run.ids.length);
+    const replacements: babelTypes.Identifier[] = new Array(run.ids.length);
     for (let k = 0; k < run.ids.length; k++) replacements[k] = t.cloneNode(groupId);
     tv.splice(run.start, run.end - run.start, ...replacements);
   }
 
-  results.declarations = results.declarations.filter((d: any) => d !== null);
+  results.declarations = results.declarations.filter(
+    (d): d is babelTypes.VariableDeclarator => d !== null
+  );
 }
 
-export function transformElement(path: any, info: any) {
+export function transformElement(
+  path: BabelPath<babelTypes.JSXElement> & { doNotEscape?: boolean },
+  info: any
+): any {
   const tagName = getTagName(path.node);
 
   path
@@ -175,7 +199,7 @@ export function transformElement(path: any, info: any) {
       exprs: [],
       dynamics: info.parentResults?.dynamics || [],
       tagName,
-      wontEscape: path.node.wontEscape,
+      wontEscape: (path.node as babelTypes.JSXElement & { wontEscape?: boolean }).wontEscape,
       renderer: "ssr",
       groupId: info.parentResults?.groupId
     };
@@ -332,35 +356,38 @@ function escapeExpression(path: any, expression: any, attr?: any, escapeLiterals
 //   B. `<><native /></>` — a single native (non-component) JSXElement.
 //      `createTemplate` emits `_$ssr(_tmpl$N, …)`, which returns an
 //      SSRNode object; `escape(object)` is a pass-through.
-function fragmentWillSelfEscape(fragment: any) {
-  let only = null;
+function fragmentWillSelfEscape(fragment: babelTypes.JSXFragment): boolean {
+  let only: babelTypes.JSXElement | babelTypes.JSXExpressionContainer | null = null;
   for (const c of fragment.children) {
     if (t.isJSXText(c)) {
-      if (trimWhitespace(c.extra.raw).length === 0) continue;
+      if (trimWhitespace((c.extra?.raw as string | undefined) ?? "").length === 0) continue;
       return false;
     }
-    if (t.isJSXExpressionContainer(c) && t.isJSXEmptyExpression(c.expression)) continue;
+    if (babelTypes.isJSXExpressionContainer(c) && babelTypes.isJSXEmptyExpression(c.expression))
+      continue;
     if (only !== null) return false;
-    only = c;
+    if (babelTypes.isJSXElement(c) || babelTypes.isJSXExpressionContainer(c)) only = c;
+    else return false;
   }
   if (!only) return false;
-  if (t.isJSXExpressionContainer(only)) {
+  if (babelTypes.isJSXExpressionContainer(only)) {
     const expr = only.expression;
+    if (babelTypes.isJSXEmptyExpression(expr)) return false;
     return (
       t.isCallExpression(expr) ||
       t.isOptionalCallExpression(expr) ||
       t.isTaggedTemplateExpression(expr) ||
       t.isMemberExpression(expr) ||
       t.isOptionalMemberExpression(expr) ||
-      (t.isBinaryExpression(expr) && expr.operator === "in")
+      (babelTypes.isBinaryExpression(expr) && expr.operator === "in")
     );
   }
-  if (t.isJSXElement(only)) return !isComponent(getTagName(only));
+  if (babelTypes.isJSXElement(only)) return !isComponent(getTagName(only));
   return false;
 }
 
-function transformToObject(attrName: any, attributes: any[], selectedAttributes: any[]) {
-  const properties = [];
+function transformToObject(attrName: string, attributes: any[], selectedAttributes: any[]) {
+  const properties: babelTypes.ObjectProperty[] = [];
   const existingAttribute = attributes.find((a: any) => a.node.name.name === attrName);
   for (let i = 0; i < selectedAttributes.length; i++) {
     const attr = selectedAttributes[i].node;
@@ -614,7 +641,12 @@ function transformAttributes(path: any, results: any, info: any) {
   }
 }
 
-function transformClasslistObject(path: any, expr: any, values: any[], quasis: any[]) {
+function transformClasslistObject(
+  path: BabelPath,
+  expr: babelTypes.ObjectExpression,
+  values: babelTypes.Expression[],
+  quasis: babelTypes.TemplateElement[]
+) {
   expr.properties.forEach((prop: any, i: any) => {
     const isLast = expr.properties.length - 1 === i;
     let key = prop.key;
