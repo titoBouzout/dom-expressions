@@ -20,35 +20,35 @@ _$setProp(_el$8, "id", "entry");
 _$setProp(_el$8, "type", "text");
 const template = _el$;
 var _el$9 = _$createElement("div"),
-  _el$10 = _$createElement("span"),
-  _el$11 = _$createElement("a"),
-  _el$12 = _$createElement("span");
+  _el$0 = _$createElement("span"),
+  _el$1 = _$createElement("a"),
+  _el$10 = _$createElement("span");
+_$insertNode(_el$9, _el$0);
 _$insertNode(_el$9, _el$10);
-_$insertNode(_el$9, _el$12);
-_$insertNode(_el$10, _el$11);
+_$insertNode(_el$0, _el$1);
 const template2 = _el$9;
-var _el$13 = _$createElement("div"),
-  _el$14 = _$createElement("div"),
-  _el$15 = _$createElement("table"),
-  _el$16 = _$createElement("tbody"),
-  _el$17 = _$createElement("div");
+var _el$11 = _$createElement("div"),
+  _el$12 = _$createElement("div"),
+  _el$13 = _$createElement("table"),
+  _el$14 = _$createElement("tbody"),
+  _el$15 = _$createElement("div");
+_$insertNode(_el$11, _el$12);
+_$insertNode(_el$11, _el$15);
+_$insertNode(_el$12, _el$13);
 _$insertNode(_el$13, _el$14);
-_$insertNode(_el$13, _el$17);
-_$insertNode(_el$14, _el$15);
-_$insertNode(_el$15, _el$16);
-const template3 = _el$13;
-var _el$18 = _$createElement("div"),
+const template3 = _el$11;
+var _el$16 = _$createElement("div"),
+  _el$17 = _$createElement("div"),
+  _el$18 = _$createElement("footer"),
   _el$19 = _$createElement("div"),
-  _el$20 = _$createElement("footer"),
-  _el$21 = _$createElement("div"),
-  _el$22 = _$createElement("div"),
-  _el$23 = _$createElement("button"),
-  _el$24 = _$createElement("span");
+  _el$20 = _$createElement("div"),
+  _el$21 = _$createElement("button"),
+  _el$22 = _$createElement("span");
+_$insertNode(_el$16, _el$17);
+_$insertNode(_el$16, _el$20);
+_$insertNode(_el$17, _el$18);
 _$insertNode(_el$18, _el$19);
-_$insertNode(_el$18, _el$22);
-_$insertNode(_el$19, _el$20);
 _$insertNode(_el$20, _el$21);
-_$insertNode(_el$22, _el$23);
-_$insertNode(_el$23, _el$24);
-_$insertNode(_el$24, _$createTextNode(`0`));
-const template4 = _el$18;
+_$insertNode(_el$21, _el$22);
+_$insertNode(_el$22, _$createTextNode(`0`));
+const template4 = _el$16;

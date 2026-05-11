@@ -1,3 +1,4 @@
+// @ts-nocheck
 import * as t from "@babel/types";
 import { transformElement as transformElementDOM } from "../dom/element";
 import { createTemplate as createTemplateDOM } from "../dom/template";

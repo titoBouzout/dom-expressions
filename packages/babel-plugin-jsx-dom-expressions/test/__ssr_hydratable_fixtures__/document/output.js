@@ -30,5 +30,5 @@ var _v$6 = _$ssrHydrationKey(),
 const templateBody = _$ssr(_tmpl$3, _v$6, _v$7);
 var _v$8 = _$ssrHydrationKey(),
   _v$9 = _$escape(Head({})),
-  _v$10 = _$escape(Body({}));
-const templateEmptied = _$ssr(_tmpl$4, _v$8, _v$9, _v$10);
+  _v$0 = _$escape(Body({}));
+const templateEmptied = _$ssr(_tmpl$4, _v$8, _v$9, _v$0);

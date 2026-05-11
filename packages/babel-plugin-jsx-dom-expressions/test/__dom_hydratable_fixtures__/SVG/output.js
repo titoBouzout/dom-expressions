@@ -52,10 +52,10 @@ const template6 = _$createComponent(Component, {
   }
 });
 var _el$9 = _$getNextElement(_tmpl$5),
-  _el$10 = _el$9.firstChild;
-_$setAttributeNS(_el$10, "http://www.w3.org/1999/xlink", "xlink:href", url);
+  _el$0 = _el$9.firstChild;
+_$setAttributeNS(_el$0, "http://www.w3.org/1999/xlink", "xlink:href", url);
 const template7 = _el$9;
-var _el$11 = _$getNextElement(_tmpl$6),
-  _el$12 = _el$11.firstChild;
-_$setProperty(_el$12, "textContent", text);
-const template8 = _el$11;
+var _el$1 = _$getNextElement(_tmpl$6),
+  _el$10 = _el$1.firstChild;
+_$setProperty(_el$10, "textContent", text);
+const template8 = _el$1;

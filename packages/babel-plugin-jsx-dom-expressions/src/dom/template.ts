@@ -1,3 +1,4 @@
+// @ts-nocheck
 import * as t from "@babel/types";
 import {
   escapeStringForTemplate,

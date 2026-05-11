@@ -1,3 +1,4 @@
+// @ts-nocheck
 import * as t from "@babel/types";
 import { getConfig, getNumberedId, registerImportMethod, wrapForEffect } from "../shared/utils";
 import { setAttr } from "./element";

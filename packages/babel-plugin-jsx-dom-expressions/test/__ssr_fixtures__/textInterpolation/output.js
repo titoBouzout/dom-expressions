@@ -9,17 +9,17 @@ var _tmpl$ = "<span>Hello </span>",
   _tmpl$7 = ["<span> ", " ", " </span>"],
   _tmpl$8 = ["<span> ", "", " </span>"],
   _tmpl$9 = "<span>Hello</span>",
-  _tmpl$10 = "<span>&nbsp;&lt;Hi&gt;&nbsp;</span>",
-  _tmpl$11 = "<span>Hi&lt;script>alert();&lt;/script></span>",
-  _tmpl$12 = "<span>Hello World!</span>",
-  _tmpl$13 = "<span>4 + 5 = 9</span>",
-  _tmpl$14 = ["<div>", "\nd</div>"],
-  _tmpl$15 = ["<div>", "</div>"],
-  _tmpl$16 = ["<span> ", "</span>"],
-  _tmpl$17 = ["<span>", " </span>"],
-  _tmpl$18 = '<div normal="Search\u2026" title="Search&amp;hellip;"></div>',
-  _tmpl$19 = ["<div><div></div>", "</div>"],
-  _tmpl$20 = "<p>${blah}</p>";
+  _tmpl$0 = "<span>&nbsp;&lt;Hi&gt;&nbsp;</span>",
+  _tmpl$1 = "<span>Hi&lt;script>alert();&lt;/script></span>",
+  _tmpl$10 = "<span>Hello World!</span>",
+  _tmpl$11 = "<span>4 + 5 = 9</span>",
+  _tmpl$12 = ["<div>", "\nd</div>"],
+  _tmpl$13 = ["<div>", "</div>"],
+  _tmpl$14 = ["<span> ", "</span>"],
+  _tmpl$15 = ["<span>", " </span>"],
+  _tmpl$16 = '<div normal="Search\u2026" title="Search&amp;hellip;"></div>',
+  _tmpl$17 = ["<div><div></div>", "</div>"],
+  _tmpl$18 = "<p>${blah}</p>";
 const trailing = _$ssr(_tmpl$);
 const leading = _$ssr(_tmpl$2);
 
@@ -55,7 +55,7 @@ const multiLineTrailingSpace = _$ssr(_tmpl$3);
 const multiLineNoTrailingSpace = _$ssr(_tmpl$3);
 
 /* prettier-ignore */
-const escape = _$ssr(_tmpl$10);
+const escape = _$ssr(_tmpl$0);
 
 /* prettier-ignore */
 const escape2 = Comp({
@@ -64,40 +64,40 @@ const escape2 = Comp({
 
 /* prettier-ignore */
 const escape3 = "\xA0<Hi>\xA0";
-const injection = _$ssr(_tmpl$11);
+const injection = _$ssr(_tmpl$1);
 let value = "World";
-const evaluated = _$ssr(_tmpl$12);
+const evaluated = _$ssr(_tmpl$10);
 let number = 4 + 5;
-const evaluatedNonString = _$ssr(_tmpl$13);
+const evaluatedNonString = _$ssr(_tmpl$11);
 var _v$9 = _$escape(s);
-const newLineLiteral = _$ssr(_tmpl$14, _v$9);
-var _v$10 = _$escape(expr);
-const trailingSpace = _$ssr(_tmpl$15, _v$10);
+const newLineLiteral = _$ssr(_tmpl$12, _v$9);
+var _v$0 = _$escape(expr);
+const trailingSpace = _$ssr(_tmpl$13, _v$0);
 const trailingSpaceComp = Comp({
   children: expr
 });
 const trailingSpaceFrag = expr;
-var _v$11 = _$escape(expr);
-const leadingSpaceElement = _$ssr(_tmpl$16, _v$11);
+var _v$1 = _$escape(expr);
+const leadingSpaceElement = _$ssr(_tmpl$14, _v$1);
 const leadingSpaceComponent = Div({
   get children() {
     return [" ", expr];
   }
 });
 const leadingSpaceFragment = [" ", expr];
-var _v$12 = _$escape(expr);
-const trailingSpaceElement = _$ssr(_tmpl$17, _v$12);
+var _v$10 = _$escape(expr);
+const trailingSpaceElement = _$ssr(_tmpl$15, _v$10);
 const trailingSpaceComponent = Div({
   get children() {
     return [expr, " "];
   }
 });
 const trailingSpaceFragment = [expr, " "];
-const escapeAttribute = _$ssr(_tmpl$18);
+const escapeAttribute = _$ssr(_tmpl$16);
 const escapeCompAttribute = Div({
   normal: "Search\u2026",
   title: "Search&hellip;"
 });
-var _v$13 = () => _$escape(expr());
-const lastElementExpression = _$ssr(_tmpl$19, _v$13);
-const messwithTemplates = _$ssr(_tmpl$20);
+var _v$11 = () => _$escape(expr());
+const lastElementExpression = _$ssr(_tmpl$17, _v$11);
+const messwithTemplates = _$ssr(_tmpl$18);

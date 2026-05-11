@@ -14,6 +14,7 @@
   "sideEffects": false,
   "scripts": {
     "build": "rollup -c --bundleConfigAsCjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "pnpm run build && jest --no-cache",
     "test:coverage": "pnpm run build && jest --coverage --no-cache",
     "prepublishOnly": "pnpm run build",
@@ -31,9 +32,10 @@
     "@babel/core": "^7.20.12"
   },
   "devDependencies": {
-    "@babel/core": "^7.20.12",
-    "@rollup/plugin-babel": "6.0.3",
-    "@types/babel__core": "^7.20.5"
+    "@babel/core": "^7.29.0",
+    "@rollup/plugin-babel": "7.0.0",
+    "@types/babel__core": "^7.20.5",
+    "@types/babel__traverse": "^7.28.0"
   },
   "gitHead": "eb463c653325e24824422cff6bfed0d35113ef33"
 }

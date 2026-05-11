@@ -4,8 +4,12 @@
     "emitDeclarationOnly": true,
     "declaration": true,
     "target": "esnext",
-    "moduleResolution": "node",
+    "module": "esnext",
+    "moduleResolution": "bundler",
     "allowJs": true,
+    "checkJs": false,
+    "skipLibCheck": true,
+    "allowSyntheticDefaultImports": true,
     "strict": true,
     "paths": {
       "dom-expressions/*": ["../dom-expressions/*"]

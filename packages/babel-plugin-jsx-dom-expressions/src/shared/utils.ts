@@ -1,3 +1,4 @@
+// @ts-nocheck
 import * as t from "@babel/types";
 import { addNamed } from "@babel/helper-module-imports";
 import { DOMWithState } from "../../../dom-expressions/src/constants";

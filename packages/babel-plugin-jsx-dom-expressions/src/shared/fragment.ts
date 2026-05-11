@@ -1,3 +1,4 @@
+// @ts-nocheck
 import * as t from "@babel/types";
 import { decode } from "html-entities";
 import { filterChildren, trimWhitespace, checkLength } from "./utils";

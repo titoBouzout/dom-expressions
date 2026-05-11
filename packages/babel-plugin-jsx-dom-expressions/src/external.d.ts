@@ -7,3 +7,9 @@ declare module "@babel/plugin-syntax-jsx" {
   };
   export default module;
 }
+
+declare module "@babel/core" {
+  interface BabelFileMetadata {
+    config?: import("./config").JSXDOMExpressionsConfig;
+  }
+}

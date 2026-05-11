@@ -10,13 +10,13 @@ var _tmpl$ = /*#__PURE__*/ _$template(`<span>Hello `),
   _tmpl$7 = /*#__PURE__*/ _$template(`<span>Hello`),
   _tmpl$8 = /*#__PURE__*/ _$template(`<span>&nbsp;&lt;Hi&gt;&nbsp;`),
   _tmpl$9 = /*#__PURE__*/ _$template(`<span>Hi&lt;script>alert();&lt;/script>`),
-  _tmpl$10 = /*#__PURE__*/ _$template(`<span>Hello World!`),
-  _tmpl$11 = /*#__PURE__*/ _$template(`<span>4 + 5 = 9`),
-  _tmpl$12 = /*#__PURE__*/ _$template(`<div>\nd`),
-  _tmpl$13 = /*#__PURE__*/ _$template(`<div>`),
-  _tmpl$14 = /*#__PURE__*/ _$template(`<div normal=Search… title=Search&amp;hellip;>`),
-  _tmpl$15 = /*#__PURE__*/ _$template(`<div><div>`),
-  _tmpl$16 = /*#__PURE__*/ _$template(`<p>$\{blah}`);
+  _tmpl$0 = /*#__PURE__*/ _$template(`<span>Hello World!`),
+  _tmpl$1 = /*#__PURE__*/ _$template(`<span>4 + 5 = 9`),
+  _tmpl$10 = /*#__PURE__*/ _$template(`<div>\nd`),
+  _tmpl$11 = /*#__PURE__*/ _$template(`<div>`),
+  _tmpl$12 = /*#__PURE__*/ _$template(`<div normal=Search… title=Search&amp;hellip;>`),
+  _tmpl$13 = /*#__PURE__*/ _$template(`<div><div>`),
+  _tmpl$14 = /*#__PURE__*/ _$template(`<p>$\{blah}`);
 const trailing = _tmpl$();
 const leading = _tmpl$2();
 
@@ -39,24 +39,24 @@ _$insert(_el$8, name, null);
 const multiExpr = _el$8;
 
 /* prettier-ignore */
-var _el$10 = _tmpl$5(),
-  _el$11 = _el$10.firstChild,
-  _el$14 = _el$11.nextSibling,
-  _el$12 = _el$14.nextSibling,
-  _el$15 = _el$12.nextSibling,
-  _el$13 = _el$15.nextSibling;
-_$insert(_el$10, greeting, _el$14);
-_$insert(_el$10, name, _el$15);
-const multiExprSpaced = _el$10;
+var _el$0 = _tmpl$5(),
+  _el$1 = _el$0.firstChild,
+  _el$12 = _el$1.nextSibling,
+  _el$10 = _el$12.nextSibling,
+  _el$13 = _el$10.nextSibling,
+  _el$11 = _el$13.nextSibling;
+_$insert(_el$0, greeting, _el$12);
+_$insert(_el$0, name, _el$13);
+const multiExprSpaced = _el$0;
 
 /* prettier-ignore */
-var _el$16 = _tmpl$6(),
-  _el$17 = _el$16.firstChild,
-  _el$19 = _el$17.nextSibling,
-  _el$18 = _el$19.nextSibling;
-_$insert(_el$16, greeting, _el$19);
-_$insert(_el$16, name, _el$19);
-const multiExprTogether = _el$16;
+var _el$14 = _tmpl$6(),
+  _el$15 = _el$14.firstChild,
+  _el$17 = _el$15.nextSibling,
+  _el$16 = _el$17.nextSibling;
+_$insert(_el$14, greeting, _el$17);
+_$insert(_el$14, name, _el$17);
+const multiExprTogether = _el$14;
 
 /* prettier-ignore */
 const multiLine = _tmpl$7();
@@ -79,47 +79,47 @@ const escape2 = _$createComponent(Comp, {
 const escape3 = "\xA0<Hi>\xA0";
 const injection = _tmpl$9();
 let value = "World";
-const evaluated = _tmpl$10();
+const evaluated = _tmpl$0();
 let number = 4 + 5;
-const evaluatedNonString = _tmpl$11();
-var _el$27 = _tmpl$12(),
-  _el$28 = _el$27.firstChild;
-_$insert(_el$27, s, _el$28);
-const newLineLiteral = _el$27;
-var _el$29 = _tmpl$13();
-_$insert(_el$29, expr);
-const trailingSpace = _el$29;
+const evaluatedNonString = _tmpl$1();
+var _el$25 = _tmpl$10(),
+  _el$26 = _el$25.firstChild;
+_$insert(_el$25, s, _el$26);
+const newLineLiteral = _el$25;
+var _el$27 = _tmpl$11();
+_$insert(_el$27, expr);
+const trailingSpace = _el$27;
 const trailingSpaceComp = _$createComponent(Comp, {
   children: expr
 });
 const trailingSpaceFrag = expr;
-var _el$30 = _tmpl$4(),
-  _el$31 = _el$30.firstChild;
-_$insert(_el$30, expr, null);
-const leadingSpaceElement = _el$30;
+var _el$28 = _tmpl$4(),
+  _el$29 = _el$28.firstChild;
+_$insert(_el$28, expr, null);
+const leadingSpaceElement = _el$28;
 const leadingSpaceComponent = _$createComponent(Div, {
   get children() {
     return [" ", expr];
   }
 });
 const leadingSpaceFragment = [" ", expr];
-var _el$32 = _tmpl$4(),
-  _el$33 = _el$32.firstChild;
-_$insert(_el$32, expr, _el$33);
-const trailingSpaceElement = _el$32;
+var _el$30 = _tmpl$4(),
+  _el$31 = _el$30.firstChild;
+_$insert(_el$30, expr, _el$31);
+const trailingSpaceElement = _el$30;
 const trailingSpaceComponent = _$createComponent(Div, {
   get children() {
     return [expr, " "];
   }
 });
 const trailingSpaceFragment = [expr, " "];
-const escapeAttribute = _tmpl$14();
+const escapeAttribute = _tmpl$12();
 const escapeCompAttribute = _$createComponent(Div, {
   normal: "Search\u2026",
   title: "Search&hellip;"
 });
-var _el$35 = _tmpl$15(),
-  _el$36 = _el$35.firstChild;
-_$insert(_el$35, expr, null);
-const lastElementExpression = _el$35;
-const messwithTemplates = _tmpl$16();
+var _el$33 = _tmpl$13(),
+  _el$34 = _el$33.firstChild;
+_$insert(_el$33, expr, null);
+const lastElementExpression = _el$33;
+const messwithTemplates = _tmpl$14();

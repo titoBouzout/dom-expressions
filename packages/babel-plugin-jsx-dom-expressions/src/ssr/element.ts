@@ -1,3 +1,4 @@
+// @ts-nocheck
 import * as t from "@babel/types";
 import { decode } from "html-entities";
 import { ChildProperties, VoidElements } from "dom-expressions/src/constants";

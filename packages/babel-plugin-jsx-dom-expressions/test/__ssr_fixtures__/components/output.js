@@ -14,8 +14,8 @@ var _tmpl$ = ["<div>Hello ", "</div>"],
   _tmpl$7 = ["<div>", " | ", "", " | ", "", " | ", "</div>"],
   _tmpl$8 = ["<div> | ", " |  |  | ", " | </div>"],
   _tmpl$9 = "<span>1</span>",
-  _tmpl$10 = "<span>2</span>",
-  _tmpl$11 = "<span>3</span>";
+  _tmpl$0 = "<span>2</span>",
+  _tmpl$1 = "<span>3</span>";
 import { Show, binding } from "somewhere";
 function refFn() {}
 const refConst = null;
@@ -164,64 +164,64 @@ var _v$7 = _$escape(
       children: "show"
     })
   ),
-  _v$10 = _$escape(
+  _v$0 = _$escape(
     Link({
       children: "ask"
     })
   ),
-  _v$11 = _$escape(
+  _v$1 = _$escape(
     Link({
       children: "jobs"
     })
   ),
-  _v$12 = _$escape(
+  _v$10 = _$escape(
     Link({
       children: "submit"
     })
   );
-const template10 = _$ssr(_tmpl$6, _v$7, _v$8, _v$9, _v$10, _v$11, _v$12);
-var _v$13 = _$escape(
+const template10 = _$ssr(_tmpl$6, _v$7, _v$8, _v$9, _v$0, _v$1, _v$10);
+var _v$11 = _$escape(
     Link({
       children: "new"
     })
   ),
-  _v$14 = _$escape(
+  _v$12 = _$escape(
     Link({
       children: "comments"
     })
   ),
-  _v$15 = _$escape(
+  _v$13 = _$escape(
     Link({
       children: "show"
     })
   ),
-  _v$16 = _$escape(
+  _v$14 = _$escape(
     Link({
       children: "ask"
     })
   ),
-  _v$17 = _$escape(
+  _v$15 = _$escape(
     Link({
       children: "jobs"
     })
   ),
-  _v$18 = _$escape(
+  _v$16 = _$escape(
     Link({
       children: "submit"
     })
   );
-const template11 = _$ssr(_tmpl$7, _v$13, _v$14, _v$15, _v$16, _v$17, _v$18);
-var _v$19 = _$escape(
+const template11 = _$ssr(_tmpl$7, _v$11, _v$12, _v$13, _v$14, _v$15, _v$16);
+var _v$17 = _$escape(
     Link({
       children: "comments"
     })
   ),
-  _v$20 = _$escape(
+  _v$18 = _$escape(
     Link({
       children: "show"
     })
   );
-const template12 = _$ssr(_tmpl$8, _v$19, _v$20);
+const template12 = _$ssr(_tmpl$8, _v$17, _v$18);
 class Template13 {
   render() {
     const _self$ = this;
@@ -259,12 +259,12 @@ const Template16 = Component(
 );
 const Template17 = Pre({
   get children() {
-    return [_$ssr(_tmpl$9), " ", _$ssr(_tmpl$10), " ", _$ssr(_tmpl$11)];
+    return [_$ssr(_tmpl$9), " ", _$ssr(_tmpl$0), " ", _$ssr(_tmpl$1)];
   }
 });
 const Template18 = Pre({
   get children() {
-    return [_$ssr(_tmpl$9), _$ssr(_tmpl$10), _$ssr(_tmpl$11)];
+    return [_$ssr(_tmpl$9), _$ssr(_tmpl$0), _$ssr(_tmpl$1)];
   }
 });
 const Template19 = Component(_$mergeProps(() => s.dynamic()));
