@@ -93,6 +93,8 @@ const STATE_TEXT = 0;
 const STATE_TAG = 1;
 const STATE_RAW_TEXT = 2;
 const STATE_COMMENT = 3;
+const STATE_LINE_COMMENT = 4
+const STATE_BLOCK_COMMENT = 5
 
 export const tokenize = (
   strings: TemplateStringsArray | string[],
@@ -159,8 +161,15 @@ export const tokenize = (
             cursor++;
           } else if (code === 47) {
             // "/"
-            tokens.push({ type: SLASH_TOKEN });
-            cursor++;
+            const next = str.charCodeAt(cursor + 1)
+            if (next === 47 && tokens[tokens.length - 1].type !== OPEN_TAG_TOKEN) {
+              state = STATE_LINE_COMMENT
+            } else if (next === 42) {
+              state = STATE_BLOCK_COMMENT
+            } else {
+              tokens.push({ type: SLASH_TOKEN });
+              cursor++;
+            }
           } else if (code === 34 || code === 39) {
             const char = str[cursor] as "'" | '"';
             const endQuoteIndex = str.indexOf(char, cursor + 1);
@@ -214,26 +223,30 @@ export const tokenize = (
           }
           break;
         }
-        case STATE_COMMENT: {
-          // LOOK FOR END OF COMMENT: - - >
-          const endComment = str.indexOf("-->", cursor);
+        case STATE_COMMENT:
+        case STATE_LINE_COMMENT:
+        case STATE_BLOCK_COMMENT:
+          {
+            const commentEnd = state ===STATE_LINE_COMMENT ? "\n" : state === STATE_BLOCK_COMMENT ? "*/" : "-->"
+            // LOOK FOR END OF COMMENT: - - >
+            const commentEndIndex = str.indexOf(commentEnd, cursor);
 
-          if (endComment === -1) {
-            // If we don't find the closer in this string chunk,
-            // we consume the rest of the string and stay in STATE_COMMENT
-            cursor = len;
-          } else {
-            // Found it! Return to normal text parsing
-            state = STATE_TEXT;
-            cursor = endComment + 3;
+            if (commentEndIndex === -1) {
+              // If we don't find the closer in this string chunk,
+              // we consume the rest of the string and stay in STATE_COMMENT
+              cursor = len;
+            } else {
+              // Found it! Return to normal text parsing
+              state = state === STATE_COMMENT ? STATE_TEXT : STATE_TAG;
+              cursor = commentEndIndex + commentEnd.length;
+            }
+            break;
           }
-          break;
-        }
       }
     }
 
     if (i < strings.length - 1) {
-      if (state !== STATE_COMMENT) {
+      if (state === STATE_TEXT || state === STATE_TAG || state === STATE_RAW_TEXT) {
         tokens.push({ type: EXPRESSION_TOKEN, value: i });
       }
     }

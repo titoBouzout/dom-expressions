@@ -949,4 +949,36 @@ describe("comments handling", () => {
     const tokens = tokenizeTemplate`<!-- Comment with ${value} inside -->`;
     expect(tokens).toEqual([]);
   });
+
+
+  it("should handle line // comments", () => {
+    const tokens = tokenizeTemplate`<button
+      disabled//comment
+      //handle with expression=${1}
+      class="btn"
+    />`;
+    console.log(tokens)
+    expect(tokens).toBeDefined();
+    expect(tokens.length).toBe(8);
+    expect(tokens[2].value).toBe("disabled")
+    expect(tokens[3].value).toBe("class")
+  });
+
+  it("Should not handle <//> shorthand closing", () => {
+    const tokens = tokenizeTemplate`<${0}>Text<//>`
+    expect(tokens.length).toEqual(8);
+  });
+
+  it("should handle block comments", () => {
+    const tokens = tokenizeTemplate`<button
+      disabled /*comment
+      //handle with expression=${1}
+      */class="btn"
+    />`;
+    console.log(tokens)
+    expect(tokens).toBeDefined();
+    expect(tokens.length).toBe(8);
+    expect(tokens[2].value).toBe("disabled")
+    expect(tokens[3].value).toBe("class")
+  });
 });
