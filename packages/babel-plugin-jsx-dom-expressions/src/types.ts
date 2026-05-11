@@ -61,6 +61,16 @@ export interface DynamicOptions {
   checkMember?: boolean;
   checkTags?: boolean;
   checkCallExpressions?: boolean;
+  native?: boolean;
+}
+
+export interface TransformInfo {
+  topLevel?: boolean;
+  lastElement?: boolean;
+  fragmentChild?: boolean;
+  componentChild?: boolean;
+  doNotEscape?: boolean;
+  skipId?: boolean;
 }
 
 export type BabelPath<TNode extends t.Node = t.Node> = NodePath<TNode>;

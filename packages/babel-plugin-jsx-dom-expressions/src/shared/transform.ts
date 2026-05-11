@@ -1,4 +1,3 @@
-// @ts-nocheck
 import * as t from "@babel/types";
 import { transformElement as transformElementDOM } from "../dom/element";
 import { createTemplate as createTemplateDOM } from "../dom/template";
@@ -20,8 +19,14 @@ import {
 import { DOMWithState } from "dom-expressions/src/constants";
 import transformComponent from "./component";
 import transformFragmentChildren from "./fragment";
+import type { NodePath } from "@babel/traverse";
+import type { JSXDOMExpressionsConfig } from "../config";
+import type { JSXDOMExpressionsPass, TransformInfo, TransformResult } from "../types";
 
-export function transformJSX(path, state) {
+export function transformJSX(
+  path: NodePath<t.JSXElement | t.JSXFragment>,
+  state: JSXDOMExpressionsPass
+) {
   if (state.skip) return;
 
   const config = getConfig(path);
@@ -34,7 +39,7 @@ export function transformJSX(path, state) {
   // Decide per-element which renderer it will go to (mirrors transformElement),
   // so dynamic mode (generate: "dynamic" + renderers: [{ name: "dom", ... }])
   // is handled correctly.
-  const visit = p => {
+  const visit = (p: any) => {
     const tagName = getTagName(p.node);
     if (isComponent(tagName)) return;
     if (!DOMWithState[tagName.toUpperCase()]) return;
@@ -57,12 +62,13 @@ export function transformJSX(path, state) {
         }
   );
 
-  const template = getCreateTemplate(config, path, result);
+  if (!result) return;
+  const template = getCreateTemplate(config, path, result as TransformResult);
 
-  path.replaceWith(replace(template(path, result, false)));
+  path.replaceWith(replace(template(path, result as TransformResult, false)));
 
   path.traverse({
-    enter(path) {
+    enter(path: any) {
       if (
         path.node.leadingComments &&
         path.node.leadingComments[0] &&
@@ -74,7 +80,7 @@ export function transformJSX(path, state) {
   });
 }
 
-function getTargetFunctionParent(path, parent) {
+function getTargetFunctionParent(path: any, parent: any): any {
   let current = path.scope.getFunctionParent();
   while (current !== parent && current.path.isArrowFunctionExpression()) {
     current = current.path.parentPath.scope.getFunctionParent();
@@ -82,18 +88,18 @@ function getTargetFunctionParent(path, parent) {
   return current;
 }
 
-export function transformThis(path) {
+export function transformThis(path: NodePath): (node: t.Expression) => t.Expression {
   const parent = path.scope.getFunctionParent();
-  let thisId, inserted;
+  let thisId: t.Identifier | undefined, inserted: boolean | undefined;
   path.traverse({
-    ThisExpression(path) {
+    ThisExpression(path: any) {
       const current = getTargetFunctionParent(path, parent);
       if (current === parent) {
         thisId || (thisId = path.scope.generateUidIdentifier("self$"));
         path.replaceWith(thisId);
       }
     },
-    JSXElement(path) {
+    JSXElement(path: any) {
       let source = path.get("openingElement").get("name");
       while (source.isJSXMemberExpression()) {
         source = source.get("object");
@@ -102,7 +108,7 @@ export function transformThis(path) {
         const current = getTargetFunctionParent(path, parent);
         if (current === parent) {
           thisId || (thisId = path.scope.generateUidIdentifier("self$"));
-          source.replaceWith(t.jsxIdentifier(thisId.name));
+          source.replaceWith(t.jsxIdentifier(thisId!.name));
 
           if (path.node.closingElement) {
             path.node.closingElement.name = path.node.openingElement.name;
@@ -114,12 +120,12 @@ export function transformThis(path) {
   if (thisId && parent && parent.block.type === "ClassMethod") {
     path
       .getStatementParent()
-      .insertBefore(
+      ?.insertBefore(
         t.variableDeclaration("const", [t.variableDeclarator(thisId, t.thisExpression())])
       );
     inserted = true;
   }
-  return node => {
+  return (node: t.Expression) => {
     if (thisId && !inserted) {
       if (!parent || parent.block.type === "ClassMethod") {
         const decl = t.variableDeclaration("const", [
@@ -127,7 +133,7 @@ export function transformThis(path) {
         ]);
         if (parent) {
           const stmt = path.getStatementParent();
-          stmt.insertBefore(decl);
+          stmt?.insertBefore(decl);
         } else {
           return t.callExpression(
             t.arrowFunctionExpression([], t.blockStatement([decl, t.returnStatement(node)])),
@@ -146,7 +152,7 @@ export function transformThis(path) {
   };
 }
 
-export function transformNode(path, info = {}) {
+export function transformNode(path: any, info: TransformInfo = {}): any {
   const config = getConfig(path);
   const node = path.node;
   let staticValue;
@@ -163,8 +169,8 @@ export function transformNode(path, info = {}) {
         ? info.doNotEscape
           ? staticValue.toString()
           : escapeHTML(staticValue.toString())
-        : trimWhitespace(node.extra.raw);
-    if (!text.length) return null;
+        : trimWhitespace(node.extra?.raw ?? "");
+    if (!(text as string).length) return null;
     const results = {
       template: text,
       declarations: [],
@@ -174,7 +180,7 @@ export function transformNode(path, info = {}) {
       text: true
     };
     if (!info.skipId && config.generate !== "ssr")
-      results.id = path.scope.generateUidIdentifier("el$");
+      (results as TransformResult).id = path.scope.generateUidIdentifier("el$");
     return results;
   } else if (t.isJSXExpressionContainer(node)) {
     if (t.isJSXEmptyExpression(node.expression)) return null;
@@ -232,7 +238,11 @@ export function transformNode(path, info = {}) {
   }
 }
 
-export function getCreateTemplate(config, path, result) {
+export function getCreateTemplate(
+  config: JSXDOMExpressionsConfig,
+  path: NodePath,
+  result: TransformResult
+) {
   if ((result.tagName && result.renderer === "dom") || config.generate === "dom") {
     return createTemplateDOM;
   }
@@ -244,7 +254,11 @@ export function getCreateTemplate(config, path, result) {
   return createTemplateUniversal;
 }
 
-export function transformElement(config, path, info = {}) {
+export function transformElement(
+  config: JSXDOMExpressionsConfig,
+  path: any,
+  info: TransformInfo = {}
+) {
   const node = path.node;
   let tagName = getTagName(node);
   // <Component ...></Component>
@@ -253,7 +267,7 @@ export function transformElement(config, path, info = {}) {
   // <div ...></div>
   // const element = getTransformElemet(config, path, tagName);
 
-  const tagRenderer = (config.renderers ?? []).find(renderer =>
+  const tagRenderer = (config.renderers ?? []).find((renderer: any) =>
     renderer.elements.includes(tagName)
   );
 
