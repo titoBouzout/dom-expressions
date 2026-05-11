@@ -2,4 +2,4 @@
 "sld-dom-expressions": patch
 ---
 
-// and /* comments in tags
+Support line and block comments inside SLD tags.

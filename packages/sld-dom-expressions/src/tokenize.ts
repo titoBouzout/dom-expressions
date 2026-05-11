@@ -93,8 +93,8 @@ const STATE_TEXT = 0;
 const STATE_TAG = 1;
 const STATE_RAW_TEXT = 2;
 const STATE_COMMENT = 3;
-const STATE_LINE_COMMENT = 4
-const STATE_BLOCK_COMMENT = 5
+const STATE_LINE_COMMENT = 4;
+const STATE_BLOCK_COMMENT = 5;
 
 export const tokenize = (
   strings: TemplateStringsArray | string[],
@@ -161,11 +161,18 @@ export const tokenize = (
             cursor++;
           } else if (code === 47) {
             // "/"
-            const next = str.charCodeAt(cursor + 1)
-            if (next === 47 && tokens[tokens.length - 1].type !== OPEN_TAG_TOKEN) {
-              state = STATE_LINE_COMMENT
+            const next = str.charCodeAt(cursor + 1);
+            const nextNonWhitespace = str.slice(cursor + 2).search(/\S/);
+            const isShorthandClosingTag =
+              next === 47 &&
+              tokens[tokens.length - 1]?.type === OPEN_TAG_TOKEN &&
+              nextNonWhitespace !== -1 &&
+              str[cursor + 2 + nextNonWhitespace] === ">";
+
+            if (next === 47 && !isShorthandClosingTag) {
+              state = STATE_LINE_COMMENT;
             } else if (next === 42) {
-              state = STATE_BLOCK_COMMENT
+              state = STATE_BLOCK_COMMENT;
             } else {
               tokens.push({ type: SLASH_TOKEN });
               cursor++;
@@ -225,23 +232,20 @@ export const tokenize = (
         }
         case STATE_COMMENT:
         case STATE_LINE_COMMENT:
-        case STATE_BLOCK_COMMENT:
-          {
-            const commentEnd = state ===STATE_LINE_COMMENT ? "\n" : state === STATE_BLOCK_COMMENT ? "*/" : "-->"
-            // LOOK FOR END OF COMMENT: - - >
-            const commentEndIndex = str.indexOf(commentEnd, cursor);
+        case STATE_BLOCK_COMMENT: {
+          const commentEnd =
+            state === STATE_LINE_COMMENT ? "\n" : state === STATE_BLOCK_COMMENT ? "*/" : "-->";
+          const commentEndIndex = str.indexOf(commentEnd, cursor);
 
-            if (commentEndIndex === -1) {
-              // If we don't find the closer in this string chunk,
-              // we consume the rest of the string and stay in STATE_COMMENT
-              cursor = len;
-            } else {
-              // Found it! Return to normal text parsing
-              state = state === STATE_COMMENT ? STATE_TEXT : STATE_TAG;
-              cursor = commentEndIndex + commentEnd.length;
-            }
-            break;
+          if (commentEndIndex === -1) {
+            // If we don't find the closer in this string chunk, consume the rest and stay in the comment.
+            cursor = len;
+          } else {
+            state = state === STATE_COMMENT ? STATE_TEXT : STATE_TAG;
+            cursor = commentEndIndex + commentEnd.length;
           }
+          break;
+        }
       }
     }
 

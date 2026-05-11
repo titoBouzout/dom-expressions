@@ -926,7 +926,7 @@ describe("dynamic component tags", () => {
 });
 
 describe("comments handling", () => {
-  it("should not tokenzie comments", () => {
+  it("should not tokenize comments", () => {
     const tokens = tokenizeTemplate`<div><!-- This is a comment --></div>`;
     expect(tokens).toEqual([
       { type: OPEN_TAG_TOKEN },
@@ -950,35 +950,70 @@ describe("comments handling", () => {
     expect(tokens).toEqual([]);
   });
 
-
-  it("should handle line // comments", () => {
+  it("should skip line comments in tags", () => {
     const tokens = tokenizeTemplate`<button
       disabled//comment
       //handle with expression=${1}
       class="btn"
     />`;
-    console.log(tokens)
-    expect(tokens).toBeDefined();
-    expect(tokens.length).toBe(8);
-    expect(tokens[2].value).toBe("disabled")
-    expect(tokens[3].value).toBe("class")
+
+    expect(tokens).toEqual([
+      { type: OPEN_TAG_TOKEN },
+      { type: IDENTIFIER_TOKEN, value: "button" },
+      { type: IDENTIFIER_TOKEN, value: "disabled" },
+      { type: IDENTIFIER_TOKEN, value: "class" },
+      { type: EQUALS_TOKEN },
+      { type: STRING_TOKEN, value: "btn", quote: '"' },
+      { type: SLASH_TOKEN },
+      { type: CLOSE_TAG_TOKEN }
+    ]);
   });
 
-  it("Should not handle <//> shorthand closing", () => {
-    const tokens = tokenizeTemplate`<${0}>Text<//>`
-    expect(tokens.length).toEqual(8);
+  it("should skip line comments before the tag name", () => {
+    const tokens = tokenizeTemplate`<
+      //comment
+      button
+    />`;
+
+    expect(tokens).toEqual([
+      { type: OPEN_TAG_TOKEN },
+      { type: IDENTIFIER_TOKEN, value: "button" },
+      { type: SLASH_TOKEN },
+      { type: CLOSE_TAG_TOKEN }
+    ]);
   });
 
-  it("should handle block comments", () => {
+  it("should keep shorthand closing tags", () => {
+    const tokens = tokenizeTemplate`<${0}>Text<//>`;
+
+    expect(tokens).toEqual([
+      { type: OPEN_TAG_TOKEN },
+      { type: EXPRESSION_TOKEN, value: 0 },
+      { type: CLOSE_TAG_TOKEN },
+      { type: TEXT_TOKEN, value: "Text" },
+      { type: OPEN_TAG_TOKEN },
+      { type: SLASH_TOKEN },
+      { type: SLASH_TOKEN },
+      { type: CLOSE_TAG_TOKEN }
+    ]);
+  });
+
+  it("should skip block comments in tags", () => {
     const tokens = tokenizeTemplate`<button
       disabled /*comment
       //handle with expression=${1}
       */class="btn"
     />`;
-    console.log(tokens)
-    expect(tokens).toBeDefined();
-    expect(tokens.length).toBe(8);
-    expect(tokens[2].value).toBe("disabled")
-    expect(tokens[3].value).toBe("class")
+
+    expect(tokens).toEqual([
+      { type: OPEN_TAG_TOKEN },
+      { type: IDENTIFIER_TOKEN, value: "button" },
+      { type: IDENTIFIER_TOKEN, value: "disabled" },
+      { type: IDENTIFIER_TOKEN, value: "class" },
+      { type: EQUALS_TOKEN },
+      { type: STRING_TOKEN, value: "btn", quote: '"' },
+      { type: SLASH_TOKEN },
+      { type: CLOSE_TAG_TOKEN }
+    ]);
   });
 });
