@@ -272,7 +272,7 @@ export function insert(parent, accessor, marker, initial, options) {
   }
   let current = initial;
   effect(
-    () => {
+    prev => {
       const value = normalize(accessor(), current, multi, true);
       if (typeof value !== "function") return value;
       effect(
@@ -281,7 +281,9 @@ export function insert(parent, accessor, marker, initial, options) {
           insertExpression(parent, inner, current, marker);
           current = inner;
         },
-        options
+        prev !== undefined && !(options && options.schedule)
+          ? { ...options, schedule: true }
+          : options
       );
       return INNER_OWNED;
     },
