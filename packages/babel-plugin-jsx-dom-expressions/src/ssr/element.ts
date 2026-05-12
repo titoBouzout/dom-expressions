@@ -733,9 +733,9 @@ function createElement(path: any, { topLevel, hydratable }: any) {
   const filteredChildren = filterChildren(path.get("children")),
     multi = checkLength(filteredChildren),
     markers = hydratable && multi,
-    childNodes = filteredChildren.reduce((memo, path) => {
+    childNodes = filteredChildren.reduce((memo: babelTypes.Expression[], path: any) => {
       if (t.isJSXText(path.node)) {
-        const v = decode(trimWhitespace(path.node.extra.raw));
+        const v = decode(trimWhitespace((path.node.extra?.raw as string | undefined) ?? ""));
         if (v.length) memo.push(t.stringLiteral(v));
       } else {
         if (path.isJSXFragment()) {

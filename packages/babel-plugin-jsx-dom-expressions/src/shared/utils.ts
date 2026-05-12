@@ -3,7 +3,9 @@ import { addNamed } from "@babel/helper-module-imports";
 import { DOMWithState } from "../../../dom-expressions/src/constants";
 import type { NodePath } from "@babel/traverse";
 import type { JSXDOMExpressionsConfig } from "../config";
-import type { DynamicOptions, ProgramScopeData } from "../types";
+import type { DynamicOptions, ProgramScopeData, TransformResult } from "../types";
+
+type JSXElementName = t.JSXIdentifier | t.JSXMemberExpression | t.JSXNamespacedName;
 
 export const reservedNameSpaces = new Set(["class", "on", "style", "prop"]);
 
@@ -41,7 +43,7 @@ export function registerImportMethod(
   }
 }
 
-function jsxElementNameToString(node: any): string {
+function jsxElementNameToString(node: JSXElementName | t.Identifier): string {
   if (t.isJSXMemberExpression(node)) {
     return `${jsxElementNameToString(node.object)}.${node.property.name}`;
   }
@@ -62,7 +64,7 @@ export function tagNameToIdentifier(name: string): t.Identifier | t.MemberExpres
   return base;
 }
 
-export function getTagName(tag: any): string {
+export function getTagName(tag: t.JSXElement): string {
   const jsxName = tag.openingElement.name;
   return jsxElementNameToString(jsxName);
 }
@@ -197,7 +199,7 @@ export function getStaticExpression(path: any): string | number | false {
 }
 
 // remove unnecessary JSX Text nodes
-export function filterChildren(children: any[]): any[] {
+export function filterChildren<TPath extends NodePath>(children: TPath[]): TPath[] {
   return children.filter(
     ({ node: child }) =>
       !(t.isJSXExpressionContainer(child) && t.isJSXEmptyExpression(child.expression)) &&
@@ -205,7 +207,7 @@ export function filterChildren(children: any[]): any[] {
   );
 }
 
-export function checkLength(children: any[]): boolean {
+export function checkLength(children: NodePath[]): boolean {
   let i = 0;
   children.forEach(path => {
     const child = path.node;
@@ -234,7 +236,7 @@ export function toEventName(name: string): string {
   return name.slice(2).toLowerCase();
 }
 
-export function wrappedByText(list: any[], startIndex: number): boolean {
+export function wrappedByText(list: TransformResult[], startIndex: number): boolean {
   let index = startIndex,
     wrapped;
   while (--index >= 0) {

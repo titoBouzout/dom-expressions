@@ -20,8 +20,10 @@ import { DOMWithState } from "dom-expressions/src/constants";
 import transformComponent from "./component";
 import transformFragmentChildren from "./fragment";
 import type { NodePath } from "@babel/traverse";
-import type { JSXDOMExpressionsConfig } from "../config";
+import type { JSXDOMExpressionsConfig, RendererConfig } from "../config";
 import type { JSXDOMExpressionsPass, TransformInfo, TransformResult } from "../types";
+
+type FunctionParentScope = ReturnType<NodePath["scope"]["getFunctionParent"]>;
 
 export function transformJSX(
   path: NodePath<t.JSXElement | t.JSXFragment>,
@@ -39,7 +41,7 @@ export function transformJSX(
   // Decide per-element which renderer it will go to (mirrors transformElement),
   // so dynamic mode (generate: "dynamic" + renderers: [{ name: "dom", ... }])
   // is handled correctly.
-  const visit = (p: any) => {
+  const visit = (p: NodePath<t.JSXElement>) => {
     const tagName = getTagName(p.node);
     if (isComponent(tagName)) return;
     if (!DOMWithState[tagName.toUpperCase()]) return;
@@ -49,7 +51,7 @@ export function transformJSX(
     if (!willBeDOM && !willBeSSR) return;
     transformSpecialCaseAttributes(p, tagName, willBeSSR);
   };
-  if (t.isJSXElement(path.node)) visit(path);
+  if (t.isJSXElement(path.node)) visit(path as NodePath<t.JSXElement>);
   path.traverse({ JSXElement: visit });
 
   const result = transformNode(
@@ -68,7 +70,7 @@ export function transformJSX(
   path.replaceWith(replace(template(path, result as TransformResult, false)));
 
   path.traverse({
-    enter(path: any) {
+    enter(path: NodePath) {
       if (
         path.node.leadingComments &&
         path.node.leadingComments[0] &&
@@ -80,10 +82,12 @@ export function transformJSX(
   });
 }
 
-function getTargetFunctionParent(path: any, parent: any): any {
+function getTargetFunctionParent(path: NodePath, parent: FunctionParentScope): FunctionParentScope {
   let current = path.scope.getFunctionParent();
+  if (!current) return current;
   while (current !== parent && current.path.isArrowFunctionExpression()) {
     current = current.path.parentPath.scope.getFunctionParent();
+    if (!current) return current;
   }
   return current;
 }
@@ -92,14 +96,14 @@ export function transformThis(path: NodePath): (node: t.Expression) => t.Express
   const parent = path.scope.getFunctionParent();
   let thisId: t.Identifier | undefined, inserted: boolean | undefined;
   path.traverse({
-    ThisExpression(path: any) {
+    ThisExpression(path: NodePath<t.ThisExpression>) {
       const current = getTargetFunctionParent(path, parent);
       if (current === parent) {
         thisId || (thisId = path.scope.generateUidIdentifier("self$"));
         path.replaceWith(thisId);
       }
     },
-    JSXElement(path: any) {
+    JSXElement(path: NodePath<t.JSXElement>) {
       let source = path.get("openingElement").get("name");
       while (source.isJSXMemberExpression()) {
         source = source.get("object");
@@ -267,7 +271,7 @@ export function transformElement(
   // <div ...></div>
   // const element = getTransformElemet(config, path, tagName);
 
-  const tagRenderer = (config.renderers ?? []).find((renderer: any) =>
+  const tagRenderer = (config.renderers ?? []).find((renderer: RendererConfig) =>
     renderer.elements.includes(tagName)
   );
 
