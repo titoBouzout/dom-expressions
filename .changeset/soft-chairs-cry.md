@@ -1,5 +1,5 @@
 ---
-"@fake-scope/fake-pkg": patch
+"dom-expressions": patch
 ---
 
 feat: export more isomorphic APIs from server.js
