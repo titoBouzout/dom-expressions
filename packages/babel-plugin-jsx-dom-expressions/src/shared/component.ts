@@ -13,6 +13,7 @@ import { transformNode, getCreateTemplate } from "./transform";
 import type { JSXDOMExpressionsConfig } from "../config";
 import type { BabelPath, JSXNode, TransformResult } from "../types";
 
+type JSXAttributePath = BabelPath<t.JSXAttribute | t.JSXSpreadAttribute>;
 type ComponentTransformResult = TransformResult & {
   template: "";
   component: true;
@@ -67,7 +68,7 @@ export default function transformComponent(
   path
     .get("openingElement")
     .get("attributes")
-    .forEach((attribute: any) => {
+    .forEach((attribute: JSXAttributePath) => {
       const node = attribute.node;
       if (t.isJSXSpreadAttribute(node)) {
         if (runningObject.length) {
@@ -86,7 +87,7 @@ export default function transformComponent(
               : t.arrowFunctionExpression([], node.argument)
             : (node.argument as t.Expression)
         );
-      } else {
+      } else if (t.isJSXAttribute(node)) {
         // handle weird babel bug around HTML entities
         const value =
             (t.isStringLiteral(node.value) ? t.stringLiteral(node.value.value) : node.value) ||
@@ -146,6 +147,8 @@ export default function transformComponent(
               );
             } else if (!isConstant && t.isOptionalMemberExpression(value.expression)) {
               const refIdentifier = path.scope.generateUidIdentifier("_ref$");
+              const object = value.expression.object as t.Identifier;
+              const property = value.expression.property as t.Identifier;
               runningObject.push(
                 t.objectMethod(
                   "method",
@@ -175,18 +178,12 @@ export default function transformComponent(
                         ]),
                         t.logicalExpression(
                           "&&",
-                          t.unaryExpression(
-                            "!",
-                            t.unaryExpression(
-                              "!",
-                              t.identifier((value.expression.object as any).name)
-                            )
-                          ),
+                          t.unaryExpression("!", t.unaryExpression("!", t.identifier(object.name))),
                           t.assignmentExpression(
                             "=",
                             t.memberExpression(
-                              t.identifier((value.expression.object as any).name),
-                              t.identifier((value.expression.property as any).name)
+                              t.identifier(object.name),
+                              t.identifier(property.name)
                             ),
                             t.identifier("r$")
                           )
@@ -201,7 +198,9 @@ export default function transformComponent(
               t.isFunction(value.expression) ||
               t.isArrayExpression(value.expression)
             ) {
-              runningObject.push(t.objectProperty(t.identifier("ref"), value.expression as any));
+              runningObject.push(
+                t.objectProperty(t.identifier("ref"), value.expression as t.Expression)
+              );
             } else if (t.isCallExpression(value.expression)) {
               const refIdentifier = path.scope.generateUidIdentifier("_ref$");
               exprs.push(
@@ -259,7 +258,9 @@ export default function transformComponent(
                   "get",
                   id,
                   [],
-                  t.blockStatement([t.returnStatement((expr as any).body)]),
+                  t.blockStatement([
+                    t.returnStatement((expr as t.ArrowFunctionExpression).body as t.Expression)
+                  ]),
                   !t.isValidIdentifier(key)
                 )
               );
@@ -280,12 +281,12 @@ export default function transformComponent(
                   "get",
                   id,
                   [],
-                  t.blockStatement([t.returnStatement(value.expression as any)]),
+                  t.blockStatement([t.returnStatement(value.expression as t.Expression)]),
                   !t.isValidIdentifier(key)
                 )
               );
             }
-          } else runningObject.push(t.objectProperty(id, value.expression as any));
+          } else runningObject.push(t.objectProperty(id, value.expression as t.Expression));
         else runningObject.push(t.objectProperty(id, value));
       }
     });
@@ -295,9 +296,9 @@ export default function transformComponent(
     if (childResult[1]) {
       const body =
         t.isCallExpression(childResult[0]) && t.isFunction(childResult[0].arguments[0])
-          ? (childResult[0].arguments[0] as any).body
-          : (childResult[0] as any).body
-            ? (childResult[0] as any).body
+          ? (childResult[0].arguments[0] as t.Function).body
+          : t.isFunction(childResult[0])
+            ? childResult[0].body
             : childResult[0];
       runningObject.push(
         t.objectMethod(
@@ -334,7 +335,7 @@ export default function transformComponent(
       t.callExpression(
         t.arrowFunctionExpression(
           [],
-          t.blockStatement([...(exprs as t.Statement[]), t.returnStatement(ret as any)])
+          t.blockStatement([...(exprs as t.Statement[]), t.returnStatement(ret as t.Expression)])
         ),
         []
       )
@@ -355,7 +356,7 @@ function transformComponentChildren(
   let transformedChildren: t.Expression | t.Expression[] = filteredChildren.reduce(
     (memo: t.Expression[], path: BabelPath<JSXNode>) => {
       if (t.isJSXText(path.node)) {
-        const v = decode(trimWhitespace((path.node.extra as any)?.raw ?? ""));
+        const v = decode(trimWhitespace((path.node.extra?.raw as string | undefined) ?? ""));
         if (v.length) {
           pathNodes.push(path.node);
           memo.push(t.stringLiteral(v));
