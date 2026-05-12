@@ -1,6 +1,6 @@
 import * as babelTypes from "@babel/types";
 
-const t: any = babelTypes;
+const t = babelTypes;
 import { decode } from "html-entities";
 import { ChildProperties, VoidElements } from "dom-expressions/src/constants";
 import {
@@ -228,13 +228,13 @@ export function transformElement(
 }
 
 function setAttr(
-  tagName: any,
-  attribute: any,
-  results: any,
-  name: any,
-  value: any,
-  isDynamic: any,
-  isBoolean: any
+  tagName: string,
+  attribute: BabelPath,
+  results: SSRTransformResult,
+  name: string,
+  value: babelTypes.Expression,
+  isDynamic: boolean | undefined,
+  isBoolean: boolean
 ) {
   // strip out namespaces for now, everything at this point is an attribute
   let parts;
@@ -242,10 +242,10 @@ function setAttr(
     name = parts[1];
   }
 
-  let attr = t.callExpression(registerImportMethod(attribute, "ssrAttribute"), [
-    t.stringLiteral(name),
-    value
-  ]);
+  let attr: babelTypes.Expression = t.callExpression(
+    registerImportMethod(attribute, "ssrAttribute"),
+    [t.stringLiteral(name), value]
+  );
   if (isDynamic) {
     attr = t.arrowFunctionExpression([], attr);
 
@@ -264,61 +264,116 @@ function setAttr(
   }
 }
 
-function escapeExpression(path: any, expression: any, attr?: any, escapeLiterals?: any) {
+function escapeExpression(
+  path: BabelPath,
+  expression:
+    | babelTypes.Expression
+    | babelTypes.JSXElement
+    | babelTypes.JSXFragment
+    | null
+    | undefined,
+  attr?: boolean,
+  escapeLiterals?: boolean
+): babelTypes.Expression | babelTypes.JSXElement | babelTypes.JSXFragment | null | undefined {
+  if (!expression) return expression;
   if (
     t.isStringLiteral(expression) ||
     t.isNumericLiteral(expression) ||
     (t.isTemplateLiteral(expression) && expression.expressions.length === 0)
   ) {
     if (escapeLiterals) {
-      if (t.isStringLiteral(expression)) return t.stringLiteral(escapeHTML(expression.value, attr));
+      if (t.isStringLiteral(expression))
+        return t.stringLiteral(escapeHTML(expression.value, attr) as string);
       else if (t.isTemplateLiteral(expression))
-        return t.stringLiteral(escapeHTML(expression.quasis[0].value.raw, attr));
+        return t.stringLiteral(escapeHTML(expression.quasis[0].value.raw, attr) as string);
     }
     return expression;
   } else if (t.isFunction(expression)) {
     if (t.isBlockStatement(expression.body)) {
       expression.body.body = expression.body.body.map((e: any) => {
         if (t.isReturnStatement(e))
-          e.argument = escapeExpression(path, e.argument, attr, escapeLiterals);
+          e.argument = escapeExpression(
+            path,
+            e.argument,
+            attr,
+            escapeLiterals
+          ) as babelTypes.Expression | null;
         return e;
       });
-    } else expression.body = escapeExpression(path, expression.body, attr, escapeLiterals);
+    } else
+      expression.body = escapeExpression(path, expression.body, attr, escapeLiterals) as
+        | babelTypes.Expression
+        | babelTypes.BlockStatement;
     return expression;
   } else if (t.isTemplateLiteral(expression)) {
-    expression.expressions = expression.expressions.map((e: any) =>
-      escapeExpression(path, e, attr, escapeLiterals)
+    expression.expressions = expression.expressions.map(
+      (e: any) => escapeExpression(path, e, attr, escapeLiterals) as babelTypes.Expression
     );
     return expression;
   } else if (t.isUnaryExpression(expression)) {
     return expression;
   } else if (t.isBinaryExpression(expression)) {
-    expression.left = escapeExpression(path, expression.left, attr, escapeLiterals);
-    expression.right = escapeExpression(path, expression.right, attr, escapeLiterals);
+    expression.left = escapeExpression(
+      path,
+      expression.left as babelTypes.Expression,
+      attr,
+      escapeLiterals
+    ) as babelTypes.Expression | babelTypes.PrivateName;
+    expression.right = escapeExpression(
+      path,
+      expression.right,
+      attr,
+      escapeLiterals
+    ) as babelTypes.Expression;
     return expression;
   } else if (t.isConditionalExpression(expression)) {
-    expression.consequent = escapeExpression(path, expression.consequent, attr, escapeLiterals);
-    expression.alternate = escapeExpression(path, expression.alternate, attr, escapeLiterals);
+    expression.consequent = escapeExpression(
+      path,
+      expression.consequent,
+      attr,
+      escapeLiterals
+    ) as babelTypes.Expression;
+    expression.alternate = escapeExpression(
+      path,
+      expression.alternate,
+      attr,
+      escapeLiterals
+    ) as babelTypes.Expression;
     return expression;
   } else if (t.isLogicalExpression(expression)) {
     // Preserve the cheaper short-circuit path for && while escaping the
     // selected result of || and ?? as a whole.
     if (expression.operator === "&&") {
-      expression.right = escapeExpression(path, expression.right, attr, escapeLiterals);
+      expression.right = escapeExpression(
+        path,
+        expression.right,
+        attr,
+        escapeLiterals
+      ) as babelTypes.Expression;
       return expression;
     }
   } else if (t.isCallExpression(expression) && t.isFunction(expression.callee)) {
     if (t.isBlockStatement(expression.callee.body)) {
       expression.callee.body.body = expression.callee.body.body.map((e: any) => {
         if (t.isReturnStatement(e))
-          e.argument = escapeExpression(path, e.argument, attr, escapeLiterals);
+          e.argument = escapeExpression(
+            path,
+            e.argument,
+            attr,
+            escapeLiterals
+          ) as babelTypes.Expression | null;
         return e;
       });
     } else
-      expression.callee.body = escapeExpression(path, expression.callee.body, attr, escapeLiterals);
+      expression.callee.body = escapeExpression(
+        path,
+        expression.callee.body,
+        attr,
+        escapeLiterals
+      ) as babelTypes.Expression | babelTypes.BlockStatement;
     return expression;
   } else if (t.isJSXElement(expression) && !isComponent(getTagName(expression))) {
-    expression.wontEscape = true;
+    (expression as babelTypes.JSXElement & { wontEscape?: boolean }).wontEscape = true;
     return expression;
   } else if (t.isJSXFragment(expression) && fragmentWillSelfEscape(expression)) {
     // The fragment will later be transformed into a runtime value the
@@ -332,7 +387,7 @@ function escapeExpression(path: any, expression: any, attr?: any, escapeLiterals
 
   return t.callExpression(
     registerImportMethod(path, "escape"),
-    [expression].concat(attr ? [t.booleanLiteral(true)] : [])
+    [expression as babelTypes.Expression].concat(attr ? [t.booleanLiteral(true)] : [])
   );
 }
 
@@ -504,6 +559,7 @@ function transformAttributes(path: any, results: any, info: any) {
           t.isBooleanLiteral(value.expression)
         ))
     ) {
+      if (t.isJSXEmptyExpression(value.expression)) return;
       if (key === "ref") {
         results.declarations.push(
           t.variableDeclarator(path.scope.generateUidIdentifier("_ref$"), value.expression)
@@ -519,7 +575,10 @@ function transformAttributes(path: any, results: any, info: any) {
         }
         if (key === "innerHTML") path.doNotEscape = true;
         // textContent groups with attributes; innerHTML stays opaque.
-        if (key === "textContent") value._groupableTextContent = true;
+        if (key === "textContent")
+          (
+            value as babelTypes.JSXExpressionContainer & { _groupableTextContent?: boolean }
+          )._groupableTextContent = true;
         children = value;
       } else {
         const isDynamicValue = isDynamic(attribute.get("value").get("expression"), {
@@ -540,7 +599,8 @@ function transformAttributes(path: any, results: any, info: any) {
             if (value.expression.properties.length === 0) {
               return;
             }
-            const props = value.expression.properties.map((p: any, i: any) => {
+            const props = value.expression.properties.flatMap((p: any, i: any) => {
+              if (t.isSpreadElement(p) || t.isObjectMethod(p)) return [];
               if (p.computed) {
                 // Computed keys are user-controlled at runtime; wrap with
                 // `_$escape(..., true)` so ssrStyleProperty can stay a pure
@@ -549,23 +609,40 @@ function transformAttributes(path: any, results: any, info: any) {
                 return t.callExpression(registerImportMethod(path, "ssrStyleProperty"), [
                   t.binaryExpression(
                     "+",
-                    t.callExpression(escape, [p.key, t.booleanLiteral(true)]),
+                    t.callExpression(escape, [
+                      p.key as babelTypes.Expression,
+                      t.booleanLiteral(true)
+                    ]),
                     t.stringLiteral(":")
                   ),
-                  escapeExpression(path, p.value, true, true)
+                  escapeExpression(
+                    path,
+                    p.value as babelTypes.Expression,
+                    true,
+                    true
+                  ) as babelTypes.Expression
                 ]);
               }
               return t.callExpression(registerImportMethod(path, "ssrStyleProperty"), [
                 t.stringLiteral(
-                  (i ? ";" : "") + (t.isIdentifier(p.key) ? p.key.name : p.key.value) + ":"
+                  (i ? ";" : "") +
+                    (t.isIdentifier(p.key)
+                      ? p.key.name
+                      : (p.key as babelTypes.StringLiteral | babelTypes.NumericLiteral).value) +
+                    ":"
                 ),
-                escapeExpression(path, p.value, true, true)
+                escapeExpression(
+                  path,
+                  p.value as babelTypes.Expression,
+                  true,
+                  true
+                ) as babelTypes.Expression
               ]);
             });
 
-            let res = props[0];
+            let res = props[0] as babelTypes.Expression;
             for (let i = 1; i < props.length; i++) {
-              res = t.binaryExpression("+", res, props[i]);
+              res = t.binaryExpression("+", res, props[i] as babelTypes.Expression);
             }
             value.expression = res;
           } else {
@@ -595,28 +672,38 @@ function transformAttributes(path: any, results: any, info: any) {
           key = "class";
           doEscape = false;
         }
-        if (doEscape) value.expression = escapeExpression(path, value.expression, true);
+        if (doEscape)
+          value.expression = escapeExpression(
+            path,
+            value.expression as babelTypes.Expression,
+            true
+          ) as babelTypes.Expression;
+        const expression = value.expression as babelTypes.Expression;
 
-        if (!(doEscape || isBoolean) || t.isLiteral(value.expression)) {
+        if (!(doEscape || isBoolean) || t.isLiteral(expression)) {
           if (isBoolean) {
-            value.expression.value === true && appendToTemplate(results.template, ` ${key}`);
+            t.isBooleanLiteral(expression) &&
+              expression.value === true &&
+              appendToTemplate(results.template, ` ${key}`);
             return;
           }
           appendToTemplate(results.template, ` ${key}="`);
           results.template.push(`"`);
           if (isDynamicValue) {
             results.templateValues.push(
-              hoistExpression(path, results, inlineCallExpression(value.expression), {
+              hoistExpression(path, results, inlineCallExpression(expression), {
                 group: true
               })
             );
-          } else results.templateValues.push(value.expression);
-        } else
-          setAttr(tagName, attribute, results, key, value.expression, isDynamicValue, isBoolean);
+          } else results.templateValues.push(expression);
+        } else setAttr(tagName, attribute, results, key, expression, isDynamicValue, isBoolean);
       }
     } else {
       if (key === "$ServerOnly") return;
-      if (t.isJSXExpressionContainer(value)) value = value.expression;
+      if (t.isJSXExpressionContainer(value)) {
+        if (t.isJSXEmptyExpression(value.expression)) return;
+        value = value.expression;
+      }
       const isBoolean = t.isBooleanLiteral(value);
       if (isBoolean && value && value.value !== "" && !value.value) return;
       appendToTemplate(results.template, ` ${key}`);
@@ -656,7 +743,7 @@ function transformClasslistObject(
         prop.key,
         t.booleanLiteral(true)
       ]);
-    } else key = t.stringLiteral(escapeHTML(prop.key.value));
+    } else key = t.stringLiteral(escapeHTML(prop.key.value) as string);
     if (t.isBooleanLiteral(prop.value)) {
       if (prop.value.value === true) {
         if (!prop.computed) {
@@ -668,12 +755,18 @@ function transformClasslistObject(
             })
           );
         } else {
-          values.push(key);
+          values.push(key as babelTypes.Expression);
           quasis.push(t.templateElement({ raw: isLast ? "" : " " }));
         }
       }
     } else {
-      values.push(t.conditionalExpression(prop.value, key, t.stringLiteral("")));
+      values.push(
+        t.conditionalExpression(
+          prop.value as babelTypes.Expression,
+          key as babelTypes.Expression,
+          t.stringLiteral("")
+        )
+      );
       quasis.push(t.templateElement({ raw: isLast ? "" : " " }));
     }
   });
@@ -788,7 +881,8 @@ function createElement(path: any, { topLevel, hydratable }: any) {
         if (hasChildren && key === "children") return;
         if (key === "ref") return;
         if (key.startsWith("prop:") || key.startsWith("on")) return;
-        if (t.isJSXExpressionContainer(value))
+        if (t.isJSXExpressionContainer(value)) {
+          if (t.isJSXEmptyExpression(value.expression)) return;
           if (
             isDynamic(attribute.get("value").get("expression"), {
               checkMember: true,
@@ -805,7 +899,7 @@ function createElement(path: any, { topLevel, hydratable }: any) {
               )
             );
           } else runningObject.push(t.objectProperty(id, value.expression));
-        else runningObject.push(t.objectProperty(id, value));
+        } else runningObject.push(t.objectProperty(id, value));
       }
     });
 

@@ -6,7 +6,7 @@ import type { JSXDOMExpressionsConfig, RendererConfig } from "../config";
 import type { DynamicOptions, ProgramScopeData, TransformResult } from "../types";
 
 type JSXElementName = t.JSXIdentifier | t.JSXMemberExpression | t.JSXNamespacedName;
-type StaticMarkerNode = t.Node & { expression?: StaticMarkerNode };
+type StaticMarkerNode = t.Node & { expression?: unknown };
 type JSXElementPath = NodePath<t.JSXElement>;
 type JSXAttributePath = NodePath<t.JSXAttribute>;
 
@@ -94,7 +94,8 @@ export function hasStaticMarker(
     object.leadingComments[0].value.trim() === getConfig(path).staticMarker
   )
     return true;
-  if (object.expression) return hasStaticMarker(object.expression, path);
+  if (object.expression && typeof object.expression === "object")
+    return hasStaticMarker(object.expression as StaticMarkerNode, path);
 }
 
 export function isDynamic(

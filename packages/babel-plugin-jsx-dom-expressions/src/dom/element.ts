@@ -1,6 +1,6 @@
 import * as babelTypes from "@babel/types";
 
-const t: any = babelTypes;
+const t = babelTypes;
 
 import {
   ChildProperties,
@@ -365,7 +365,7 @@ function detectResolvableEventHandler(attribute: any, handler: any) {
 }
 
 function transformAttributes(path: any, results: DOMTransformResult) {
-  let elem = results.id,
+  let elem = results.id as babelTypes.Expression,
     hasHydratableEvent = false,
     children,
     spreadExpr,
@@ -442,10 +442,11 @@ function transformAttributes(path: any, results: DOMTransformResult) {
       } else if (t.isObjectExpression(value)) {
         const properties = value.properties;
         const propertiesNode = node.get("expression").get("properties");
-        const toRemoveProperty = [];
+        const toRemoveProperty: babelTypes.ObjectProperty[] = [];
         for (let i = 0; i < properties.length; i++) {
           const property = properties[i];
 
+          if (!t.isObjectProperty(property)) continue;
           if (property.computed) {
             /* { [computed]: `${1+1}px` } => { [computed]: `2px` } */
             const r = propertiesNode[i].get("value").evaluate();
@@ -456,8 +457,10 @@ function transformAttributes(path: any, results: DOMTransformResult) {
             continue;
           }
 
-          if (t.isObjectProperty(property)) {
-            const key = t.isIdentifier(property.key) ? property.key.name : property.key.value;
+          {
+            const key = t.isIdentifier(property.key)
+              ? property.key.name
+              : (property.key as babelTypes.StringLiteral | babelTypes.NumericLiteral).value;
             if (t.isStringLiteral(property.value) || t.isNumericLiteral(property.value)) {
               inlinedStyle += `${key}:${property.value.value};`;
               toRemoveProperty.push(property);
@@ -757,6 +760,7 @@ function transformAttributes(path: any, results: DOMTransformResult) {
             t.isBooleanLiteral(value.expression)
           ))
       ) {
+        if (t.isJSXEmptyExpression(value.expression)) return;
         if (key === "ref") {
           // Normalize expressions for non-null and type-as
           while (
@@ -841,7 +845,11 @@ function transformAttributes(path: any, results: DOMTransformResult) {
         } else if (key.startsWith("on")) {
           const ev = toEventName(key);
           if (key.startsWith("on:")) {
-            const args = [elem, t.stringLiteral(key.split(":")[1]), value.expression];
+            const args: babelTypes.Expression[] = [
+              elem,
+              t.stringLiteral(key.split(":")[1]),
+              value.expression
+            ];
 
             results.exprs.unshift(
               t.expressionStatement(
@@ -874,12 +882,12 @@ function transformAttributes(path: any, results: DOMTransformResult) {
                     t.assignmentExpression(
                       "=",
                       t.memberExpression(elem, t.identifier(`$$${ev}Data`)),
-                      handler.elements[1]
+                      handler.elements[1] as babelTypes.Expression
                     )
                   )
                 );
               }
-              handler = handler.elements[0];
+              handler = handler.elements[0] as babelTypes.Expression;
               results.exprs.unshift(
                 t.expressionStatement(
                   t.assignmentExpression(
@@ -920,9 +928,12 @@ function transformAttributes(path: any, results: DOMTransformResult) {
               if (handler.elements.length > 1) {
                 handler = t.arrowFunctionExpression(
                   [t.identifier("e")],
-                  t.callExpression(handler.elements[0], [handler.elements[1], t.identifier("e")])
+                  t.callExpression(handler.elements[0] as babelTypes.Expression, [
+                    handler.elements[1] as babelTypes.Expression,
+                    t.identifier("e")
+                  ])
                 );
-              } else handler = handler.elements[0];
+              } else handler = handler.elements[0] as babelTypes.Expression;
               results.exprs.unshift(
                 t.expressionStatement(
                   t.callExpression(t.memberExpression(elem, t.identifier("addEventListener")), [
@@ -971,7 +982,10 @@ function transformAttributes(path: any, results: DOMTransformResult) {
             children = t.jsxText(" ");
             children.extra = { raw: " ", rawValue: " " };
             results.declarations.push(
-              t.variableDeclarator(nextElem, t.memberExpression(elem, t.identifier("firstChild")))
+              t.variableDeclarator(
+                nextElem as babelTypes.LVal,
+                t.memberExpression(elem, t.identifier("firstChild"))
+              )
             );
           }
           results.dynamics.push({
@@ -990,7 +1004,10 @@ function transformAttributes(path: any, results: DOMTransformResult) {
           results.skipTemplate = true;
           return;
         }
-        if (t.isJSXExpressionContainer(value)) value = value.expression;
+        if (t.isJSXExpressionContainer(value)) {
+          if (t.isJSXEmptyExpression(value.expression)) return;
+          value = value.expression;
+        }
 
         // boolean as `<el attr={true | false}/>`, not as `<el attr={"true" | "false"}/>`
         // `<el attr={true}/>` becomes `<el attr/>`
@@ -1016,7 +1033,7 @@ function transformAttributes(path: any, results: DOMTransformResult) {
   if (!hasChildren && children) {
     path.node.children.push(children);
   }
-  if (spreadExpr) results.exprs.push(spreadExpr);
+  if (spreadExpr) results.exprs.push(...(Array.isArray(spreadExpr) ? spreadExpr : [spreadExpr]));
 
   results.hasHydratableEvent = results.hasHydratableEvent || hasHydratableEvent;
 }
@@ -1040,7 +1057,7 @@ function findLastElement(children: any[], hydratable: any) {
 }
 
 function transformChildren(path: any, results: DOMTransformResult, config: any) {
-  let tempPath = results.id && results.id.name,
+  let tempPath = (results.id && results.id.name) || "",
     tagName = getTagName(path.node),
     nextPlaceholder: any,
     childPostExprs: any[] = [],
@@ -1255,6 +1272,7 @@ function detectExpressions(children: any[], index: number, config: any): any {
 }
 
 function contextToCustomElement(path: any, results: DOMTransformResult) {
+  if (!results.id) return;
   results.exprs.push(
     t.expressionStatement(
       t.assignmentExpression(
