@@ -92,7 +92,7 @@ export default function transformComponent(
             (t.isStringLiteral(node.value) ? t.stringLiteral(node.value.value) : node.value) ||
             t.booleanLiteral(true),
           id = convertJSXIdentifier(node.name),
-          key = id.name;
+          key = t.isIdentifier(id) ? id.name : (id as t.StringLiteral).value;
         if (hasChildren && key === "children") return;
         if (t.isJSXExpressionContainer(value))
           if (key === "ref") {

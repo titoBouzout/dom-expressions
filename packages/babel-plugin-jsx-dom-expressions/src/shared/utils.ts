@@ -1,11 +1,14 @@
 import * as t from "@babel/types";
 import { addNamed } from "@babel/helper-module-imports";
 import { DOMWithState } from "../../../dom-expressions/src/constants";
-import type { NodePath } from "@babel/traverse";
-import type { JSXDOMExpressionsConfig } from "../config";
+import type { NodePath, Visitor } from "@babel/traverse";
+import type { JSXDOMExpressionsConfig, RendererConfig } from "../config";
 import type { DynamicOptions, ProgramScopeData, TransformResult } from "../types";
 
 type JSXElementName = t.JSXIdentifier | t.JSXMemberExpression | t.JSXNamespacedName;
+type StaticMarkerNode = t.Node & { expression?: StaticMarkerNode };
+type JSXElementPath = NodePath<t.JSXElement>;
+type JSXAttributePath = NodePath<t.JSXAttribute>;
 
 export const reservedNameSpaces = new Set(["class", "on", "style", "prop"]);
 
@@ -15,7 +18,10 @@ export function getConfig(path: NodePath): JSXDOMExpressionsConfig {
   return (path.hub as any).file.metadata.config;
 }
 
-export const getRendererConfig = (path: NodePath, renderer: string) => {
+export const getRendererConfig = (
+  path: NodePath,
+  renderer: string
+): JSXDOMExpressionsConfig | RendererConfig => {
   const config = getConfig(path);
   return config?.renderers?.find(r => r.name === renderer) ?? config;
 };
@@ -77,7 +83,10 @@ export function isComponent(tagName: string): boolean {
   );
 }
 
-export function hasStaticMarker(object: any, path: NodePath): boolean | undefined {
+export function hasStaticMarker(
+  object: StaticMarkerNode | null | undefined,
+  path: NodePath
+): boolean | undefined {
   if (!object) return false;
   if (
     object.leadingComments &&
@@ -89,7 +98,7 @@ export function hasStaticMarker(object: any, path: NodePath): boolean | undefine
 }
 
 export function isDynamic(
-  path: any,
+  path: NodePath,
   { checkMember, checkTags, checkCallExpressions = true }: DynamicOptions
 ): boolean | undefined {
   const config = getConfig(path);
@@ -148,43 +157,46 @@ export function isDynamic(
     return true;
   }
 
-  let dynamic;
-  path.traverse({
-    Function(p: any) {
+  let dynamic: boolean | undefined;
+  const visitor: Visitor = {
+    Function(p) {
       if (t.isObjectMethod(p.node) && p.node.computed) {
         dynamic = isDynamic(p.get("key"), { checkMember, checkTags, checkCallExpressions });
       }
       p.skip();
     },
-    CallExpression(p: any) {
+    CallExpression(p) {
       checkCallExpressions && (dynamic = true) && p.stop();
     },
-    OptionalCallExpression(p: any) {
+    OptionalCallExpression(p) {
       checkCallExpressions && (dynamic = true) && p.stop();
     },
-    MemberExpression(p: any) {
+    MemberExpression(p) {
       checkMember && (dynamic = true) && p.stop();
     },
-    OptionalMemberExpression(p: any) {
+    OptionalMemberExpression(p) {
       checkMember && (dynamic = true) && p.stop();
     },
-    SpreadElement(p: any) {
+    SpreadElement(p) {
       checkMember && (dynamic = true) && p.stop();
     },
-    BinaryExpression(p: any) {
+    BinaryExpression(p) {
       checkMember && p.node.operator === "in" && (dynamic = true) && p.stop();
     },
-    JSXElement(p: any) {
+    JSXElement(p) {
       checkTags ? (dynamic = true) && p.stop() : p.skip();
     },
-    JSXFragment(p: any) {
+    JSXFragment(p) {
       checkTags && p.node.children.length ? (dynamic = true) && p.stop() : p.skip();
     }
-  });
+  };
+  path.traverse(visitor);
   return dynamic;
 }
 
-export function getStaticExpression(path: any): string | number | false {
+export function getStaticExpression(
+  path: NodePath<t.JSXExpressionContainer>
+): string | number | false {
   const node = path.node;
   let value, type;
   return (
@@ -213,8 +225,8 @@ export function checkLength(children: NodePath[]): boolean {
     const child = path.node;
     !(t.isJSXExpressionContainer(child) && t.isJSXEmptyExpression(child.expression)) &&
       (!t.isJSXText(child) ||
-        !/^\s*$/.test((child.extra as any)?.raw ?? "") ||
-        /^ *$/.test((child.extra as any)?.raw ?? "")) &&
+        !/^\s*$/.test((child.extra?.raw as string | undefined) ?? "") ||
+        /^ *$/.test((child.extra?.raw as string | undefined) ?? "")) &&
       i++;
   });
   return i > 1;
@@ -382,10 +394,14 @@ export function escapeHTML(s: unknown, attr?: boolean): unknown {
   return left < s.length ? out + s.substring(left) : out;
 }
 
-export function convertJSXIdentifier(node: any): any {
+export function convertJSXIdentifier(
+  node: t.JSXIdentifier | t.JSXMemberExpression | t.JSXNamespacedName
+): t.Expression {
   if (t.isJSXIdentifier(node)) {
     if (t.isValidIdentifier(node.name)) {
-      (node as any).type = "Identifier";
+      const identifier = node as unknown as t.Identifier;
+      identifier.type = "Identifier";
+      return identifier;
     } else {
       return t.stringLiteral(node.name);
     }
@@ -394,11 +410,9 @@ export function convertJSXIdentifier(node: any): any {
       convertJSXIdentifier(node.object),
       convertJSXIdentifier(node.property)
     );
-  } else if (t.isJSXNamespacedName(node)) {
-    return t.stringLiteral(`${node.namespace.name}:${node.name.name}`);
   }
 
-  return node;
+  return t.stringLiteral(`${node.namespace.name}:${node.name.name}`);
 }
 
 export function canNativeSpread(
@@ -570,21 +584,25 @@ export function evaluateAndInline(value: any, valueNode: any): void {
   }
 }
 
-export function getAttributeNamed(path: any, name: string): any {
+export function getAttributeNamed(
+  path: JSXElementPath,
+  name: string
+): JSXAttributePath | undefined {
   return path
     .get("openingElement")
     .get("attributes")
-    .find((attr: any) => {
+    .find((attr): attr is JSXAttributePath => {
       if (attr.isJSXAttribute()) {
         const key = t.isJSXNamespacedName(attr.node.name)
           ? `${attr.node.name.namespace.name}:${attr.node.name.name.name}`
           : attr.node.name.name;
         return key === name;
       }
+      return false;
     });
 }
 
-function renameAttribute(attr: any, name: string): void {
+function renameAttribute(attr: NodePath<t.JSXAttribute>, name: string): void {
   const original = attr.node.name;
   const [ns, propName] = name.split(":");
   if (propName) {
@@ -598,9 +616,13 @@ function renameAttribute(attr: any, name: string): void {
   }
 }
 
-export function transformSpecialCaseAttributes(path: any, tagName: string, isSSR: boolean): void {
+export function transformSpecialCaseAttributes(
+  path: JSXElementPath,
+  tagName: string,
+  isSSR: boolean
+): void {
   tagName = tagName.toUpperCase();
-  const transforms: { propName: string; attr: any }[] = [];
+  const transforms: { propName: string; attr: NodePath<t.JSXAttribute> }[] = [];
 
   let hasOrHadAttribute: Record<string, boolean> = {};
 
@@ -608,7 +630,7 @@ export function transformSpecialCaseAttributes(path: any, tagName: string, isSSR
     const attr = getAttributeNamed(path, propName);
     if (attr) {
       hasOrHadAttribute[propName] = true;
-      transforms.push({ propName, attr });
+      transforms.push({ propName, attr: attr as NodePath<t.JSXAttribute> });
     }
   }
 
@@ -616,7 +638,11 @@ export function transformSpecialCaseAttributes(path: any, tagName: string, isSSR
     const value =
       attr.node.value == null
         ? t.booleanLiteral(true)
-        : t.cloneNode(attr.node.value.expression ?? attr.node.value);
+        : t.cloneNode(
+            t.isJSXExpressionContainer(attr.node.value)
+              ? attr.node.value.expression
+              : attr.node.value
+          );
 
     const isDefault =
       propName.includes("default") ||
@@ -662,7 +688,7 @@ export function transformSpecialCaseAttributes(path: any, tagName: string, isSSR
   }
 }
 
-export function isDOMWithState(tagName: string | undefined, propName: string): any {
+export function isDOMWithState(tagName: string | undefined, propName: string): number | undefined {
   if (!tagName) return undefined;
   tagName = tagName.toUpperCase();
 
@@ -682,7 +708,7 @@ export function isLockedDOMProperty(tagName: string | undefined, propName: strin
 }
 
 export function addAttribute(
-  path: any,
+  path: JSXElementPath,
   name: t.JSXIdentifier,
   value: t.JSXAttribute["value"]
 ): void {

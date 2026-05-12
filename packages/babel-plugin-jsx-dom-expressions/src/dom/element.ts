@@ -86,11 +86,12 @@ export function transformElement(path: any, info: any): DOMTransformResult {
 
     // svg and math tags are already wrapped
     if (tagName !== "svg" && tagName !== "math") {
-      const xmlns = xmlnsAttr
-        ? xmlnsAttr.node.value?.expression
-          ? xmlnsAttr.node.value?.expression.value
-          : xmlnsAttr.node.value?.value
-        : undefined;
+      const xmlnsValue = xmlnsAttr?.node.value;
+      const xmlns = babelTypes.isJSXExpressionContainer(xmlnsValue)
+        ? (xmlnsValue.expression as babelTypes.StringLiteral).value
+        : babelTypes.isStringLiteral(xmlnsValue)
+          ? xmlnsValue.value
+          : undefined;
 
       if (SVGElements.has(tagName) || xmlns === Namespaces.svg) {
         isWrapped = true;
