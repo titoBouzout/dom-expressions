@@ -1,5 +1,11 @@
 # dom-expressions
 
+## 0.50.0-next.10
+
+### Patch Changes
+
+- afbe2ff: Optimize synchronous SSR function holes and plain template array resolution.
+
 ## 0.50.0-next.9
 
 ### Patch Changes
