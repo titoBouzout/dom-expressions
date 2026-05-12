@@ -66,4 +66,5 @@ export interface Runtime {
   VoidElements: Set<string>;
   RawTextElements: Set<string>;
   MathMLElements: Set<string>;
+  template: (html: string) => HTMLTemplateElement;
 }

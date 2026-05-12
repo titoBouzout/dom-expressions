@@ -217,6 +217,22 @@ describe("SLD Integration Tests", () => {
       dispose();
     });
 
+        it("handles top level expressions", () => {
+      const [count, setCount] = createSignal(0);
+      const dispose = createRoot(d => {
+        const nodes = sld`<div></div>${() => count()}` as HTMLElement;
+        r.insert(document.body, nodes);
+        return d;
+      });
+
+      expect(document.body.textContent).toContain("0");
+      setCount(5);
+      flush();
+
+      expect(document.body.textContent).toContain("5");
+      dispose();
+    });
+
     it("handles sibling expressions and static text correctly", () =>
       createRoot(dispose => {
         const [a] = createSignal("A");
@@ -446,7 +462,7 @@ describe("SLD Integration Tests", () => {
       createRoot(dispose => {
         const nodes = sld`${"hole"}<template>Count: ${() => 1}</template>` as Node[];
         document.body.append(...nodes);
-        expect((nodes[2] as HTMLTemplateElement).content.textContent).toEqual("Count: 1");
+        expect((nodes[1] as HTMLTemplateElement).content.textContent).toEqual("Count: 1");
         dispose();
       }));
 

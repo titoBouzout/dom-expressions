@@ -34,8 +34,8 @@ export function createSLDRuntime(r: Runtime) {
     return r.SVGElements.has(name)
       ? document.createElementNS("http://www.w3.org/2000/svg", name)
       : r.MathMLElements.has(name)
-        ? document.createElementNS("http://www.w3.org/1998/Math/MathML", name)
-        : document.createElement(name);
+      ? document.createElementNS("http://www.w3.org/1998/Math/MathML", name)
+      : document.createElement(name);
   };
 
   // Internal: build an SLD tag bound to a component registry.
@@ -65,23 +65,56 @@ export function createSLDRuntime(r: Runtime) {
   };
 
   //build template element with same exact shape as tree so they can be walked through in sync
-  const buildTemplate = (node: RootNode | ChildNode): void => {
-    if (node.type === ROOT_NODE || node.type === COMPONENT_NODE) {
-      //Criteria for using template is component or root has at least 1 element. May be be a more optimal condition.
-      if (node.children.some(v => v.type === ELEMENT_NODE)) {
+  const buildTemplate = (node: RootNode | ChildNode, insideTemplate: boolean): void => {
+    if (node.type === ELEMENT_NODE) {
+      if (!insideTemplate) {
+        // node.template = r.template(buildInnerHTML(node));
         const template = document.createElement("template");
-        template.content.append(...node.children.map(buildNodes));
-        // buildNodes(node.children, template.content);
-        // template.innerHTML = node.children.map(buildHTML).join("");
+        template.content.appendChild(buildNodes(node));
         node.template = template;
+        insideTemplate = true;
       }
-      node.children.forEach(buildTemplate);
-    } else if (node.type === ELEMENT_NODE) {
-      node.children.forEach(buildTemplate);
+      node.children.forEach(child => buildTemplate(child, insideTemplate));
+    } else if (node.type === COMPONENT_NODE || node.type === ROOT_NODE) {
+      node.children.forEach(child => buildTemplate(child, false));
     }
   };
 
   const textTemplate = document.createElement("template");
+
+  // const buildInnerHTML = (node: ChildNode): string => {
+  //   switch (node.type) {
+  //     case TEXT_NODE:
+  //       return node.value;
+  //     case EXPRESSION_NODE:
+  //       return `<!--${node.value}-->`;
+  //     case COMPONENT_NODE:
+  //       return `<!--${node.name}-->`;
+  //     case ELEMENT_NODE:
+  //       let hasSpread = false;
+  //       let props = "";
+
+  //       const elem = createElement(node.name);
+  //       //props located after spread need to be applied after spread for possible overrides
+  //       node.props = node.props.filter(prop => {
+  //         if (prop.type === STATIC_PROP) {
+  //           if (prop.name.startsWith("prop:")) return true;
+  //           props += ` ${prop.name}=${prop.quote || '"'}${prop.value}${prop.quote || '"'} `;
+  //           return hasSpread;
+  //         } else if (prop.type === BOOLEAN_PROP) {
+  //           props += ` ${prop.name} `;
+  //           return hasSpread;
+  //         } else if (prop.type === SPREAD_PROP) {
+  //           hasSpread = true;
+  //           return hasSpread;
+  //         }
+  //         return true;
+  //       });
+  //       return `<${node.name} ${props}>${node.children.map(buildInnerHTML).join("")}</${
+  //         node.name
+  //       }>`;
+  //   }
+  // };
 
   const buildNodes = (node: ChildNode): Node => {
     switch (node.type) {
@@ -136,7 +169,7 @@ export function createSLDRuntime(r: Runtime) {
         let name = node.name;
 
         // 3. Standard HTML Element (node.name is guaranteed string here)
-        const element = createElement(name);
+        const element = renderChildren(node, values, components) as Element;
         const props = gatherProps(node, values, components);
 
         r.spread(element, props, true);
@@ -146,16 +179,16 @@ export function createSLDRuntime(r: Runtime) {
   };
 
   const renderChildren = (
-    node: RootNode | ComponentNode,
+    node: RootNode | ComponentNode | ElementNode,
     values: any[],
     components: ComponentRegistry
   ): JSX.Element => {
-    if (!node.template) {
+    if (node.type!==ELEMENT_NODE || !node.template) {
       return flat(node.children.map(n => renderNode(n, values, components)));
     }
 
-    const clone = node.template.content.cloneNode(true) as DocumentFragment;
-    walker.currentNode = clone;
+    const element = node.template.content.firstChild!.cloneNode(true) as Element;
+    walker.currentNode = element;
 
     const walkNodes = (nodes: ChildNode[], walker: TreeWalker) => {
       for (const node of nodes) {
@@ -184,8 +217,10 @@ export function createSLDRuntime(r: Runtime) {
         }
       }
     };
-    walkNodes(node.children, walker);
-    return clone.childNodes.length === 1 ? clone.firstChild : Array.from(clone.childNodes);
+    walkNodes(node.children, node.name === "template"
+                ? document.createTreeWalker((element as HTMLTemplateElement).content, 129)
+                : walker);
+    return element;
   };
 
   const gatherProps = (

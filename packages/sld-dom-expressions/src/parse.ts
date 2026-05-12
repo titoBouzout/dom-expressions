@@ -48,7 +48,6 @@ export type ChildNode = ElementNode | TextNode | ExpressionNode | ComponentNode;
 export interface RootNode {
   type: typeof ROOT_NODE;
   children: ChildNode[];
-  template?: HTMLTemplateElement;
 }
 
 export interface ElementNode {
@@ -56,6 +55,7 @@ export interface ElementNode {
   name: string;
   props: PropNode[];
   children: ChildNode[];
+  template?: HTMLTemplateElement;
 }
 
 export interface ComponentNode {
@@ -63,7 +63,6 @@ export interface ComponentNode {
   name: string | number;
   props: PropNode[];
   children: ChildNode[];
-  template?: HTMLTemplateElement;
 }
 
 export interface TextNode {
