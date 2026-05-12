@@ -35,7 +35,22 @@ import {
 } from "../shared/utils";
 import { transformNode } from "../shared/transform";
 import { InlineElements, BlockElements } from "./constants";
-import type { DOMTransformResult } from "../types";
+import type {
+  BabelPath,
+  DOMTransformResult,
+  JSXNode,
+  TransformInfo,
+  TransformResult
+} from "../types";
+
+type JSXAttributePath = BabelPath<babelTypes.JSXAttribute | babelTypes.JSXSpreadAttribute>;
+type JSXChildPath = BabelPath<JSXNode>;
+type DOMTransformInfo = TransformInfo & ReturnType<typeof getConfig>;
+type SpreadOptions = {
+  elem: babelTypes.Expression;
+  hasChildren: boolean;
+  wrapConditionals: boolean;
+};
 
 const alwaysClose = [
   "title",
@@ -61,14 +76,17 @@ const alwaysClose = [
   "fieldset"
 ];
 
-export function transformElement(path: any, info: any): DOMTransformResult {
+export function transformElement(
+  path: BabelPath<babelTypes.JSXElement>,
+  info: TransformInfo = {}
+): DOMTransformResult {
   let tagName = getTagName(path.node);
 
   path
     .get("openingElement")
     .get("attributes")
-    .forEach((attr: any) => {
-      evaluateAndInline(attr.node.value, attr.get("value"));
+    .forEach((attr: JSXAttributePath) => {
+      if (t.isJSXAttribute(attr.node)) evaluateAndInline(attr.node.value, attr.get("value"));
     });
 
   let isWrapped = false;
@@ -114,14 +132,24 @@ export function transformElement(path: any, info: any): DOMTransformResult {
       path
         .get("openingElement")
         .get("attributes")
-        .some((a: any) => a.node?.name?.name === "is" || a.name?.name === "is"),
+        .some(
+          (a: JSXAttributePath) =>
+            t.isJSXAttribute(a.node) &&
+            !t.isJSXNamespacedName(a.node.name) &&
+            a.node.name.name === "is"
+        ),
     isImportNode =
       hasCustomElement ||
       ((tagName === "img" || tagName === "iframe") &&
         path
           .get("openingElement")
           .get("attributes")
-          .some((a: any) => a.node.name?.name === "loading")),
+          .some(
+            (a: JSXAttributePath) =>
+              t.isJSXAttribute(a.node) &&
+              !t.isJSXNamespacedName(a.node.name) &&
+              a.node.name.name === "loading"
+          )),
     results: DOMTransformResult = {
       template: `<${tagName}`,
       templateWithClosingTags: `<${tagName}`,
@@ -140,9 +168,19 @@ export function transformElement(path: any, info: any): DOMTransformResult {
     path
       .get("openingElement")
       .get("attributes")
-      .forEach((a: any) => {
-        if (a.node.name?.name === "style") {
-          let value = a.node.value.expression ? a.node.value.expression : a.node.value;
+      .forEach((a: JSXAttributePath) => {
+        if (
+          t.isJSXAttribute(a.node) &&
+          !t.isJSXNamespacedName(a.node.name) &&
+          a.node.name.name === "style"
+        ) {
+          let value: babelTypes.Expression | babelTypes.BlockStatement | null =
+            t.isJSXExpressionContainer(a.node.value) &&
+            !t.isJSXEmptyExpression(a.node.value.expression)
+              ? a.node.value.expression
+              : t.isStringLiteral(a.node.value)
+                ? a.node.value
+                : null;
           if (t.isStringLiteral(value)) {
             // jsx attribute value is a sting that may takes more than one line
             value = t.templateLiteral(
@@ -150,9 +188,10 @@ export function transformElement(path: any, info: any): DOMTransformResult {
               []
             );
           }
-          a.get("value").replaceWith(
-            t.jSXExpressionContainer(t.callExpression(t.arrowFunctionExpression([], value), []))
-          );
+          if (value)
+            a.get("value").replaceWith(
+              t.jSXExpressionContainer(t.callExpression(t.arrowFunctionExpression([], value), []))
+            );
         }
       });
   }
@@ -160,12 +199,16 @@ export function transformElement(path: any, info: any): DOMTransformResult {
   path
     .get("openingElement")
     .get("attributes")
-    .some((a: any) => {
-      if (a.node.name?.name === "_hk") {
+    .some((a: JSXAttributePath) => {
+      if (
+        t.isJSXAttribute(a.node) &&
+        !t.isJSXNamespacedName(a.node.name) &&
+        a.node.name.name === "_hk"
+      ) {
         a.remove();
         let filename = "";
         try {
-          filename = path.scope.getProgramParent().path.hub.file.opts.filename;
+          filename = (path.scope.getProgramParent().path.hub as any).file.opts.filename;
         } catch (e) {}
 
         console.log(
@@ -204,7 +247,7 @@ export function transformElement(path: any, info: any): DOMTransformResult {
       results.toBeClosed = new Set(info.toBeClosed || alwaysClose);
       results.toBeClosed.add(tagName);
       if (InlineElements.includes(tagName))
-        BlockElements.forEach((i: any) => results.toBeClosed!.add(i));
+        BlockElements.forEach((i: string) => results.toBeClosed!.add(i));
     } else results.toBeClosed = info.toBeClosed;
     if (tagName !== "noscript") transformChildren(path, results, config);
     if (toBeClosed) results.template += `</${tagName}>`;
@@ -1038,7 +1081,7 @@ function transformAttributes(path: any, results: DOMTransformResult) {
   results.hasHydratableEvent = results.hasHydratableEvent || hasHydratableEvent;
 }
 
-function findLastElement(children: any[], hydratable: any) {
+function findLastElement(children: JSXChildPath[], hydratable?: boolean): number {
   let lastElement = -1,
     tagName;
   for (let i = children.length - 1; i >= 0; i--) {
@@ -1046,7 +1089,9 @@ function findLastElement(children: any[], hydratable: any) {
     if (
       hydratable ||
       t.isJSXText(node) ||
-      getStaticExpression(children[i]) !== false ||
+      (t.isJSXExpressionContainer(node) &&
+        getStaticExpression(children[i] as BabelPath<babelTypes.JSXExpressionContainer>) !==
+          false) ||
       (t.isJSXElement(node) && (tagName = getTagName(node)) && !isComponent(tagName))
     ) {
       lastElement = i;
@@ -1056,44 +1101,52 @@ function findLastElement(children: any[], hydratable: any) {
   return lastElement;
 }
 
-function transformChildren(path: any, results: DOMTransformResult, config: any) {
+function transformChildren(
+  path: BabelPath<babelTypes.JSXElement>,
+  results: DOMTransformResult,
+  config: DOMTransformInfo
+): void {
   let tempPath = (results.id && results.id.name) || "",
     tagName = getTagName(path.node),
-    nextPlaceholder: any,
-    childPostExprs: any[] = [],
+    nextPlaceholder: babelTypes.Identifier | undefined | null,
+    childPostExprs: babelTypes.Statement[] = [],
     i = 0;
   const filteredChildren = filterChildren(path.get("children")),
     lastElement = findLastElement(filteredChildren, config.hydratable),
-    childNodes = filteredChildren.reduce((memo: any[], child: any, index: number) => {
-      if (child.isJSXFragment()) {
-        throw new Error(
-          `Fragments can only be used top level in JSX. Not used under a <${tagName}>.`
-        );
-      }
-      const transformed = transformNode(child, {
-        toBeClosed: results.toBeClosed,
-        lastElement: index === lastElement,
-        skipId: !results.id || !detectExpressions(filteredChildren, index, config)
-      });
-      if (!transformed) return memo;
-      const i = memo.length;
-      if (transformed.text && i && memo[i - 1].text) {
-        memo[i - 1].template += transformed.template;
-        memo[i - 1].templateWithClosingTags +=
-          transformed.templateWithClosingTags || transformed.template;
-      } else memo.push(transformed);
-      return memo;
-    }, []);
+    childNodes = filteredChildren.reduce(
+      (memo: TransformResult[], child: JSXChildPath, index: number) => {
+        if (child.isJSXFragment()) {
+          throw new Error(
+            `Fragments can only be used top level in JSX. Not used under a <${tagName}>.`
+          );
+        }
+        const transformed = transformNode(child, {
+          toBeClosed: results.toBeClosed,
+          lastElement: index === lastElement,
+          skipId: !results.id || !detectExpressions(filteredChildren, index, config)
+        });
+        if (!transformed) return memo;
+        const i = memo.length;
+        if (transformed.text && i && memo[i - 1].text) {
+          memo[i - 1].template =
+            `${memo[i - 1].template as string}${transformed.template as string}`;
+          memo[i - 1].templateWithClosingTags +=
+            transformed.templateWithClosingTags || (transformed.template as string);
+        } else memo.push(transformed);
+        return memo;
+      },
+      []
+    );
 
-  childNodes.forEach((child: any, index: any) => {
+  childNodes.forEach((child, index) => {
     if (!child) return;
     if (child.tagName && child.renderer !== "dom") {
       throw new Error(`<${child.tagName}> is not supported in <${tagName}>.
       Wrap the usage with a component that would render this element, eg. Canvas`);
     }
 
-    results.template += child.template;
-    results.templateWithClosingTags += child.templateWithClosingTags || child.template;
+    results.template += child.template as string;
+    results.templateWithClosingTags += child.templateWithClosingTags || (child.template as string);
     results.isImportNode = results.isImportNode || child.isImportNode;
     results.isWrapped = results.isWrapped || child.isWrapped;
 
@@ -1109,7 +1162,7 @@ function transformChildren(path: any, results: DOMTransformResult, config: any) 
           t.identifier(tempPath),
           t.identifier(i === 0 ? "firstChild" : "nextSibling")
         );
-        walkExpr = t.callExpression(getNextMatch, [walk, t.stringLiteral(child.tagName)]);
+        walkExpr = t.callExpression(getNextMatch, [walk, t.stringLiteral(child.tagName as string)]);
       } else if (config.dev && config.hydratable && child.tagName) {
         const helperName = i === 0 ? "getFirstChild" : "getNextSibling";
         const helper = registerImportMethod(
@@ -1128,11 +1181,12 @@ function transformChildren(path: any, results: DOMTransformResult, config: any) 
         );
       }
       results.declarations.push(t.variableDeclarator(child.id, walkExpr));
-      results.declarations.push(...child.declarations);
-      results.exprs.push(...child.exprs);
+      results.declarations.push(...(child.declarations as babelTypes.VariableDeclarator[]));
+      results.exprs.push(...(child.exprs as babelTypes.Statement[]));
       results.dynamics.push(...child.dynamics);
-      childPostExprs.push(...child.postExprs);
-      results.hasHydratableEvent = results.hasHydratableEvent || child.hasHydratableEvent;
+      childPostExprs.push(...(child.postExprs || []));
+      results.hasHydratableEvent =
+        results.hasHydratableEvent || (child as DOMTransformResult).hasHydratableEvent;
       results.isImportNode = results.isImportNode || child.isImportNode;
       results.isWrapped = results.isWrapped || child.isWrapped;
       tempPath = child.id.name;
@@ -1144,7 +1198,8 @@ function transformChildren(path: any, results: DOMTransformResult, config: any) 
         markers = config.hydratable && multi;
       // boxed by textNodes
       if (markers || wrappedByText(childNodes, index)) {
-        let exprId, contentId;
+        let exprId: babelTypes.Identifier;
+        let contentId: babelTypes.Identifier | undefined;
         if (markers) tempPath = createPlaceholder(path, results, tempPath, i++, "$")[0].name;
         if (nextPlaceholder) {
           exprId = nextPlaceholder;
@@ -1152,30 +1207,35 @@ function transformChildren(path: any, results: DOMTransformResult, config: any) 
           [exprId, contentId] = createPlaceholder(path, results, tempPath, i++, markers ? "/" : "");
         }
         if (!markers) nextPlaceholder = exprId;
-        results.exprs.push(
-          t.expressionStatement(
-            t.callExpression(
-              insert,
+        const args = contentId
+          ? ([
+              results.id!,
+              child.exprs[0] as babelTypes.Expression,
+              exprId,
               contentId
-                ? [results.id, child.exprs[0], exprId, contentId]
-                : [results.id, child.exprs[0], exprId]
-            )
-          )
-        );
+            ] as babelTypes.Expression[])
+          : ([
+              results.id!,
+              child.exprs[0] as babelTypes.Expression,
+              exprId
+            ] as babelTypes.Expression[]);
+        results.exprs.push(t.expressionStatement(t.callExpression(insert, args)));
         tempPath = exprId.name;
       } else if (multi) {
         results.exprs.push(
           t.expressionStatement(
             t.callExpression(insert, [
-              results.id,
-              child.exprs[0],
+              results.id!,
+              child.exprs[0] as babelTypes.Expression,
               nextChild(childNodes, index) || t.nullLiteral()
             ])
           )
         );
       } else {
         results.exprs.push(
-          t.expressionStatement(t.callExpression(insert, [results.id, child.exprs[0]]))
+          t.expressionStatement(
+            t.callExpression(insert, [results.id!, child.exprs[0] as babelTypes.Expression])
+          )
         );
       }
     } else nextPlaceholder = null;
@@ -1184,12 +1244,12 @@ function transformChildren(path: any, results: DOMTransformResult, config: any) 
 }
 
 function createPlaceholder(
-  path: any,
+  path: BabelPath<babelTypes.JSXElement>,
   results: DOMTransformResult,
-  tempPath: any,
-  i: any,
-  char: any
-) {
+  tempPath: string,
+  i: number,
+  char: string
+): [babelTypes.Identifier, babelTypes.Identifier | undefined] {
   const exprId = path.scope.generateUidIdentifier("el$"),
     config = getConfig(path);
   let contentId;
@@ -1219,18 +1279,23 @@ function createPlaceholder(
   return [exprId, contentId];
 }
 
-function nextChild(children: any[], index: number): any {
+function nextChild(children: TransformResult[], index: number): babelTypes.Identifier | undefined {
   return children[index + 1] && (children[index + 1].id || nextChild(children, index + 1));
 }
 
 // reduce unnecessary refs
-function detectExpressions(children: any[], index: number, config: any): any {
+function detectExpressions(
+  children: JSXChildPath[],
+  index: number,
+  config: DOMTransformInfo
+): boolean | undefined {
   if (children[index - 1]) {
     const node = children[index - 1].node;
     if (
       t.isJSXExpressionContainer(node) &&
       !t.isJSXEmptyExpression(node.expression) &&
-      getStaticExpression(children[index - 1]) === false
+      getStaticExpression(children[index - 1] as BabelPath<babelTypes.JSXExpressionContainer>) ===
+        false
     )
       return true;
     let tagName;
@@ -1239,7 +1304,10 @@ function detectExpressions(children: any[], index: number, config: any): any {
   for (let i = index; i < children.length; i++) {
     const child = children[i].node;
     if (t.isJSXExpressionContainer(child)) {
-      if (!t.isJSXEmptyExpression(child.expression) && getStaticExpression(children[i]) === false)
+      if (
+        !t.isJSXEmptyExpression(child.expression) &&
+        getStaticExpression(children[i] as BabelPath<babelTypes.JSXExpressionContainer>) === false
+      )
         return true;
     } else if (t.isJSXElement(child)) {
       const tagName = getTagName(child);
@@ -1248,15 +1316,18 @@ function detectExpressions(children: any[], index: number, config: any): any {
         config.contextToCustomElements &&
         (tagName === "slot" ||
           tagName.indexOf("-") > -1 ||
-          child.openingElement.attributes.some((a: any) => a.name?.name === "is"))
+          child.openingElement.attributes.some(
+            a => t.isJSXAttribute(a) && !t.isJSXNamespacedName(a.name) && a.name.name === "is"
+          ))
       )
         return true;
       if (
         child.openingElement.attributes.some(
-          (attr: any) =>
+          attr =>
             t.isJSXSpreadAttribute(attr) ||
-            ["textContent", "innerHTML", "innerText"].includes(attr.name.name) ||
-            (attr.name.namespace && attr.name.namespace.name === "prop") ||
+            (t.isJSXIdentifier(attr.name) &&
+              ["textContent", "innerHTML", "innerText"].includes(attr.name.name)) ||
+            (t.isJSXNamespacedName(attr.name) && attr.name.namespace.name === "prop") ||
             (t.isJSXExpressionContainer(attr.value) &&
               !(
                 t.isStringLiteral(attr.value.expression) ||
@@ -1266,12 +1337,16 @@ function detectExpressions(children: any[], index: number, config: any): any {
       )
         return true;
       const nextChildren = filterChildren(children[i].get("children"));
-      if (nextChildren.length) if (detectExpressions(nextChildren, 0, config)) return true;
+      if (nextChildren.length)
+        if (detectExpressions(nextChildren as JSXChildPath[], 0, config)) return true;
     }
   }
 }
 
-function contextToCustomElement(path: any, results: DOMTransformResult) {
+function contextToCustomElement(
+  path: BabelPath<babelTypes.JSXElement>,
+  results: DOMTransformResult
+): void {
   if (!results.id) return;
   results.exprs.push(
     t.expressionStatement(
@@ -1288,19 +1363,19 @@ function contextToCustomElement(path: any, results: DOMTransformResult) {
 }
 
 function processSpreads(
-  path: any,
-  attributes: any[],
-  { elem, hasChildren, wrapConditionals }: any
-) {
+  path: BabelPath<babelTypes.JSXElement>,
+  attributes: JSXAttributePath[],
+  { elem, hasChildren, wrapConditionals }: SpreadOptions
+): [JSXAttributePath[], babelTypes.ExpressionStatement] {
   const config = getConfig(path);
   const tagName = getTagName(path.node);
 
   // TODO: skip but collect the names of any properties after the last spread to not overwrite them
-  const filteredAttributes: any[] = [];
-  const spreadArgs: any[] = [];
-  let runningObject: any[] = [];
+  const filteredAttributes: JSXAttributePath[] = [];
+  const spreadArgs: babelTypes.Expression[] = [];
+  let runningObject: Array<babelTypes.ObjectProperty | babelTypes.ObjectMethod> = [];
   let dynamicSpread = false;
-  attributes.forEach((attribute: any) => {
+  attributes.forEach(attribute => {
     const node = attribute.node;
     const key =
       !t.isJSXSpreadAttribute(node) &&
@@ -1327,7 +1402,10 @@ function processSpreads(
 
       spreadArgs.push(isStatic ? t.objectExpression([t.spreadElement(s)]) : s);
     } else if (key && key !== "ref") {
-      const isContainer = t.isJSXExpressionContainer(node.value);
+      const value = node.value;
+      const isContainer = t.isJSXExpressionContainer(value);
+      const expression =
+        isContainer && !t.isJSXEmptyExpression(value.expression) ? value.expression : undefined;
       const dynamic =
         isContainer && isDynamic(attribute.get("value").get("expression"), { checkMember: true });
       const normalized = isLockedDOMProperty(tagName, key) ? key.replace(/^prop:/, "") : key;
@@ -1338,10 +1416,10 @@ function processSpreads(
 
         let expr =
           wrapConditionals &&
-          (t.isLogicalExpression(node.value.expression) ||
-            t.isConditionalExpression(node.value.expression))
+          expression &&
+          (t.isLogicalExpression(expression) || t.isConditionalExpression(expression))
             ? transformCondition(attribute.get("value").get("expression"), true)
-            : t.arrowFunctionExpression([], node.value.expression);
+            : t.arrowFunctionExpression([], expression as babelTypes.Expression);
         runningObject.push(
           t.objectMethod(
             "get",
@@ -1355,7 +1433,9 @@ function processSpreads(
         runningObject.push(
           t.objectProperty(
             t.stringLiteral(normalized),
-            isContainer ? node.value.expression : node.value || t.booleanLiteral(true)
+            (isContainer
+              ? expression
+              : node.value || t.booleanLiteral(true)) as babelTypes.Expression
           )
         );
       }

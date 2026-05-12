@@ -21,7 +21,23 @@ import {
 } from "../shared/utils";
 import { transformNode, getCreateTemplate } from "../shared/transform";
 import { createTemplate } from "./template";
-import type { BabelPath, SSRTransformResult } from "../types";
+import type {
+  BabelPath,
+  JSXNode,
+  SSRTransformResult,
+  TransformInfo,
+  TransformResult
+} from "../types";
+
+type JSXAttributePath = BabelPath<babelTypes.JSXAttribute | babelTypes.JSXSpreadAttribute>;
+type JSXChildPath = BabelPath<JSXNode>;
+type SSRTransformInfo = TransformInfo & ReturnType<typeof getConfig>;
+type SSRSpreadTransformResult = TransformResult & {
+  exprs: babelTypes.Expression[];
+  template: "";
+  declarations: [];
+  spreadElement: true;
+};
 
 interface HoistOptions {
   group?: boolean;
@@ -148,34 +164,35 @@ function groupAttributeClosures(path: BabelPath, results: SSRTransformResult): v
 
 export function transformElement(
   path: BabelPath<babelTypes.JSXElement> & { doNotEscape?: boolean },
-  info: any
-): any {
+  info: TransformInfo = {}
+): SSRTransformResult | SSRSpreadTransformResult {
   const tagName = getTagName(path.node);
 
   path
     .get("openingElement")
     .get("attributes")
-    .forEach((attr: any) => {
-      evaluateAndInline(attr.node.value, attr.get("value"));
+    .forEach((attr: JSXAttributePath) => {
+      if (t.isJSXAttribute(attr.node)) evaluateAndInline(attr.node.value, attr.get("value"));
     });
 
   const config = getConfig(path);
   if (tagName === "script" || tagName === "style") path.doNotEscape = true;
 
   // contains spread attributes
-  if (path.node.openingElement.attributes.some((a: any) => t.isJSXSpreadAttribute(a)))
+  if (path.node.openingElement.attributes.some(a => t.isJSXSpreadAttribute(a)))
     return createElement(path, { ...info, ...config });
 
   // Duplicate same-named attributes on the same element resolve to the
   // last value (matching DOM-mode and JSX spread semantics). Strip the
   // earlier occurrences before the rest of the SSR transform runs.
   {
-    const seenAttributes: Record<string, any> = {};
-    const duplicates: any[] = [];
+    const seenAttributes: Record<string, JSXAttributePath> = {};
+    const duplicates: JSXAttributePath[] = [];
     path
       .get("openingElement")
       .get("attributes")
-      .forEach((attr: any) => {
+      .forEach((attr: JSXAttributePath) => {
+        if (!t.isJSXAttribute(attr.node)) return;
         const key = t.isJSXNamespacedName(attr.node.name)
           ? `${attr.node.name.namespace.name}:${attr.node.name.name.name}`
           : attr.node.name.name;
@@ -772,13 +789,17 @@ function transformClasslistObject(
   });
 }
 
-function transformChildren(path: any, results: any, { hydratable }: any) {
+function transformChildren(
+  path: BabelPath<babelTypes.JSXElement> & { doNotEscape?: boolean },
+  results: SSRTransformResult,
+  { hydratable }: SSRTransformInfo
+): void {
   const doNotEscape = path.doNotEscape;
   const tagName = getTagName(path.node);
   const filteredChildren = filterChildren(path.get("children"));
   const multi = checkLength(filteredChildren),
     markers = hydratable && multi;
-  filteredChildren.forEach((node: any) => {
+  filteredChildren.forEach((node: JSXChildPath) => {
     if (node.isJSXFragment()) {
       throw new Error(
         `Fragments can only be used top level in JSX. Not used under a <${tagName}>.`
@@ -788,7 +809,10 @@ function transformChildren(path: any, results: any, { hydratable }: any) {
     if (!child) return;
     appendToTemplate(results.template, child.template as string | string[]);
     results.templateValues.push.apply(results.templateValues, child.templateValues || []);
-    child.declarations && results.declarations.push(...child.declarations);
+    child.declarations &&
+      results.declarations.push(
+        ...(child.declarations as Array<babelTypes.VariableDeclarator | null>)
+      );
     child.postDeclarations && results.postDeclarations.push(...child.postDeclarations);
     if (child.groupable) {
       if (!results.groupable) results.groupable = new Set();
@@ -801,7 +825,10 @@ function transformChildren(path: any, results: any, { hydratable }: any) {
 
       // textContent flows through here as a synthesized child; flag it
       // for grouping (see `transformAttributes`).
-      const hoistOpts = node.node && node.node._groupableTextContent ? { group: true } : undefined;
+      const hoistOpts = (node.node as babelTypes.Node & { _groupableTextContent?: boolean })
+        ._groupableTextContent
+        ? { group: true }
+        : undefined;
 
       // boxed by textNodes
       if (markers && !child.spreadElement) {
@@ -821,7 +848,10 @@ function transformChildren(path: any, results: any, { hydratable }: any) {
   });
 }
 
-function createElement(path: any, { topLevel, hydratable }: any) {
+function createElement(
+  path: BabelPath<babelTypes.JSXElement> & { doNotEscape?: boolean },
+  { topLevel, hydratable }: SSRTransformInfo
+): SSRSpreadTransformResult {
   const tagName = getTagName(path.node),
     config = getConfig(path),
     attributes = normalizeAttributes(path),
@@ -830,7 +860,7 @@ function createElement(path: any, { topLevel, hydratable }: any) {
   const filteredChildren = filterChildren(path.get("children")),
     multi = checkLength(filteredChildren),
     markers = hydratable && multi,
-    childNodes = filteredChildren.reduce((memo: babelTypes.Expression[], path: any) => {
+    childNodes = filteredChildren.reduce((memo: babelTypes.Expression[], path: JSXChildPath) => {
       if (t.isJSXText(path.node)) {
         const v = decode(trimWhitespace((path.node.extra?.raw as string | undefined) ?? ""));
         if (v.length) memo.push(t.stringLiteral(v));
@@ -934,5 +964,5 @@ function createElement(path: any, { topLevel, hydratable }: any) {
       t.booleanLiteral(Boolean(topLevel && config.hydratable))
     ])
   ];
-  return { exprs, template: "", declarations: [], spreadElement: true };
+  return { exprs, template: "", declarations: [], dynamics: [], spreadElement: true };
 }

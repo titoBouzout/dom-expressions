@@ -25,8 +25,8 @@ export function transformElement(
   path
     .get("openingElement")
     .get("attributes")
-    .forEach((attr: any) => {
-      evaluateAndInline(attr.node.value, attr.get("value"));
+    .forEach((attr: JSXAttributePath) => {
+      if (t.isJSXAttribute(attr.node)) evaluateAndInline(attr.node.value, attr.get("value"));
     });
 
   let tagName = getTagName(path.node),
@@ -113,7 +113,7 @@ function transformAttributes(
             const refIdentifier = path.scope.generateUidIdentifier("_ref$");
             results.exprs.unshift(
               t.variableDeclaration("var", [
-                t.variableDeclarator(refIdentifier, value.expression as any)
+                t.variableDeclarator(refIdentifier, value.expression as t.Expression)
               ]),
               t.expressionStatement(
                 t.conditionalExpression(
@@ -154,7 +154,7 @@ function transformAttributes(
                     "ref",
                     getRendererConfig(path, "universal").moduleName
                   ),
-                  [t.arrowFunctionExpression([], value.expression as any), elem]
+                  [t.arrowFunctionExpression([], value.expression as t.Expression), elem]
                 )
               )
             );
@@ -162,7 +162,7 @@ function transformAttributes(
             const refIdentifier = path.scope.generateUidIdentifier("_ref$");
             results.exprs.unshift(
               t.variableDeclaration("var", [
-                t.variableDeclarator(refIdentifier, value.expression as any)
+                t.variableDeclarator(refIdentifier, value.expression as t.Expression)
               ]),
               t.expressionStatement(
                 t.logicalExpression(
@@ -199,14 +199,16 @@ function transformAttributes(
             checkMember: true
           })
         ) {
-          results.dynamics.push({ elem, key, value: value.expression as any });
+          results.dynamics.push({ elem, key, value: value.expression as t.Expression });
         } else {
           results.exprs.push(
-            t.expressionStatement(setAttr(attribute, elem, key, value.expression as any))
+            t.expressionStatement(setAttr(attribute, elem, key, value.expression as t.Expression))
           );
         }
       } else {
-        results.exprs.push(t.expressionStatement(setAttr(attribute, elem, key, value as any)));
+        results.exprs.push(
+          t.expressionStatement(setAttr(attribute, elem, key, value as t.Expression))
+        );
       }
     });
   if (spreadExpr) results.exprs.push(spreadExpr);
@@ -388,7 +390,9 @@ function processSpreads(
             "get",
             id,
             [],
-            t.blockStatement([t.returnStatement((expr as any).body as any)]),
+            t.blockStatement([
+              t.returnStatement((expr as t.ArrowFunctionExpression).body as t.Expression)
+            ]),
             !t.isValidIdentifier(key)
           )
         );
