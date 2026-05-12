@@ -44,13 +44,30 @@ import type {
 } from "../types";
 
 type JSXAttributePath = BabelPath<babelTypes.JSXAttribute | babelTypes.JSXSpreadAttribute>;
+type JSXAttributeOnlyPath = BabelPath<babelTypes.JSXAttribute>;
 type JSXChildPath = BabelPath<JSXNode>;
 type DOMTransformInfo = TransformInfo & ReturnType<typeof getConfig>;
+type DOMSetAttrOptions = {
+  dynamic?: boolean;
+  prevId?: babelTypes.Expression;
+  tagName?: string;
+};
 type SpreadOptions = {
   elem: babelTypes.Expression;
   hasChildren: boolean;
   wrapConditionals: boolean;
 };
+
+function isNamedAttribute(
+  attribute: JSXAttributePath,
+  name: string
+): attribute is JSXAttributeOnlyPath {
+  return (
+    t.isJSXAttribute(attribute.node) &&
+    t.isJSXIdentifier(attribute.node.name) &&
+    attribute.node.name.name === name
+  );
+}
 
 const alwaysClose = [
   "title",
@@ -269,12 +286,12 @@ export function transformElement(
 }
 
 export function setAttr(
-  path: any,
-  elem: any,
-  name: any,
-  value: any,
-  { dynamic, prevId, tagName }: any = {}
-) {
+  path: BabelPath,
+  elem: babelTypes.Expression,
+  name: string,
+  value: babelTypes.Expression,
+  { dynamic, prevId, tagName }: DOMSetAttrOptions = {}
+): babelTypes.Expression {
   // pull out namespace
   const config = getConfig(path);
   let parts, namespace;
@@ -393,12 +410,15 @@ export function setAttr(
   }
 }
 
-function detectResolvableEventHandler(attribute: any, handler: any) {
+function detectResolvableEventHandler(
+  attribute: BabelPath,
+  handler: babelTypes.Expression
+): boolean {
   while (t.isIdentifier(handler)) {
     const lookup = attribute.scope.getBinding(handler.name);
     if (lookup) {
       if (t.isVariableDeclarator(lookup.path.node)) {
-        handler = lookup.path.node.init;
+        handler = lookup.path.node.init as babelTypes.Expression;
       } else if (t.isFunctionDeclaration(lookup.path.node)) {
         return true;
       } else return false;
@@ -407,18 +427,21 @@ function detectResolvableEventHandler(attribute: any, handler: any) {
   return t.isFunction(handler);
 }
 
-function transformAttributes(path: any, results: DOMTransformResult) {
+function transformAttributes(
+  path: BabelPath<babelTypes.JSXElement>,
+  results: DOMTransformResult
+): void {
   let elem = results.id as babelTypes.Expression,
     hasHydratableEvent = false,
-    children,
-    spreadExpr,
-    attributes = path.get("openingElement").get("attributes");
+    children: babelTypes.JSXExpressionContainer | babelTypes.JSXText | undefined,
+    spreadExpr: babelTypes.ExpressionStatement | undefined,
+    attributes = path.get("openingElement").get("attributes") as JSXAttributePath[];
   const tagName = getTagName(path.node),
     hasChildren = path.node.children.length > 0,
     config = getConfig(path);
 
   // preprocess spreads
-  if (attributes.some((attribute: any) => t.isJSXSpreadAttribute(attribute.node))) {
+  if (attributes.some(attribute => t.isJSXSpreadAttribute(attribute.node))) {
     [attributes, spreadExpr] = processSpreads(path, attributes, {
       elem,
       hasChildren,
@@ -426,17 +449,18 @@ function transformAttributes(path: any, results: DOMTransformResult) {
     });
     path.get("openingElement").set(
       "attributes",
-      attributes.map((a: any) => a.node)
+      attributes.map(a => a.node)
     );
     //NOTE: can't be checked at compile time so add to compiled output
     hasHydratableEvent = true;
   } else {
-    const seenAttributes: Record<string, any> = {};
-    const duplicates: any[] = [];
+    const seenAttributes: Record<string, JSXAttributeOnlyPath> = {};
+    const duplicates: JSXAttributeOnlyPath[] = [];
     path
       .get("openingElement")
       .get("attributes")
-      .forEach((attr: any) => {
+      .forEach((attr: JSXAttributePath) => {
+        if (!t.isJSXAttribute(attr.node)) return;
         const key = t.isJSXNamespacedName(attr.node.name)
           ? `${attr.node.name.namespace.name}:${attr.node.name.name.name}`
           : attr.node.name.name;
@@ -444,7 +468,7 @@ function transformAttributes(path: any, results: DOMTransformResult) {
         if (key !== "ref" && seenAttributes[key]) {
           duplicates.push(seenAttributes[key]);
         }
-        seenAttributes[key] = attr;
+        seenAttributes[key] = attr as JSXAttributeOnlyPath;
       });
     for (const duplicate of duplicates) {
       duplicate.remove();
@@ -462,10 +486,10 @@ function transformAttributes(path: any, results: DOMTransformResult) {
    * Also, when `key` is computed value is also `value.evaluate().confident`
    */
 
-  attributes = path.get("openingElement").get("attributes");
+  attributes = path.get("openingElement").get("attributes") as JSXAttributePath[];
 
-  const styleAttributes = attributes.filter(
-    (a: any) => a.node.name && a.node.name.name === "style"
+  const styleAttributes = attributes.filter((a): a is JSXAttributeOnlyPath =>
+    isNamedAttribute(a, "style")
   );
   if (styleAttributes.length > 0) {
     let inlinedStyle = "";
@@ -473,18 +497,23 @@ function transformAttributes(path: any, results: DOMTransformResult) {
     for (let i = 0; i < styleAttributes.length; i++) {
       const attr = styleAttributes[i];
 
-      let value = attr.node.value;
-      const node = attr.get("value");
+      let value = attr.node.value as
+        | babelTypes.Expression
+        | babelTypes.JSXExpressionContainer
+        | null;
       if (t.isJSXExpressionContainer(value)) {
-        value = value.expression;
+        value = value.expression as babelTypes.Expression;
       }
 
       if (t.isStringLiteral(value)) {
         inlinedStyle += `${value.value.replace(/;$/, "")};`;
         attr.remove();
       } else if (t.isObjectExpression(value)) {
-        const properties = value.properties;
-        const propertiesNode = node.get("expression").get("properties");
+        const styleObject = value;
+        const properties = styleObject.properties;
+        const propertiesNode = (attr.get("value") as BabelPath)
+          .get("expression")
+          .get("properties") as BabelPath[];
         const toRemoveProperty: babelTypes.ObjectProperty[] = [];
         for (let i = 0; i < properties.length; i++) {
           const property = properties[i];
@@ -492,7 +521,7 @@ function transformAttributes(path: any, results: DOMTransformResult) {
           if (!t.isObjectProperty(property)) continue;
           if (property.computed) {
             /* { [computed]: `${1+1}px` } => { [computed]: `2px` } */
-            const r = propertiesNode[i].get("value").evaluate();
+            const r = (propertiesNode[i].get("value") as BabelPath).evaluate();
             if (r.confident && (typeof r.value === "string" || typeof r.value === "number")) {
               property.value = t.inherits(t.stringLiteral(`${r.value}`), property.value);
             }
@@ -513,7 +542,7 @@ function transformAttributes(path: any, results: DOMTransformResult) {
             ) {
               toRemoveProperty.push(property);
             } else {
-              const r = propertiesNode[i].get("value").evaluate();
+              const r = (propertiesNode[i].get("value") as BabelPath).evaluate();
               if (r.confident && (typeof r.value === "string" || typeof r.value === "number")) {
                 inlinedStyle += `${key}:${r.value};`;
                 toRemoveProperty.push(property);
@@ -522,9 +551,9 @@ function transformAttributes(path: any, results: DOMTransformResult) {
           }
         }
         for (const remove of toRemoveProperty) {
-          value.properties.splice(value.properties.indexOf(remove), 1);
+          styleObject.properties.splice(styleObject.properties.indexOf(remove), 1);
         }
-        if (value.properties.length === 0) {
+        if (styleObject.properties.length === 0) {
           attr.remove();
         }
       }
@@ -543,146 +572,178 @@ function transformAttributes(path: any, results: DOMTransformResult) {
   const styleAttribute = path
     .get("openingElement")
     .get("attributes")
-    .find(
-      (a: any) =>
-        a.node.name &&
-        a.node.name.name === "style" &&
-        t.isJSXExpressionContainer(a.node.value) &&
-        t.isObjectExpression(a.node.value.expression) &&
-        !a.node.value.expression.properties.some((p: any) => t.isSpreadElement(p))
-    );
+    .find((a): a is JSXAttributeOnlyPath => {
+      if (!isNamedAttribute(a as JSXAttributePath, "style")) return false;
+      const value = (a as JSXAttributeOnlyPath).node.value;
+      return (
+        t.isJSXExpressionContainer(value) &&
+        t.isObjectExpression(value.expression) &&
+        !value.expression.properties.some((p: babelTypes.ObjectMember | babelTypes.SpreadElement) =>
+          t.isSpreadElement(p)
+        )
+      );
+    });
   if (styleAttribute) {
+    const styleValue = styleAttribute.node.value as babelTypes.JSXExpressionContainer & {
+      expression: babelTypes.ObjectExpression;
+    };
     let i = 0,
-      leading = styleAttribute.node.value.expression.leadingComments;
-    styleAttribute.node.value.expression.properties.slice().forEach((p: any, index: any) => {
+      leading = styleValue.expression.leadingComments;
+    styleValue.expression.properties.slice().forEach((p, index) => {
+      if (!t.isObjectProperty(p)) return;
       if (!p.computed) {
         if (leading) p.value.leadingComments = leading;
         path
           .get("openingElement")
           .node.attributes.splice(
-            styleAttribute.key + ++i,
+            Number(styleAttribute.key) + ++i,
             0,
             t.jsxAttribute(
               t.jsxNamespacedName(
                 t.jsxIdentifier("style"),
-                t.jsxIdentifier(t.isIdentifier(p.key) ? p.key.name : p.key.value)
+                t.jsxIdentifier(
+                  t.isIdentifier(p.key)
+                    ? p.key.name
+                    : String((p.key as babelTypes.StringLiteral | babelTypes.NumericLiteral).value)
+                )
               ),
-              t.jsxExpressionContainer(p.value)
+              t.jsxExpressionContainer(p.value as babelTypes.Expression)
             )
           );
-        styleAttribute.node.value.expression.properties.splice(index - i - 1, 1);
+        styleValue.expression.properties.splice(index - i - 1, 1);
       }
     });
-    if (!styleAttribute.node.value.expression.properties.length)
-      path.get("openingElement").node.attributes.splice(styleAttribute.key, 1);
+    if (!styleValue.expression.properties.length)
+      path.get("openingElement").node.attributes.splice(Number(styleAttribute.key), 1);
   }
 
   // preprocess leading static classes in fixed-shape class arrays
-  attributes = path.get("openingElement").get("attributes");
+  attributes = path.get("openingElement").get("attributes") as JSXAttributePath[];
   const classArrayAttribute = attributes.find(
-    (a: any) =>
-      a.node.name &&
-      a.node.name.name === "class" &&
+    (a): a is JSXAttributeOnlyPath =>
+      isNamedAttribute(a, "class") &&
       t.isJSXExpressionContainer(a.node.value) &&
       t.isArrayExpression(a.node.value.expression)
   );
   if (classArrayAttribute) {
-    const elements = classArrayAttribute.get("value").get("expression").get("elements");
+    const classArrayValue = classArrayAttribute.node.value as babelTypes.JSXExpressionContainer & {
+      expression: babelTypes.ArrayExpression;
+    };
+    const elements = classArrayValue.expression.elements;
     let i = 0,
       staticClasses: string[] = [];
-    while (t.isStringLiteral(elements[i]?.node)) {
-      staticClasses.push(elements[i].node.value);
+    while (t.isStringLiteral(elements[i])) {
+      staticClasses.push((elements[i] as babelTypes.StringLiteral).value);
       i++;
     }
+    const dynamicClassElement = elements[i] as babelTypes.ObjectExpression | null;
     const staticClassSet = new Set(
       staticClasses.flatMap(className => trimWhitespace(className).split(/\s+/).filter(Boolean))
     );
     if (
       staticClasses.length &&
       i === elements.length - 1 &&
-      t.isObjectExpression(elements[i].node) &&
-      !elements[i].node.properties.some(
-        (p: any) =>
+      t.isObjectExpression(dynamicClassElement) &&
+      !dynamicClassElement.properties.some(
+        (p: babelTypes.ObjectMember | babelTypes.SpreadElement) =>
           t.isSpreadElement(p) ||
           p.computed ||
           (t.isStringLiteral(p.key) && (p.key.value.includes(" ") || p.key.value.includes(":"))) ||
-          staticClassSet.has(t.isIdentifier(p.key) ? p.key.name : p.key.value)
+          staticClassSet.has(
+            t.isIdentifier(p.key)
+              ? p.key.name
+              : String((p.key as babelTypes.StringLiteral | babelTypes.NumericLiteral).value)
+          )
       )
     ) {
       classArrayAttribute.node.value = t.stringLiteral(staticClasses.join(" "));
       path
         .get("openingElement")
         .node.attributes.splice(
-          classArrayAttribute.key + 1,
+          Number(classArrayAttribute.key) + 1,
           0,
-          t.jsxAttribute(t.jsxIdentifier("class"), t.jsxExpressionContainer(elements[i].node))
+          t.jsxAttribute(t.jsxIdentifier("class"), t.jsxExpressionContainer(dynamicClassElement))
         );
     }
   }
 
   // preprocess optimal class objects
-  attributes = path.get("openingElement").get("attributes");
+  attributes = path.get("openingElement").get("attributes") as JSXAttributePath[];
   const classListAttribute = attributes.find(
-    (a: any) =>
-      a.node.name &&
-      a.node.name.name === "class" &&
+    (a): a is JSXAttributeOnlyPath =>
+      isNamedAttribute(a, "class") &&
       t.isJSXExpressionContainer(a.node.value) &&
       t.isObjectExpression(a.node.value.expression) &&
       !a.node.value.expression.properties.some(
-        (p: any) =>
+        (p: babelTypes.ObjectMember | babelTypes.SpreadElement) =>
           t.isSpreadElement(p) ||
           p.computed ||
           (t.isStringLiteral(p.key) && (p.key.value.includes(" ") || p.key.value.includes(":")))
       )
   );
   if (classListAttribute) {
+    const classListValue = classListAttribute.node.value as babelTypes.JSXExpressionContainer & {
+      expression: babelTypes.ObjectExpression;
+    };
     let i = 0,
-      leading = classListAttribute.node.value.expression.leadingComments,
-      classListProperties = classListAttribute.get("value").get("expression").get("properties");
-    classListProperties.slice().forEach((propPath: any, index: any) => {
+      leading = classListValue.expression.leadingComments,
+      classListProperties = classListAttribute
+        .get("value")
+        .get("expression")
+        .get("properties") as BabelPath[];
+    classListProperties.slice().forEach((propPath, index) => {
       const p = propPath.node;
+      if (!t.isObjectProperty(p)) return;
       const { confident, value: computed } = propPath.get("value").evaluate();
       if (leading) p.value.leadingComments = leading;
       if (!confident) {
         path
           .get("openingElement")
           .node.attributes.splice(
-            classListAttribute.key + ++i,
+            Number(classListAttribute.key) + ++i,
             0,
             t.jsxAttribute(
               t.jsxNamespacedName(
                 t.jsxIdentifier("class"),
-                t.jsxIdentifier(t.isIdentifier(p.key) ? p.key.name : p.key.value)
+                t.jsxIdentifier(
+                  t.isIdentifier(p.key)
+                    ? p.key.name
+                    : String((p.key as babelTypes.StringLiteral | babelTypes.NumericLiteral).value)
+                )
               ),
-              t.jsxExpressionContainer(p.value)
+              t.jsxExpressionContainer(p.value as babelTypes.Expression)
             )
           );
       } else if (computed) {
         path
           .get("openingElement")
           .node.attributes.splice(
-            classListAttribute.key + ++i,
+            Number(classListAttribute.key) + ++i,
             0,
             t.jsxAttribute(
               t.jsxIdentifier("class"),
-              t.stringLiteral(t.isIdentifier(p.key) ? p.key.name : p.key.value)
+              t.stringLiteral(
+                t.isIdentifier(p.key)
+                  ? p.key.name
+                  : String((p.key as babelTypes.StringLiteral | babelTypes.NumericLiteral).value)
+              )
             )
           );
       }
       classListProperties.splice(index - i - 1, 1);
     });
     if (!classListProperties.length)
-      path.get("openingElement").node.attributes.splice(classListAttribute.key, 1);
+      path.get("openingElement").node.attributes.splice(Number(classListAttribute.key), 1);
   }
 
   // combine class properties
-  attributes = path.get("openingElement").get("attributes");
-  const classAttributes = attributes.filter(
-    (a: any) => a.node.name && a.node.name.name === "class"
+  attributes = path.get("openingElement").get("attributes") as JSXAttributePath[];
+  const classAttributes = attributes.filter((a): a is JSXAttributeOnlyPath =>
+    isNamedAttribute(a, "class")
   );
   if (classAttributes.length > 1) {
     const first = classAttributes[0].node,
-      values: any[] = [],
+      values: babelTypes.Expression[] = [],
       quasis = [t.templateElement({ raw: "" })];
     for (let i = 0; i < classAttributes.length; i++) {
       const attr = classAttributes[i].node,
@@ -691,11 +752,20 @@ function transformAttributes(path: any, results: DOMTransformResult) {
         const prev = quasis.pop();
         quasis.push(
           t.templateElement({
-            raw: (prev ? prev.value.raw : "") + `${attr.value.value}` + (isLast ? "" : " ")
+            raw:
+              (prev ? prev.value.raw : "") +
+              `${(attr.value as babelTypes.StringLiteral).value}` +
+              (isLast ? "" : " ")
           })
         );
       } else {
-        values.push(t.logicalExpression("||", attr.value.expression, t.stringLiteral("")));
+        values.push(
+          t.logicalExpression(
+            "||",
+            attr.value.expression as babelTypes.Expression,
+            t.stringLiteral("")
+          )
+        );
         quasis.push(t.templateElement({ raw: isLast ? "" : " " }));
       }
       i && attributes.splice(attributes.indexOf(classAttributes[i]), 1);
@@ -705,7 +775,7 @@ function transformAttributes(path: any, results: DOMTransformResult) {
   }
   path.get("openingElement").set(
     "attributes",
-    attributes.map((a: any) => a.node)
+    attributes.map(a => a.node)
   );
 
   let needsSpacing = true;
