@@ -609,6 +609,20 @@ function ssrFirstGroupHit(hole) {
   }
 }
 
+function tryResolveFunctionHole(hole) {
+  let value;
+  try {
+    value = hole();
+  } catch (err) {
+    return buildAsyncWrap(err, hole) || "";
+  }
+  const t = typeof value;
+  if (t === "string") return value;
+  if (t === "number") return "" + value;
+  if (value == null || t === "boolean") return "";
+  return tryResolveString(value);
+}
+
 // Cold-path: splice a nested `{ t, h, p }` template into `result` at
 // its current last segment. Used when `tryResolveString` walks into a
 // template object that itself carries async holes.
@@ -619,6 +633,15 @@ function mergeTemplateInto(result, node) {
     result.h.push(...node.h);
     result.p.push(...node.p);
   }
+}
+
+function appendResolvedNode(result, node) {
+  if (node.fn !== undefined) {
+    result.h.push(node.fn);
+    result.p.push(node.p);
+    result.t.push("");
+  } else if (node.merge !== undefined) mergeTemplateInto(result, node.merge);
+  else resolveSSRNode(node.bail, result);
 }
 
 // Module-scoped cache for grouped retry slots. Slots fire contiguously
@@ -733,6 +756,14 @@ export function ssr(t) {
       }
     } else if (result !== null) {
       resolveSSRNode(hole, result);
+    } else if (ht === "function") {
+      const r = tryResolveFunctionHole(hole);
+      if (typeof r === "string") s += r;
+      else {
+        result = { t: [s], h: [], p: [] };
+        s = "";
+        appendResolvedNode(result, r);
+      }
     } else {
       const r = tryResolveString(hole);
       if (typeof r === "string") {
@@ -742,12 +773,7 @@ export function ssr(t) {
         // splice in the sync prefix we accumulated.
         result = { t: [s], h: [], p: [] };
         s = "";
-        if (r.fn !== undefined) {
-          result.h.push(r.fn);
-          result.p.push(r.p);
-          result.t.push("");
-        } else if (r.merge !== undefined) mergeTemplateInto(result, r.merge);
-        else resolveSSRNode(r.bail, result);
+        appendResolvedNode(result, r);
       }
     }
     const next = t[i];
@@ -867,6 +893,8 @@ export function escape(s, attr) {
   const t = typeof s;
   if (t !== "string") {
     if (!attr && Array.isArray(s)) {
+      const joined = tryJoinPlainSSRArray(s);
+      if (joined !== undefined) return joined;
       s = s.slice(); // avoids double escaping - https://github.com/ryansolid/dom-expressions/issues/393
       for (let i = 0; i < s.length; i++) s[i] = escape(s[i]);
       return s;
@@ -933,6 +961,19 @@ function escapeSlow(s, attr, start) {
     }
 
   return left < s.length ? out + s.substring(left) : out;
+}
+
+function tryJoinPlainSSRArray(nodes) {
+  if (nodes.length === 0) return undefined;
+  let out = "";
+  for (let i = 0, len = nodes.length; i < len; i++) {
+    const node = nodes[i];
+    if (node == null || typeof node !== "object" || node.h || typeof node.t !== "string") {
+      return undefined;
+    }
+    out += node.t;
+  }
+  return out;
 }
 
 export function mergeProps(...sources) {
@@ -1121,6 +1162,8 @@ function tryResolveString(node) {
   if (node == null || t === "boolean") return "";
   if (t === "object") {
     if (Array.isArray(node)) {
+      const joined = tryJoinPlainSSRArray(node);
+      if (joined !== undefined) return joined;
       let s = "";
       let prevNonObj = false;
       for (let i = 0, len = node.length; i < len; i++) {
