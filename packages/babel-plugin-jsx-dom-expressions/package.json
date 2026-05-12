@@ -15,8 +15,8 @@
   "scripts": {
     "build": "rollup -c --bundleConfigAsCjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "pnpm run build && jest --no-cache",
-    "test:coverage": "pnpm run build && jest --coverage --no-cache",
+    "test": "pnpm run typecheck && pnpm run build && jest --no-cache",
+    "test:coverage": "pnpm run typecheck && pnpm run build && jest --coverage --no-cache",
     "prepublishOnly": "pnpm run build",
     "prepare": "pnpm run build"
   },
