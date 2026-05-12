@@ -30,6 +30,7 @@ import type {
 } from "../types";
 
 type JSXAttributePath = BabelPath<babelTypes.JSXAttribute | babelTypes.JSXSpreadAttribute>;
+type JSXAttributeOnlyPath = BabelPath<babelTypes.JSXAttribute>;
 type JSXChildPath = BabelPath<JSXNode>;
 type SSRTransformInfo = TransformInfo & ReturnType<typeof getConfig>;
 type SSRSpreadTransformResult = TransformResult & {
@@ -458,22 +459,37 @@ function fragmentWillSelfEscape(fragment: babelTypes.JSXFragment): boolean {
   return false;
 }
 
-function transformToObject(attrName: string, attributes: any[], selectedAttributes: any[]) {
+function transformToObject(
+  attrName: string,
+  attributes: JSXAttributePath[],
+  selectedAttributes: JSXAttributeOnlyPath[]
+): void {
   const properties: babelTypes.ObjectProperty[] = [];
-  const existingAttribute = attributes.find((a: any) => a.node.name.name === attrName);
+  const existingAttribute = attributes.find(
+    (a): a is JSXAttributeOnlyPath =>
+      t.isJSXAttribute(a.node) && t.isJSXIdentifier(a.node.name, { name: attrName })
+  );
   for (let i = 0; i < selectedAttributes.length; i++) {
     const attr = selectedAttributes[i].node;
-    const computed = !t.isValidIdentifier(attr.name.name.name);
+    const namespaceName = attr.name.name;
+    const namespaceIdentifier =
+      typeof namespaceName === "string"
+        ? t.identifier(namespaceName)
+        : (namespaceName as unknown as babelTypes.Identifier);
+    const namespaceKey = namespaceIdentifier.name;
+    const computed = !t.isValidIdentifier(namespaceKey);
     if (!computed) {
-      attr.name.name.type = "Identifier";
+      namespaceIdentifier.type = "Identifier";
     }
     properties.push(
       t.objectProperty(
-        computed ? t.stringLiteral(attr.name.name.name) : attr.name.name,
-        t.isJSXExpressionContainer(attr.value) ? attr.value.expression : attr.value
+        computed ? t.stringLiteral(namespaceKey) : namespaceIdentifier,
+        (t.isJSXExpressionContainer(attr.value)
+          ? attr.value.expression
+          : attr.value) as babelTypes.Expression
       )
     );
-    (existingAttribute || i) && attributes.splice(selectedAttributes[i].key, 1);
+    if (existingAttribute || i) attributes.splice(Number(selectedAttributes[i].key), 1);
   }
   if (
     existingAttribute &&
@@ -489,23 +505,30 @@ function transformToObject(attrName: string, attributes: any[], selectedAttribut
   }
 }
 
-function normalizeAttributes(path: any) {
+function normalizeAttributes(path: BabelPath<babelTypes.JSXElement>): JSXAttributePath[] {
   const attributes = path.get("openingElement").get("attributes"),
     styleAttributes = attributes.filter(
-      (a: any) => t.isJSXNamespacedName(a.node.name) && a.node.name.namespace.name === "style"
+      (a): a is JSXAttributeOnlyPath =>
+        t.isJSXAttribute(a.node) &&
+        t.isJSXNamespacedName(a.node.name) &&
+        a.node.name.namespace.name === "style"
     ),
     classNamespaceAttributes = attributes.filter(
-      (a: any) => t.isJSXNamespacedName(a.node.name) && a.node.name.namespace.name === "class"
+      (a): a is JSXAttributeOnlyPath =>
+        t.isJSXAttribute(a.node) &&
+        t.isJSXNamespacedName(a.node.name) &&
+        a.node.name.namespace.name === "class"
     );
   if (classNamespaceAttributes.length)
     transformToObject("class", attributes, classNamespaceAttributes);
   const classAttributes = attributes.filter(
-    (a: any) => a.node.name && a.node.name.name === "class"
+    (a): a is JSXAttributeOnlyPath =>
+      t.isJSXAttribute(a.node) && t.isJSXIdentifier(a.node.name, { name: "class" })
   );
   // combine class propertoes
   if (classAttributes.length > 1) {
     const first = classAttributes[0].node,
-      values: any[] = [],
+      values: babelTypes.Expression[] = [],
       quasis = [t.templateElement({ raw: "" })];
     for (let i = 0; i < classAttributes.length; i++) {
       const attr = classAttributes[i].node,
@@ -514,16 +537,17 @@ function normalizeAttributes(path: any) {
         const prev = quasis.pop();
         quasis.push(
           t.templateElement({
-            raw: (prev ? prev.value.raw : "") + `${attr.value.value}` + (isLast ? "" : " ")
+            raw:
+              (prev ? prev.value.raw : "") +
+              `${(attr.value as babelTypes.StringLiteral).value}` +
+              (isLast ? "" : " ")
           })
         );
       } else {
         let expr = attr.value.expression;
+        if (t.isJSXEmptyExpression(expr)) continue;
         if (attr.name.name === "class") {
-          if (
-            t.isObjectExpression(expr) &&
-            !expr.properties.some((p: any) => t.isSpreadElement(p))
-          ) {
+          if (t.isObjectExpression(expr) && !expr.properties.some(p => t.isSpreadElement(p))) {
             transformClasslistObject(path, expr, values, quasis);
             if (!isLast) quasis[quasis.length - 1].value.raw += " ";
             i && attributes.splice(attributes.indexOf(classAttributes[i]), 1);
@@ -885,16 +909,16 @@ function createElement(
       return memo;
     }, []);
 
-  let props: any[];
+  let props: babelTypes.Expression[];
   if (attributes.length === 1) {
-    props = [attributes[0].node.argument];
+    props = [(attributes[0].node as babelTypes.JSXSpreadAttribute).argument];
   } else {
     props = [];
-    let runningObject: any[] = [],
+    let runningObject: Array<babelTypes.ObjectProperty | babelTypes.ObjectMethod> = [],
       dynamicSpread = false,
       hasChildren = path.node.children.length > 0;
 
-    attributes.forEach((attribute: any) => {
+    attributes.forEach(attribute => {
       const node = attribute.node;
       if (t.isJSXSpreadAttribute(node)) {
         if (runningObject.length) {
@@ -908,7 +932,7 @@ function createElement(
             ? inlineCallExpression(node.argument)
             : node.argument
         );
-      } else {
+      } else if (t.isJSXAttribute(node)) {
         const value = node.value || t.booleanLiteral(true),
           id = convertJSXIdentifier(node.name),
           key = t.isJSXNamespacedName(node.name)
@@ -920,6 +944,7 @@ function createElement(
         if (key.startsWith("prop:") || key.startsWith("on")) return;
         if (t.isJSXExpressionContainer(value)) {
           if (t.isJSXEmptyExpression(value.expression)) return;
+          const expression = value.expression as babelTypes.Expression;
           if (
             isDynamic(attribute.get("value").get("expression"), {
               checkMember: true,
@@ -931,12 +956,12 @@ function createElement(
                 "get",
                 id,
                 [],
-                t.blockStatement([t.returnStatement(value.expression)]),
+                t.blockStatement([t.returnStatement(expression)]),
                 !t.isValidIdentifier(key)
               )
             );
-          } else runningObject.push(t.objectProperty(id, value.expression));
-        } else runningObject.push(t.objectProperty(id, value));
+          } else runningObject.push(t.objectProperty(id, expression));
+        } else runningObject.push(t.objectProperty(id, value as babelTypes.Expression));
       }
     });
 
