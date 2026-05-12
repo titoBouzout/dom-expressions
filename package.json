@@ -9,6 +9,7 @@
     "url": "https://github.com/ryansolid/dom-expressions"
   },
   "private": true,
+  "packageManager": "pnpm@11.1.1",
   "scripts": {
     "postinstall": "simple-git-hooks",
     "clean": "pnpm run clean:artifacts && pnpm run clean:packages && pnpm run clean:root",
@@ -28,11 +29,6 @@
   },
   "simple-git-hooks": {
     "pre-commit": "pnpm run format"
-  },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "simple-git-hooks"
-    ]
   },
   "devDependencies": {
     "@babel/core": "^7.29.0",
