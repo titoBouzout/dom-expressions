@@ -1,19 +1,27 @@
 import * as parse5 from "parse5";
 
-const parseFragment = parse5.parseFragment as any;
+type Document = parse5.DefaultTreeAdapterMap["document"];
+type ParentNode = parse5.DefaultTreeAdapterMap["parentNode"];
+type DocumentFragment = parse5.DefaultTreeAdapterMap["documentFragment"];
+type Element = parse5.DefaultTreeAdapterMap["element"];
+type DocumentWithHtml = Document & { childNodes: [unknown, Element] };
+type HtmlWithBody = Element & { childNodes: [unknown, Element] };
+type ParseFragmentWithContext = (context: Element, html: string) => DocumentFragment;
+
+const parseFragment = parse5.parseFragment as unknown as ParseFragmentWithContext;
 
 /** `bodyElement` will be used as a `context` (The place where we run `innerHTML`) */
-const bodyElement = parse5.parse(
-  `<!DOCTYPE html><html><head></head><body></body></html>`
-  // @ts-ignore
-).childNodes[1].childNodes[1];
+const bodyElement = (
+  (parse5.parse(`<!DOCTYPE html><html><head></head><body></body></html>`) as DocumentWithHtml)
+    .childNodes[1] as HtmlWithBody
+).childNodes[1];
 
 function innerHTML(htmlFragment: string) {
   /** `htmlFragment` will be parsed as if it was set to the `bodyElement`'s `innerHTML` property. */
   const parsedFragment = parseFragment(bodyElement, htmlFragment);
 
   /** `serialize` returns back a string from the parsed nodes */
-  return parse5.serialize(parsedFragment);
+  return parse5.serialize(parsedFragment as ParentNode);
 }
 
 /**

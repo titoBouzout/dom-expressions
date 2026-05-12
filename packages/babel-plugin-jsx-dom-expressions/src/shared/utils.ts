@@ -9,13 +9,27 @@ type JSXElementName = t.JSXIdentifier | t.JSXMemberExpression | t.JSXNamespacedN
 type StaticMarkerNode = t.Node & { expression?: unknown };
 type JSXElementPath = NodePath<t.JSXElement>;
 type JSXAttributePath = NodePath<t.JSXAttribute>;
+type BabelHubWithConfig = {
+  file: {
+    metadata: {
+      config: JSXDOMExpressionsConfig;
+    };
+  };
+};
+type ConditionPath = NodePath<t.Expression | t.JSXEmptyExpression>;
+type TransformConditionStatements = [t.VariableDeclaration, t.ArrowFunctionExpression];
+type TransformConditionResult =
+  | t.ArrowFunctionExpression
+  | t.Expression
+  | TransformConditionStatements;
+type EvaluateAndInlineNode = t.Node | t.JSXAttribute["value"];
 
 export const reservedNameSpaces = new Set(["class", "on", "style", "prop"]);
 
 export const nonSpreadNameSpaces = new Set(["class", "style", "prop"]);
 
 export function getConfig(path: NodePath): JSXDOMExpressionsConfig {
-  return (path.hub as any).file.metadata.config;
+  return (path.hub as unknown as BabelHubWithConfig).file.metadata.config;
 }
 
 export const getRendererConfig = (
@@ -216,7 +230,7 @@ export function filterChildren<TPath extends NodePath>(children: TPath[]): TPath
   return children.filter(
     ({ node: child }) =>
       !(t.isJSXExpressionContainer(child) && t.isJSXEmptyExpression(child.expression)) &&
-      (!t.isJSXText(child) || !/^[\r\n]\s*$/.test((child.extra as any)?.raw ?? ""))
+      (!t.isJSXText(child) || !/^[\r\n]\s*$/.test((child.extra?.raw as string | undefined) ?? ""))
   );
 }
 
@@ -272,11 +286,28 @@ export function wrappedByText(list: TransformResult[], startIndex: number): bool
   return false;
 }
 
-export function transformCondition(path: any, inline?: boolean, deep?: boolean): any {
+export function transformCondition(path: ConditionPath, inline: true): t.ArrowFunctionExpression;
+export function transformCondition(path: ConditionPath, inline: true, deep: true): t.Expression;
+export function transformCondition(
+  path: ConditionPath,
+  inline: boolean | undefined
+): t.ArrowFunctionExpression | TransformConditionStatements;
+export function transformCondition(
+  path: ConditionPath,
+  inline?: false,
+  deep?: false
+): t.ArrowFunctionExpression | TransformConditionStatements;
+export function transformCondition(
+  path: ConditionPath,
+  inline?: boolean,
+  deep?: boolean
+): TransformConditionResult {
   const config = getConfig(path);
-  const expr = path.node;
+  const expr = path.node as t.Expression;
   const memo = registerImportMethod(path, config.memoWrapper, undefined);
-  let dTest: boolean | undefined, cond: any, id: any;
+  let dTest: boolean | undefined,
+    cond: t.Expression | undefined,
+    id: t.Expression | t.Identifier | undefined;
   if (
     t.isConditionalExpression(expr) &&
     (isDynamic(path.get("consequent"), {
@@ -295,17 +326,17 @@ export function transformCondition(path: any, inline?: boolean, deep?: boolean):
         : path.scope.generateUidIdentifier("_c$");
       expr.test = t.callExpression(id, []);
       if (t.isConditionalExpression(expr.consequent) || t.isLogicalExpression(expr.consequent)) {
-        expr.consequent = transformCondition(path.get("consequent"), true, true);
+        expr.consequent = transformCondition(path.get("consequent") as ConditionPath, true, true);
       }
       if (t.isConditionalExpression(expr.alternate) || t.isLogicalExpression(expr.alternate)) {
-        expr.alternate = transformCondition(path.get("alternate"), true, true);
+        expr.alternate = transformCondition(path.get("alternate") as ConditionPath, true, true);
       }
     }
   } else if (t.isLogicalExpression(expr)) {
-    let nextPath = path;
+    let nextPath = path as NodePath<t.LogicalExpression>;
     // handle top-level or, ie cond && <A/> || <B/>
     while (nextPath.node.operator !== "&&" && t.isLogicalExpression(nextPath.node.left)) {
-      nextPath = nextPath.get("left");
+      nextPath = nextPath.get("left") as NodePath<t.LogicalExpression>;
     }
     nextPath.node.operator === "&&" &&
       isDynamic(nextPath.get("right"), { checkTags: true, checkMember: true }) &&
@@ -322,11 +353,11 @@ export function transformCondition(path: any, inline?: boolean, deep?: boolean):
       nextPath.node.left = t.callExpression(id, []);
     }
   }
-  if (dTest && !inline) {
-    const statements = [
+  if (dTest && !inline && cond && id) {
+    const statements: TransformConditionStatements = [
       t.variableDeclaration("var", [
         t.variableDeclarator(
-          id,
+          id as t.LVal,
           config.memoWrapper
             ? t.callExpression(memo, [t.arrowFunctionExpression([], cond)])
             : t.arrowFunctionExpression([], cond)
@@ -553,7 +584,10 @@ const templateEscapes = new Map([
   ["\u2029", "\\u2029"]
 ]);
 
-export function evaluateAndInline(value: any, valueNode: any): void {
+export function evaluateAndInline(
+  value: EvaluateAndInlineNode | null | undefined,
+  valueNode: NodePath<EvaluateAndInlineNode>
+): void {
   if (t.isJSXExpressionContainer(value)) {
     evaluateAndInline(value.expression, valueNode.get("expression"));
   } else if (t.isObjectProperty(value)) {

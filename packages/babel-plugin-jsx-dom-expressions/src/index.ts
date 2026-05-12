@@ -5,9 +5,13 @@ import preprocess from "./shared/preprocess";
 import type { Visitor } from "@babel/traverse";
 import type { JSXDOMExpressionsPass } from "./types";
 
+type JSXPluginSyntax = {
+  manipulateOptions(opts: unknown, parserOpts: { plugins: string[] }): void;
+};
+
 export default (): {
   name: string;
-  inherits: any;
+  inherits: () => JSXPluginSyntax;
   visitor: Visitor<JSXDOMExpressionsPass>;
 } => {
   return {

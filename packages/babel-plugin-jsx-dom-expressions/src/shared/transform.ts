@@ -31,6 +31,13 @@ import type {
 } from "../types";
 
 type FunctionParentScope = ReturnType<NodePath["scope"]["getFunctionParent"]>;
+type TransformConditionStatements = [t.VariableDeclaration, t.ArrowFunctionExpression];
+
+function isTransformConditionStatements(
+  expr: t.Expression | TransformConditionStatements
+): expr is TransformConditionStatements {
+  return Array.isArray(expr);
+}
 
 export function transformJSX(
   path: NodePath<t.JSXElement | t.JSXFragment>,
@@ -210,7 +217,7 @@ export function transformNode(
     ) {
       return { exprs: [node.expression], template: "", declarations: [], dynamics: [] };
     }
-    const expr =
+    const expr: t.Expression | TransformConditionStatements =
       config.wrapConditionals &&
       (t.isLogicalExpression(node.expression) || t.isConditionalExpression(node.expression))
         ? transformCondition(path.get("expression"), info.componentChild || info.fragmentChild)
@@ -220,21 +227,20 @@ export function transformNode(
             !t.isCallExpression(node.expression.callee) &&
             !t.isMemberExpression(node.expression.callee) &&
             node.expression.arguments.length === 0
-          ? node.expression.callee
+          ? (node.expression.callee as t.Expression)
           : t.arrowFunctionExpression([], node.expression);
     return {
-      exprs:
-        expr.length > 1
-          ? [
-              t.callExpression(
-                t.arrowFunctionExpression(
-                  [],
-                  t.blockStatement([expr[0], t.returnStatement(expr[1])])
-                ),
-                []
-              )
-            ]
-          : [expr],
+      exprs: isTransformConditionStatements(expr)
+        ? [
+            t.callExpression(
+              t.arrowFunctionExpression(
+                [],
+                t.blockStatement([expr[0], t.returnStatement(expr[1])])
+              ),
+              []
+            )
+          ]
+        : [expr],
       template: "",
       declarations: [],
       dynamics: [],
