@@ -4,15 +4,19 @@ import { setAttr } from "./element";
 import type { NodePath } from "@babel/traverse";
 import type { DynamicBinding, TransformResult } from "../types";
 
-export function createTemplate(path: NodePath, result: TransformResult, wrap: boolean) {
+export function createTemplate(
+  path: NodePath,
+  result: TransformResult,
+  wrap: boolean
+): t.Expression {
   const config = getConfig(path);
   if (result.id) {
-    result.decl = t.variableDeclaration("var", result.declarations);
+    result.decl = t.variableDeclaration("var", result.declarations as t.VariableDeclarator[]);
     if (
       !(result.exprs.length || result.dynamics.length || result.postExprs?.length) &&
       result.decl.declarations.length === 1
     ) {
-      return result.decl.declarations[0].init;
+      return result.decl.declarations[0].init as t.Expression;
     } else {
       const dynamicsStmt = wrapDynamics(path, result.dynamics);
       const stmts = [
@@ -36,17 +40,20 @@ export function createTemplate(path: NodePath, result: TransformResult, wrap: bo
       // function args / logical expressions where lifting would change
       // observable evaluation semantics.
       return t.callExpression(
-        t.arrowFunctionExpression([], t.blockStatement([...stmts, t.returnStatement(result.id)])),
+        t.arrowFunctionExpression(
+          [],
+          t.blockStatement([...(stmts as t.Statement[]), t.returnStatement(result.id)])
+        ),
         []
       );
     }
   }
   if (wrap && result.dynamic && config.memoWrapper) {
     return t.callExpression(registerImportMethod(path, config.memoWrapper, undefined), [
-      result.exprs[0]
+      result.exprs[0] as t.Expression
     ]);
   }
-  return result.exprs[0];
+  return result.exprs[0] as t.Expression;
 }
 
 function wrapDynamics(path: NodePath, dynamics: DynamicBinding[]) {

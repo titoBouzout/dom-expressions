@@ -3,6 +3,8 @@ import { getConfig, registerImportMethod } from "../shared/utils";
 import type { NodePath } from "@babel/traverse";
 import type { ProgramScopeData, TemplateRecord, TransformResult } from "../types";
 
+type SSRDeclarator = t.VariableDeclarator & { id: t.LVal; init: t.Expression };
+
 // Wrap the *inner* value of a fragment-child accessor with `_$escape` so that
 // hostile string values returned from reactive accessors cannot be
 // concatenated raw into the SSR output. Element-child expressions already get
@@ -28,26 +30,30 @@ function wrapFragmentChildWithEscape(path: NodePath, expr: t.Expression) {
   return t.arrowFunctionExpression([], t.callExpression(escape, [t.callExpression(expr, [])]));
 }
 
-export function createTemplate(path: NodePath, result: TransformResult, wrap: boolean) {
+export function createTemplate(
+  path: NodePath,
+  result: TransformResult,
+  wrap: boolean
+): t.Expression {
   if (!result.template) {
     if (wrap && result.dynamic && getConfig(path).memoWrapper) {
       // wontEscape is set on JSXElement children whose compiled form is
       // already a safe SSR node (e.g. `_$ssr(...)` call). Wrapping those in
       // escape would be a no-op at runtime but obscures intent — skip it.
       const inner = result.wontEscape
-        ? result.exprs[0]
-        : wrapFragmentChildWithEscape(path, result.exprs[0]);
+        ? (result.exprs[0] as t.Expression)
+        : wrapFragmentChildWithEscape(path, result.exprs[0] as t.Expression);
       return t.callExpression(registerImportMethod(path, getConfig(path).memoWrapper, undefined), [
         inner
       ]);
     }
-    return result.exprs[0];
+    return result.exprs[0] as t.Expression;
   }
 
   let template, id;
 
   if (!Array.isArray(result.template)) {
-    template = t.stringLiteral(result.template);
+    template = t.stringLiteral(result.template as string);
   } else if (result.template.length === 1) {
     template = t.stringLiteral(result.template[0]);
   } else {
@@ -92,8 +98,8 @@ export function createTemplate(path: NodePath, result: TransformResult, wrap: bo
     else if (
       Array.isArray(result.template) &&
       result.template.length === 2 &&
-      result.templateValues?.[0].type === "CallExpression" &&
-      result.templateValues[0].callee.name === "_$ssrHydrationKey"
+      t.isCallExpression(result.templateValues?.[0]) &&
+      t.isIdentifier(result.templateValues[0].callee, { name: "_$ssrHydrationKey" })
     ) {
       // remove unnecessary ssr call when only hydration key is used
       return t.binaryExpression(
@@ -115,7 +121,13 @@ export function createTemplate(path: NodePath, result: TransformResult, wrap: bo
       : [id]
   );
 
-  const declarators = [...result.declarations, ...(result.postDeclarations ?? [])].filter(Boolean);
+  const declarators = [...result.declarations, ...(result.postDeclarations ?? [])].filter(
+    (declaration): declaration is SSRDeclarator =>
+      !!declaration &&
+      t.isVariableDeclarator(declaration) &&
+      !!declaration.init &&
+      t.isExpression(declaration.init)
+  );
   if (!declarators.length) return ssrCall;
 
   // IIFE-free emission — declarations live outside the `ssr(...)` call to

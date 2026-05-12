@@ -4,15 +4,15 @@ import { filterChildren, trimWhitespace, checkLength } from "./utils";
 import { transformNode, getCreateTemplate } from "./transform";
 import type { NodePath } from "@babel/traverse";
 import type { JSXDOMExpressionsConfig } from "../config";
-import type { TransformResult } from "../types";
+import type { JSXNode, TransformResult } from "../types";
 
 export default function transformFragmentChildren(
-  children: NodePath[],
+  children: NodePath<JSXNode>[],
   results: TransformResult,
   config: JSXDOMExpressionsConfig
 ) {
-  const filteredChildren = filterChildren(children) as NodePath[],
-    childNodes = filteredChildren.reduce((memo: t.Expression[], path: NodePath) => {
+  const filteredChildren = filterChildren(children),
+    childNodes = filteredChildren.reduce((memo: t.Expression[], path: NodePath<JSXNode>) => {
       if (t.isJSXText(path.node)) {
         const v = decode(trimWhitespace((path.node.extra as any)?.raw ?? ""));
         if (v.length) memo.push(t.stringLiteral(v));
@@ -28,7 +28,7 @@ export default function transformFragmentChildren(
               path,
               child as TransformResult,
               true
-            )
+            ) as t.Expression
           );
       }
       return memo;

@@ -21,7 +21,14 @@ import transformComponent from "./component";
 import transformFragmentChildren from "./fragment";
 import type { NodePath } from "@babel/traverse";
 import type { JSXDOMExpressionsConfig, RendererConfig } from "../config";
-import type { JSXDOMExpressionsPass, TransformInfo, TransformResult } from "../types";
+import type {
+  BabelPath,
+  JSXDOMExpressionsPass,
+  JSXNode,
+  TransformInfo,
+  TransformNodeResult,
+  TransformResult
+} from "../types";
 
 type FunctionParentScope = ReturnType<NodePath["scope"]["getFunctionParent"]>;
 
@@ -67,7 +74,7 @@ export function transformJSX(
   if (!result) return;
   const template = getCreateTemplate(config, path, result as TransformResult);
 
-  path.replaceWith(replace(template(path, result as TransformResult, false)));
+  path.replaceWith(replace(template(path, result as TransformResult, false) as t.Expression));
 
   path.traverse({
     enter(path: NodePath) {
@@ -156,26 +163,32 @@ export function transformThis(path: NodePath): (node: t.Expression) => t.Express
   };
 }
 
-export function transformNode(path: any, info: TransformInfo = {}): any {
+export function transformNode(
+  path: BabelPath<JSXNode>,
+  info: TransformInfo = {}
+): TransformNodeResult {
   const config = getConfig(path);
   const node = path.node;
-  let staticValue;
+  let staticValue: string | number | false | undefined;
   if (t.isJSXElement(node)) {
-    return transformElement(config, path, info);
+    return transformElement(config, path as BabelPath<t.JSXElement>, info);
   } else if (t.isJSXFragment(node)) {
-    let results = { template: "", declarations: [], exprs: [], dynamics: [] };
+    let results: TransformResult = { template: "", declarations: [], exprs: [], dynamics: [] };
     // <><div /><Component /></>
     transformFragmentChildren(path.get("children"), results, config);
     return results;
-  } else if (t.isJSXText(node) || (staticValue = getStaticExpression(path)) !== false) {
-    const text =
+  } else if (
+    t.isJSXText(node) ||
+    (staticValue = getStaticExpression(path as BabelPath<t.JSXExpressionContainer>)) !== false
+  ) {
+    const text: string =
       staticValue !== undefined
         ? info.doNotEscape
-          ? staticValue.toString()
-          : escapeHTML(staticValue.toString())
-        : trimWhitespace(node.extra?.raw ?? "");
+          ? String(staticValue)
+          : (escapeHTML(String(staticValue)) as string)
+        : trimWhitespace((node.extra?.raw as string | undefined) ?? "");
     if (!(text as string).length) return null;
-    const results = {
+    const results: TransformResult = {
       template: text,
       declarations: [],
       exprs: [],
@@ -184,7 +197,7 @@ export function transformNode(path: any, info: TransformInfo = {}): any {
       text: true
     };
     if (!info.skipId && config.generate !== "ssr")
-      (results as TransformResult).id = path.scope.generateUidIdentifier("el$");
+      results.id = path.scope.generateUidIdentifier("el$");
     return results;
   } else if (t.isJSXExpressionContainer(node)) {
     if (t.isJSXEmptyExpression(node.expression)) return null;
@@ -195,7 +208,7 @@ export function transformNode(path: any, info: TransformInfo = {}): any {
         native: !info.componentChild
       })
     ) {
-      return { exprs: [node.expression], template: "" };
+      return { exprs: [node.expression], template: "", declarations: [], dynamics: [] };
     }
     const expr =
       config.wrapConditionals &&
@@ -223,6 +236,8 @@ export function transformNode(path: any, info: TransformInfo = {}): any {
             ]
           : [expr],
       template: "",
+      declarations: [],
+      dynamics: [],
       dynamic: true
     };
   } else if (t.isJSXSpreadChild(node)) {
@@ -232,11 +247,13 @@ export function transformNode(path: any, info: TransformInfo = {}): any {
         native: !info.componentChild
       })
     )
-      return { exprs: [node.expression], template: "" };
+      return { exprs: [node.expression], template: "", declarations: [], dynamics: [] };
     const expr = t.arrowFunctionExpression([], node.expression);
     return {
       exprs: [expr],
       template: "",
+      declarations: [],
+      dynamics: [],
       dynamic: true
     };
   }
@@ -260,9 +277,9 @@ export function getCreateTemplate(
 
 export function transformElement(
   config: JSXDOMExpressionsConfig,
-  path: any,
+  path: BabelPath<t.JSXElement>,
   info: TransformInfo = {}
-) {
+): TransformResult {
   const node = path.node;
   let tagName = getTagName(node);
   // <Component ...></Component>

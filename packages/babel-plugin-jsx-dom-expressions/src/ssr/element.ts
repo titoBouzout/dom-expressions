@@ -786,7 +786,7 @@ function transformChildren(path: any, results: any, { hydratable }: any) {
     }
     const child = transformNode(node, { doNotEscape, parentResults: results });
     if (!child) return;
-    appendToTemplate(results.template, child.template);
+    appendToTemplate(results.template, child.template as string | string[]);
     results.templateValues.push.apply(results.templateValues, child.templateValues || []);
     child.declarations && results.declarations.push(...child.declarations);
     child.postDeclarations && results.postDeclarations.push(...child.postDeclarations);
@@ -797,7 +797,7 @@ function transformChildren(path: any, results: any, { hydratable }: any) {
     results.groupId ||= child.groupId;
     if (child.exprs.length) {
       if (!doNotEscape && !child.spreadElement)
-        child.exprs[0] = escapeExpression(path, child.exprs[0]);
+        child.exprs[0] = escapeExpression(path, child.exprs[0] as babelTypes.Expression)!;
 
       // textContent flows through here as a synthesized child; flag it
       // for grouping (see `transformAttributes`).
@@ -807,11 +807,15 @@ function transformChildren(path: any, results: any, { hydratable }: any) {
       if (markers && !child.spreadElement) {
         appendToTemplate(results.template, `<!--$-->`);
         results.template.push("");
-        results.templateValues.push(hoistExpression(path, results, child.exprs[0], hoistOpts));
+        results.templateValues.push(
+          hoistExpression(path, results, child.exprs[0] as babelTypes.Expression, hoistOpts)
+        );
         appendToTemplate(results.template, `<!--/-->`);
       } else {
         results.template.push("");
-        results.templateValues.push(hoistExpression(path, results, child.exprs[0], hoistOpts));
+        results.templateValues.push(
+          hoistExpression(path, results, child.exprs[0] as babelTypes.Expression, hoistOpts)
+        );
       }
     }
   });
@@ -837,11 +841,14 @@ function createElement(path: any, { topLevel, hydratable }: any) {
           );
         }
         const child = transformNode(path);
+        if (!child) return memo;
         if (markers && child.exprs.length && !child.spreadElement)
           memo.push(t.stringLiteral("<!--$-->"));
         if (child.exprs.length && !doNotEscape && !child.spreadElement)
-          child.exprs[0] = escapeExpression(path, child.exprs[0]);
-        memo.push(getCreateTemplate(config, path, child)(path, child, false));
+          child.exprs[0] = escapeExpression(path, child.exprs[0] as babelTypes.Expression)!;
+        memo.push(
+          getCreateTemplate(config, path, child)(path, child, false) as babelTypes.Expression
+        );
         if (markers && child.exprs.length && !child.spreadElement)
           memo.push(t.stringLiteral("<!--/-->"));
       }

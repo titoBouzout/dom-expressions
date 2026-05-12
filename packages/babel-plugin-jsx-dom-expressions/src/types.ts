@@ -25,15 +25,24 @@ export interface ProgramScopeData {
 export type TemplateResult = string | string[] | t.Expression | t.ArrayExpression;
 export type ResultDeclaration = t.VariableDeclarator | t.Statement | null;
 export type ResultExpression = t.Expression | t.Statement;
+export type ResultTemplateValue = t.Expression;
+export type ResultPostDeclaration = t.VariableDeclarator;
+export type ResultPostExpression = t.Statement;
+export type JSXNode =
+  | t.JSXElement
+  | t.JSXFragment
+  | t.JSXText
+  | t.JSXExpressionContainer
+  | t.JSXSpreadChild;
 
 export interface TransformResult {
-  template: any;
-  templateValues?: any[];
-  declarations: any[];
-  postDeclarations?: any[];
-  exprs: any[];
+  template: TemplateResult;
+  templateValues?: ResultTemplateValue[];
+  declarations: ResultDeclaration[];
+  postDeclarations?: ResultPostDeclaration[];
+  exprs: ResultExpression[];
   dynamics: DynamicBinding[];
-  postExprs?: any[];
+  postExprs?: ResultPostExpression[];
   decl?: t.VariableDeclaration;
   id?: t.Identifier;
   text?: boolean;
@@ -50,6 +59,8 @@ export interface TransformResult {
   groupable?: Set<string>;
   groupId?: t.Identifier;
 }
+
+export type TransformNodeResult = TransformResult | null | undefined;
 
 export interface UniversalTransformResult extends TransformResult {
   template: "";

@@ -241,8 +241,9 @@ function transformChildren(path: BabelPath<t.JSXElement>, results: UniversalTran
         if (!child) return memo;
         const i = memo.length;
         if (child.text && i && memo[i - 1].text) {
-          memo[i - 1].template += child.template;
-          memo[i - 1].templateWithClosingTags += child.templateWithClosingTags || child.template;
+          memo[i - 1].template = `${memo[i - 1].template as string}${child.template as string}`;
+          memo[i - 1].templateWithClosingTags =
+            `${memo[i - 1].templateWithClosingTags || memo[i - 1].template}${child.templateWithClosingTags || (child.template as string)}`;
         } else memo.push(child);
         return memo;
       }, []);
@@ -262,6 +263,7 @@ function transformChildren(path: BabelPath<t.JSXElement>, results: UniversalTran
       );
       let insert: t.Expression = child.id;
       if (child.text) {
+        const childTemplate = child.template as string;
         let createTextNode = registerImportMethod(
           path,
           "createTextNode",
@@ -273,7 +275,7 @@ function transformChildren(path: BabelPath<t.JSXElement>, results: UniversalTran
               child.id,
               t.callExpression(createTextNode, [
                 t.templateLiteral(
-                  [t.templateElement({ raw: escapeStringForTemplate(child.template) })],
+                  [t.templateElement({ raw: escapeStringForTemplate(childTemplate) })],
                   []
                 )
               ])
@@ -282,14 +284,14 @@ function transformChildren(path: BabelPath<t.JSXElement>, results: UniversalTran
         } else
           insert = t.callExpression(createTextNode, [
             t.templateLiteral(
-              [t.templateElement({ raw: escapeStringForTemplate(child.template) })],
+              [t.templateElement({ raw: escapeStringForTemplate(childTemplate) })],
               []
             )
           ]);
       }
       appends.push(t.expressionStatement(t.callExpression(insertNode, [results.id, insert])));
-      results.declarations.push(...child.declarations);
-      results.exprs.push(...child.exprs);
+      results.declarations.push(...(child.declarations as t.VariableDeclarator[]));
+      results.exprs.push(...(child.exprs as t.Statement[]));
       results.dynamics.push(...child.dynamics);
     } else if (child.exprs.length) {
       let insert = registerImportMethod(
@@ -302,14 +304,16 @@ function transformChildren(path: BabelPath<t.JSXElement>, results: UniversalTran
           t.expressionStatement(
             t.callExpression(insert, [
               results.id,
-              child.exprs[0],
+              child.exprs[0] as t.Expression,
               nextChild(childNodes, index) || t.nullLiteral()
             ])
           )
         );
       } else {
         results.exprs.push(
-          t.expressionStatement(t.callExpression(insert, [results.id, child.exprs[0]]))
+          t.expressionStatement(
+            t.callExpression(insert, [results.id, child.exprs[0] as t.Expression])
+          )
         );
       }
     }

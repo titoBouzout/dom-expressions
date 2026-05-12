@@ -11,7 +11,7 @@ import {
 } from "./utils";
 import { transformNode, getCreateTemplate } from "./transform";
 import type { JSXDOMExpressionsConfig } from "../config";
-import type { BabelPath, TransformResult } from "../types";
+import type { BabelPath, JSXNode, TransformResult } from "../types";
 
 type ComponentTransformResult = TransformResult & {
   template: "";
@@ -344,7 +344,7 @@ export default function transformComponent(
 }
 
 function transformComponentChildren(
-  children: BabelPath[],
+  children: BabelPath<JSXNode>[],
   config: JSXDOMExpressionsConfig
 ): ComponentChildrenResult {
   const filteredChildren = filterChildren(children);
@@ -353,7 +353,7 @@ function transformComponentChildren(
   let pathNodes: t.Node[] = [];
 
   let transformedChildren: t.Expression | t.Expression[] = filteredChildren.reduce(
-    (memo: t.Expression[], path: BabelPath) => {
+    (memo: t.Expression[], path: BabelPath<JSXNode>) => {
       if (t.isJSXText(path.node)) {
         const v = decode(trimWhitespace((path.node.extra as any)?.raw ?? ""));
         if (v.length) {
@@ -367,7 +367,7 @@ function transformComponentChildren(
           lastElement: true
         });
         if (!child) return memo;
-        dynamic = dynamic || child.dynamic;
+        dynamic = dynamic || !!child.dynamic;
         if (
           config.generate === "ssr" &&
           !config.memoWrapper &&

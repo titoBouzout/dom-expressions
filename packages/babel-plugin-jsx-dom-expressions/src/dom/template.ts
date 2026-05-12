@@ -12,7 +12,11 @@ import { setAttr } from "./element";
 import type { NodePath } from "@babel/traverse";
 import type { DynamicBinding, ProgramScopeData, TemplateRecord, TransformResult } from "../types";
 
-export function createTemplate(path: NodePath, result: TransformResult, wrap: boolean) {
+export function createTemplate(
+  path: NodePath,
+  result: TransformResult,
+  wrap: boolean
+): t.Expression {
   const config = getConfig(path);
   if (result.id) {
     registerTemplate(path, result);
@@ -21,7 +25,7 @@ export function createTemplate(path: NodePath, result: TransformResult, wrap: bo
       !(result.exprs.length || result.dynamics.length || result.postExprs?.length) &&
       decl.declarations.length === 1
     ) {
-      return decl.declarations[0].init;
+      return decl.declarations[0].init as t.Expression;
     } else {
       const dynamicsStmt = wrapDynamics(path, result.dynamics);
       const stmts = [
@@ -54,17 +58,20 @@ export function createTemplate(path: NodePath, result: TransformResult, wrap: bo
       // would need to be linearized into commas), and the perf delta in
       // these rarer positions is negligible.
       return t.callExpression(
-        t.arrowFunctionExpression([], t.blockStatement([...stmts, t.returnStatement(result.id)])),
+        t.arrowFunctionExpression(
+          [],
+          t.blockStatement([...(stmts as t.Statement[]), t.returnStatement(result.id)])
+        ),
         []
       );
     }
   }
   if (wrap && result.dynamic && config.memoWrapper) {
     return t.callExpression(registerImportMethod(path, config.memoWrapper, undefined), [
-      result.exprs[0]
+      result.exprs[0] as t.Expression
     ]);
   }
-  return result.exprs[0];
+  return result.exprs[0] as t.Expression;
 }
 
 export function appendTemplates(path: NodePath<t.Program>, templates: TemplateRecord[]) {
@@ -98,7 +105,7 @@ export function appendTemplates(path: NodePath<t.Program>, templates: TemplateRe
 function registerTemplate(path: NodePath, results: TransformResult) {
   const { hydratable } = getConfig(path);
   let decl;
-  if (results.template.length) {
+  if (typeof results.template === "string" && results.template.length) {
     let templateDef, templateId;
     if (!results.skipTemplate) {
       const data = path.scope.getProgramParent().data as ProgramScopeData;
@@ -129,7 +136,7 @@ function registerTemplate(path: NodePath, results: TransformResult) {
     );
   }
   if (decl) results.declarations.unshift(decl);
-  results.decl = t.variableDeclaration("var", results.declarations);
+  results.decl = t.variableDeclaration("var", results.declarations as t.VariableDeclarator[]);
 }
 
 function wrapDynamics(path: NodePath, dynamics: DynamicBinding[]) {
