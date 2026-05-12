@@ -22,6 +22,17 @@ export interface ProgramScopeData {
   events?: Set<string>;
 }
 
+export type BabelFileWithMetadata = {
+  ast: t.File;
+  metadata: {
+    config?: JSXDOMExpressionsConfig;
+  };
+};
+
+export type BabelHubWithMetadata = {
+  file: BabelFileWithMetadata;
+};
+
 export type TemplateResult = string | string[] | t.Expression | t.ArrayExpression;
 export type ResultDeclaration = t.VariableDeclarator | t.Statement | null;
 export type ResultExpression = t.Expression | t.Statement;

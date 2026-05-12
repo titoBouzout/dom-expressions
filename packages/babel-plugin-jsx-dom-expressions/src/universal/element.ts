@@ -380,19 +380,19 @@ function processSpreads(
       if (dynamic) {
         const id = convertJSXIdentifier(node.name);
         const expression = (node.value as t.JSXExpressionContainer).expression as t.Expression;
-        let expr =
+        let expr: t.ArrowFunctionExpression & { body: t.Expression } =
           wrapConditionals &&
           (t.isLogicalExpression(expression) || t.isConditionalExpression(expression))
             ? transformCondition(attribute.get("value").get("expression"), true)
-            : t.arrowFunctionExpression([], expression);
+            : (t.arrowFunctionExpression([], expression) as t.ArrowFunctionExpression & {
+                body: t.Expression;
+              });
         runningObject.push(
           t.objectMethod(
             "get",
             id,
             [],
-            t.blockStatement([
-              t.returnStatement((expr as t.ArrowFunctionExpression).body as t.Expression)
-            ]),
+            t.blockStatement([t.returnStatement(expr.body)]),
             !t.isValidIdentifier(key)
           )
         );

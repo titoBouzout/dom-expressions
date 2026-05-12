@@ -930,8 +930,8 @@ function createElement(
     }, []);
 
   let props: babelTypes.Expression[];
-  if (attributes.length === 1) {
-    props = [(attributes[0].node as babelTypes.JSXSpreadAttribute).argument];
+  if (attributes.length === 1 && t.isJSXSpreadAttribute(attributes[0].node)) {
+    props = [attributes[0].node.argument];
   } else {
     props = [];
     let runningObject: Array<babelTypes.ObjectProperty | babelTypes.ObjectMethod> = [],

@@ -1507,17 +1507,25 @@ function processSpreads(
           ? t.identifier(normalized)
           : convertJSXIdentifier(node.name);
 
-        let expr =
+        let expr: babelTypes.ArrowFunctionExpression & { body: babelTypes.Expression } =
           wrapConditionals &&
           expression &&
           (t.isLogicalExpression(expression) || t.isConditionalExpression(expression))
             ? transformCondition(attribute.get("value").get("expression"), true)
-            : t.arrowFunctionExpression([], expression as babelTypes.Expression);
-        const body = t.isBlockStatement(expr.body)
-          ? expr.body
-          : t.returnStatement(expr.body as babelTypes.Expression);
+            : (t.arrowFunctionExpression(
+                [],
+                expression as babelTypes.Expression
+              ) as babelTypes.ArrowFunctionExpression & {
+                body: babelTypes.Expression;
+              });
         runningObject.push(
-          t.objectMethod("get", id, [], t.blockStatement([body]), !t.isValidIdentifier(normalized))
+          t.objectMethod(
+            "get",
+            id,
+            [],
+            t.blockStatement([t.returnStatement(expr.body)]),
+            !t.isValidIdentifier(normalized)
+          )
         );
       } else {
         runningObject.push(

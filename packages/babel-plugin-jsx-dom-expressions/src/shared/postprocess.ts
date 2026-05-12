@@ -4,23 +4,14 @@ import { appendTemplates as appendTemplatesDOM } from "../dom/template";
 import { appendTemplates as appendTemplatesSSR } from "../ssr/template";
 import { isInvalidMarkup } from "./validate";
 import type { NodePath } from "@babel/traverse";
-import type { JSXDOMExpressionsPass, ProgramScopeData } from "../types";
-import type { JSXDOMExpressionsConfig } from "../config";
-
-type BabelHubWithConfig = {
-  file: {
-    metadata: {
-      config?: JSXDOMExpressionsConfig;
-    };
-  };
-};
+import type { BabelHubWithMetadata, JSXDOMExpressionsPass, ProgramScopeData } from "../types";
 
 // add to the top/bottom of the module.
 export default (path: NodePath<t.Program>, state: JSXDOMExpressionsPass) => {
   if (state.skip) return;
 
   const data = path.scope.data as ProgramScopeData;
-  const config = (path.hub as unknown as BabelHubWithConfig).file.metadata.config;
+  const config = (path.hub as unknown as BabelHubWithMetadata).file.metadata.config;
   if (!config) return;
 
   if (data.events) {

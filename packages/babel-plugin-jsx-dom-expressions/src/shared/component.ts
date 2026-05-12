@@ -22,6 +22,20 @@ type ComponentTransformResult = TransformResult & {
 
 type ComponentChildrenResult = [t.Expression, boolean] | undefined;
 
+function isSimpleOptionalMemberExpression(
+  expression: t.Expression | t.JSXEmptyExpression
+): expression is t.OptionalMemberExpression & {
+  object: t.Identifier;
+  property: t.Identifier;
+} {
+  return (
+    t.isOptionalMemberExpression(expression) &&
+    !expression.computed &&
+    t.isIdentifier(expression.object) &&
+    t.isIdentifier(expression.property)
+  );
+}
+
 function convertComponentIdentifier(
   node: t.JSXIdentifier | t.JSXMemberExpression | t.JSXNamespacedName
 ): t.Expression {
@@ -145,10 +159,10 @@ export default function transformComponent(
                   ])
                 )
               );
-            } else if (!isConstant && t.isOptionalMemberExpression(value.expression)) {
+            } else if (!isConstant && isSimpleOptionalMemberExpression(value.expression)) {
               const refIdentifier = path.scope.generateUidIdentifier("_ref$");
-              const object = value.expression.object as t.Identifier;
-              const property = value.expression.property as t.Identifier;
+              const object = value.expression.object;
+              const property = value.expression.property;
               runningObject.push(
                 t.objectMethod(
                   "method",
@@ -258,9 +272,7 @@ export default function transformComponent(
                   "get",
                   id,
                   [],
-                  t.blockStatement([
-                    t.returnStatement((expr as t.ArrowFunctionExpression).body as t.Expression)
-                  ]),
+                  t.blockStatement([t.returnStatement(expr.body)]),
                   !t.isValidIdentifier(key)
                 )
               );
@@ -292,7 +304,7 @@ export default function transformComponent(
     });
 
   const childResult = transformComponentChildren(path.get("children"), config);
-  if (childResult && childResult[0]) {
+  if (childResult) {
     if (childResult[1]) {
       const body =
         t.isCallExpression(childResult[0]) && t.isFunction(childResult[0].arguments[0])

@@ -3,25 +3,21 @@ import { addNamed } from "@babel/helper-module-imports";
 import { DOMWithState } from "../../../dom-expressions/src/constants";
 import type { NodePath, Visitor } from "@babel/traverse";
 import type { JSXDOMExpressionsConfig, RendererConfig } from "../config";
-import type { DynamicOptions, ProgramScopeData, TransformResult } from "../types";
+import type {
+  BabelHubWithMetadata,
+  DynamicOptions,
+  ProgramScopeData,
+  TransformResult
+} from "../types";
 
 type JSXElementName = t.JSXIdentifier | t.JSXMemberExpression | t.JSXNamespacedName;
 type StaticMarkerNode = t.Node & { expression?: unknown };
 type JSXElementPath = NodePath<t.JSXElement>;
 type JSXAttributePath = NodePath<t.JSXAttribute>;
-type BabelHubWithConfig = {
-  file: {
-    metadata: {
-      config: JSXDOMExpressionsConfig;
-    };
-  };
-};
 type ConditionPath = NodePath<t.Expression | t.JSXEmptyExpression>;
+type ExpressionArrowFunction = t.ArrowFunctionExpression & { body: t.Expression };
 type TransformConditionStatements = [t.VariableDeclaration, t.ArrowFunctionExpression];
-type TransformConditionResult =
-  | t.ArrowFunctionExpression
-  | t.Expression
-  | TransformConditionStatements;
+type TransformConditionResult = ExpressionArrowFunction | TransformConditionStatements;
 type EvaluateAndInlineNode = t.Node | t.JSXAttribute["value"];
 
 export const reservedNameSpaces = new Set(["class", "on", "style", "prop"]);
@@ -29,7 +25,8 @@ export const reservedNameSpaces = new Set(["class", "on", "style", "prop"]);
 export const nonSpreadNameSpaces = new Set(["class", "style", "prop"]);
 
 export function getConfig(path: NodePath): JSXDOMExpressionsConfig {
-  return (path.hub as unknown as BabelHubWithConfig).file.metadata.config;
+  return (path.hub as unknown as BabelHubWithMetadata).file.metadata
+    .config as JSXDOMExpressionsConfig;
 }
 
 export const getRendererConfig = (
@@ -286,21 +283,18 @@ export function wrappedByText(list: TransformResult[], startIndex: number): bool
   return false;
 }
 
-export function transformCondition(path: ConditionPath, inline: true): t.ArrowFunctionExpression;
-export function transformCondition(path: ConditionPath, inline: true, deep: true): t.Expression;
+export function transformCondition(path: ConditionPath, inline: true): ExpressionArrowFunction;
 export function transformCondition(
   path: ConditionPath,
   inline: boolean | undefined
-): t.ArrowFunctionExpression | TransformConditionStatements;
+): ExpressionArrowFunction | TransformConditionStatements;
 export function transformCondition(
   path: ConditionPath,
-  inline?: false,
-  deep?: false
-): t.ArrowFunctionExpression | TransformConditionStatements;
+  inline?: false
+): ExpressionArrowFunction | TransformConditionStatements;
 export function transformCondition(
   path: ConditionPath,
-  inline?: boolean,
-  deep?: boolean
+  inline?: boolean
 ): TransformConditionResult {
   const config = getConfig(path);
   const expr = path.node as t.Expression;
@@ -326,10 +320,10 @@ export function transformCondition(
         : path.scope.generateUidIdentifier("_c$");
       expr.test = t.callExpression(id, []);
       if (t.isConditionalExpression(expr.consequent) || t.isLogicalExpression(expr.consequent)) {
-        expr.consequent = transformCondition(path.get("consequent") as ConditionPath, true, true);
+        expr.consequent = transformCondition(path.get("consequent") as ConditionPath, true).body;
       }
       if (t.isConditionalExpression(expr.alternate) || t.isLogicalExpression(expr.alternate)) {
-        expr.alternate = transformCondition(path.get("alternate") as ConditionPath, true, true);
+        expr.alternate = transformCondition(path.get("alternate") as ConditionPath, true).body;
       }
     }
   } else if (t.isLogicalExpression(expr)) {
@@ -365,20 +359,9 @@ export function transformCondition(
       ]),
       t.arrowFunctionExpression([], expr)
     ];
-    return deep
-      ? t.callExpression(
-          t.arrowFunctionExpression(
-            [],
-            t.blockStatement([
-              statements[0] as t.Statement,
-              t.returnStatement(statements[1] as t.Expression)
-            ])
-          ),
-          []
-        )
-      : statements;
+    return statements;
   }
-  return deep ? expr : t.arrowFunctionExpression([], expr);
+  return t.arrowFunctionExpression([], expr) as ExpressionArrowFunction;
 }
 
 export function escapeHTML(s: unknown, attr?: boolean): unknown {
