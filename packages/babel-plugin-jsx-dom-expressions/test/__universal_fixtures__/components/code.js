@@ -159,3 +159,6 @@ const template25 = <Component ref={refFn} />
 const template26 = <Component ref={refConst} />
 
 const template27 = <Component ref={refUnknown} />
+const template28 = <Component ref={binding?.prop} />
+const template29 = <Component ref={binding?.[prop]} />
+const template30 = <Component ref={binding.nested?.prop} />

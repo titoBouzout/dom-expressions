@@ -508,13 +508,23 @@ const template34 = _$createComponent(Comp, {
       : (refUnknown = r$);
   }
 });
+const template35 = _$createComponent(Comp, {
+  ref(r$) {
+    var _ref$8 = binding?.prop;
+    typeof _ref$8 === "function" || Array.isArray(_ref$8)
+      ? _$applyRef(_ref$8, r$)
+      : !!binding && (binding.prop = r$);
+  }
+});
+const template36 = _$createComponent(Comp, {});
+const template37 = _$createComponent(Comp, {});
 function MyComponent(props) {
   let el;
   const others = omit(props, "children");
   var _el$41 = _tmpl$2();
-  var _ref$8 = el;
-  typeof _ref$8 === "function" || Array.isArray(_ref$8)
-    ? _$ref(() => _ref$8, _el$41)
+  var _ref$9 = el;
+  typeof _ref$9 === "function" || Array.isArray(_ref$9)
+    ? _$ref(() => _ref$9, _el$41)
     : (el = _el$41);
   _$spread(_el$41, others, true);
   _$insert(_el$41, () => props.children);

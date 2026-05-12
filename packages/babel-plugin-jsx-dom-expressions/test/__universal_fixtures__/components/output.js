@@ -419,3 +419,13 @@ const template27 = _$createComponent(Component, {
       : (refUnknown = r$);
   }
 });
+const template28 = _$createComponent(Component, {
+  ref(r$) {
+    var _ref$8 = binding?.prop;
+    typeof _ref$8 === "function" || Array.isArray(_ref$8)
+      ? _$applyRef(_ref$8, r$)
+      : !!binding && (binding.prop = r$);
+  }
+});
+const template29 = _$createComponent(Component, {});
+const template30 = _$createComponent(Component, {});
