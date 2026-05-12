@@ -57,6 +57,16 @@ type SpreadOptions = {
   hasChildren: boolean;
   wrapConditionals: boolean;
 };
+type HubWithFileMetadata = {
+  file?: {
+    opts?: {
+      filename?: string;
+    };
+  };
+};
+type ProgramDataWithEvents = {
+  events?: Set<string>;
+};
 
 function isNamedAttribute(
   attribute: JSXAttributePath,
@@ -225,7 +235,9 @@ export function transformElement(
         a.remove();
         let filename = "";
         try {
-          filename = (path.scope.getProgramParent().path.hub as any).file.opts.filename;
+          filename =
+            ((path.scope.getProgramParent().path.hub as HubWithFileMetadata).file?.opts
+              ?.filename as string | undefined) || "";
         } catch (e) {}
 
         console.log(
@@ -781,7 +793,11 @@ function transformAttributes(
   let needsSpacing = true;
 
   // scoped because of `needsSpacing`
-  function inlineAttributeOnTemplate(key: any, results: any, value: any) {
+  function inlineAttributeOnTemplate(
+    key: string,
+    results: DOMTransformResult,
+    value: babelTypes.StringLiteral | babelTypes.NumericLiteral | babelTypes.BooleanLiteral | null
+  ): void {
     results.template += `${needsSpacing ? " " : ""}${key}`;
 
     if (!value) {
@@ -789,8 +805,7 @@ function transformAttributes(
       return;
     }
 
-    let text = value.value;
-    if (typeof text === "number") text = String(text);
+    let text = String(value.value);
     let needsQuoting = !config.omitQuotes;
 
     if (key === "style" || key === "class") {
@@ -837,7 +852,8 @@ function transformAttributes(
   path
     .get("openingElement")
     .get("attributes")
-    .forEach((attribute: any) => {
+    .forEach((attribute: JSXAttributePath) => {
+      if (!t.isJSXAttribute(attribute.node)) return;
       const node = attribute.node;
       let value = node.value,
         key = t.isJSXNamespacedName(node.name)
@@ -982,9 +998,8 @@ function transformAttributes(
           ) {
             // can only hydrate delegated events
             hasHydratableEvent = true;
-            const events =
-              attribute.scope.getProgramParent().data.events ||
-              (attribute.scope.getProgramParent().data.events = new Set());
+            const programData = attribute.scope.getProgramParent().data as ProgramDataWithEvents;
+            const events = programData.events || (programData.events = new Set());
             events.add(ev);
             let handler = value.expression;
             const resolveable = detectResolvableEventHandler(attribute, handler);
@@ -1117,16 +1132,18 @@ function transformAttributes(
           results.skipTemplate = true;
           return;
         }
+        let staticValue: babelTypes.Expression | babelTypes.JSXAttribute["value"] = value;
         if (t.isJSXExpressionContainer(value)) {
           if (t.isJSXEmptyExpression(value.expression)) return;
-          value = value.expression;
+          staticValue = value.expression as babelTypes.Expression;
         }
 
         // boolean as `<el attr={true | false}/>`, not as `<el attr={"true" | "false"}/>`
         // `<el attr={true}/>` becomes `<el attr/>`
         // `<el attr={false}/>` becomes `<el/>`
-        if (t.isBooleanLiteral(value)) {
-          if (value.value === true) {
+        const booleanLiteral = t.isBooleanLiteral(staticValue) ? staticValue : undefined;
+        if (booleanLiteral) {
+          if (booleanLiteral.value === true) {
             results.template += `${needsSpacing ? " " : ""}${key}`;
             needsSpacing = true;
           }
@@ -1134,12 +1151,18 @@ function transformAttributes(
         }
 
         // properties
-        if (value && ChildProperties.has(key)) {
+        if (staticValue && ChildProperties.has(key)) {
           results.exprs.push(
-            t.expressionStatement(setAttr(attribute, elem, key, value, { tagName }))
+            t.expressionStatement(
+              setAttr(attribute, elem, key, staticValue as babelTypes.Expression, { tagName })
+            )
           );
         } else {
-          inlineAttributeOnTemplate(key, results, value);
+          inlineAttributeOnTemplate(
+            key,
+            results,
+            staticValue as babelTypes.StringLiteral | babelTypes.NumericLiteral | null
+          );
         }
       }
     });
