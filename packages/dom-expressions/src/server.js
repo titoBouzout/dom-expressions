@@ -730,7 +730,11 @@ export {
   notSup as getNextElement,
   notSup as getNextMatch,
   notSup as getNextMarker,
-  notSup as runHydrationEvents
+  notSup as runHydrationEvents,
+  notSup as use,
+  notSup as setBoolAttribute,
+  notSup as setStyleProperty,
+  notSup as clearDelegatedEvents
 };
 
 function notSup() {
