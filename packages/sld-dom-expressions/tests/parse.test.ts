@@ -923,23 +923,6 @@ describe("Advanced Parser Edge Cases", () => {
   });
 
   describe("Attribute Namespaces and Special Props", () => {
-    it("handles on: namespace for events", () => {
-      const handler = () => {};
-      const ast = jsx`<div on:click=${handler}></div>`;
-
-      expect(ast).toEqual({
-        type: ROOT_NODE,
-        children: [
-          {
-            type: ELEMENT_NODE,
-            name: "div",
-            props: [{ name: "on:click", type: EXPRESSION_PROP, value: 0 }],
-            children: []
-          }
-        ]
-      });
-    });
-
     it("handles prop: and attr: namespaces", () => {
       const value = "test";
       const ast = jsx`<input prop:value=${value} attr:title="Title"></input>`;

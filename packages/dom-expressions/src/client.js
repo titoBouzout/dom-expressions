@@ -583,11 +583,7 @@ function assignProp(node, prop, value, prev, skipRef, nodeName) {
 
   const hasNamespace = prop.indexOf(":") > -1;
 
-  if (hasNamespace && prop.slice(0, 3) === "on:") {
-    const e = prop.slice(3);
-    prev && node.removeEventListener(e, prev, typeof prev !== "function" && prev);
-    value && node.addEventListener(e, value, typeof value !== "function" && value);
-  } else if (!hasNamespace && prop.slice(0, 2) === "on") {
+  if (!hasNamespace && prop.slice(0, 2) === "on") {
     const name = prop.slice(2).toLowerCase();
     const delegate = DelegatedEvents.has(name);
     if (!delegate && prev) {

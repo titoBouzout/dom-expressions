@@ -82,103 +82,48 @@ describe("Test Synthetic event bubbling", () => {
   });
 });
 
-// custom event
-describe("Custom Events", () => {
-  test("custom event with event listener options", () => {
-    let elementRegular;
-    let elementOnce;
+describe("native event listeners via ref callbacks", () => {
+  const on = (type, handler, options) => el => el.addEventListener(type, handler, options);
 
-    let count = 0;
-    let eventTarget;
-
-    function handleClick(e) {
-      expect(e.currentTarget).toBe(eventTarget);
-      expect(e.target).toBe(eventTarget);
-      count++;
-    }
-
-    createRoot(() =>
-      document.body.appendChild(
-        <div>
-          <div ref={elementRegular} on:click={{ handleEvent: handleClick }} />
-          <div ref={elementOnce} on:click={{ handleEvent: handleClick, once: true }} />
-        </div>
-      )
-    );
-
-    const event = new MouseEvent("click", { bubbles: true });
-
-    /** Dispatch a click twice to the regular element to check `count` is working a expected */
-
-    eventTarget = elementRegular;
-
-    count = 0;
-
-    eventTarget.dispatchEvent(event);
-    expect(count).toBe(1);
-
-    eventTarget.dispatchEvent(event);
-    expect(count).toBe(2);
-
-    /** Dispatch a click twice to the `once` event handler */
-
-    eventTarget = elementOnce;
-
-    count = 0;
-
-    eventTarget.dispatchEvent(event);
-    expect(count).toBe(1);
-
-    eventTarget.dispatchEvent(event);
-    expect(count).toBe(1);
+  afterEach(() => {
+    document.body.innerHTML = "";
   });
 
-  // on:name accepts a plain function too — the third arg to addEventListener
-  // is `typeof value !== "function" && value`, which evaluates to `false`
-  // for functions (skipping the options-object path).
-  test("on:click={fn} wires a plain function listener", () => {
-    let el;
+  it("wires a plain function listener", () => {
+    let el, dispose;
     let calls = 0;
-    let dispose;
 
     createRoot(d => {
       dispose = d;
-      document.body.appendChild(<div ref={el} on:click={() => calls++} />);
+      document.body.appendChild(<div ref={[node => (el = node), on("click", () => calls++)]} />);
     });
 
     el.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     expect(calls).toBe(1);
-
     dispose();
-    document.body.innerHTML = "";
   });
 
-  test("on:click with {handleEvent, capture: true} fires in capture phase", () => {
-    let parent, child, dispose;
+  it("passes capture listeners through native event ordering", () => {
+    let child, dispose;
     const order = [];
 
     createRoot(d => {
       dispose = d;
       document.body.appendChild(
-        <section ref={parent} on:click={{ handleEvent: () => order.push("parent"), capture: true }}>
-          <button ref={child} on:click={() => order.push("child")} />
+        <section ref={on("click", () => order.push("parent"), { capture: true })}>
+          <button ref={[node => (child = node), on("click", () => order.push("child"))]} />
         </section>
       );
     });
 
     child.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    // With capture=true, the parent's handler runs before the child's.
     expect(order).toEqual(["parent", "child"]);
-
     dispose();
-    document.body.innerHTML = "";
   });
 
-  test("on:click with {handleEvent, passive: true, once: true} runs once and records options", () => {
+  it("forwards addEventListener options such as passive and once", () => {
     let el, dispose;
     const events = [];
-    // Spy on addEventListener so we can see the options object the runtime
-    // forwarded to the native API.
     const original = HTMLDivElement.prototype.addEventListener;
     const recorded = [];
     HTMLDivElement.prototype.addEventListener = function (type, listener, options) {
@@ -191,29 +136,47 @@ describe("Custom Events", () => {
         dispose = d;
         document.body.appendChild(
           <div
-            ref={el}
-            on:click={{
-              handleEvent: e => events.push(e.type),
-              passive: true,
-              once: true
-            }}
+            ref={[
+              node => (el = node),
+              on("click", e => events.push(e.type), { passive: true, once: true })
+            ]}
           />
         );
       });
 
-      // Passive + once: the listener runs, then auto-removes on the first event.
       el.dispatchEvent(new MouseEvent("click", { bubbles: true }));
       el.dispatchEvent(new MouseEvent("click", { bubbles: true }));
       expect(events).toEqual(["click"]);
-
-      // Confirm the whole options object was forwarded (not just a boolean capture).
-      const match = recorded.find(r => r.type === "click");
-      expect(match.options).toMatchObject({ passive: true, once: true });
+      expect(recorded.find(r => r.type === "click").options).toMatchObject({
+        passive: true,
+        once: true
+      });
     } finally {
       HTMLDivElement.prototype.addEventListener = original;
       dispose();
-      document.body.innerHTML = "";
     }
+  });
+
+  it("composes multiple native listeners with array refs", () => {
+    let el, dispose;
+    const order = [];
+
+    createRoot(d => {
+      dispose = d;
+      document.body.appendChild(
+        <button
+          ref={[
+            node => (el = node),
+            on("click", () => order.push("capture"), { capture: true }),
+            on("click", () => order.push("bubble"))
+          ]}
+        />
+      );
+    });
+
+    el.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(order).toEqual(["capture", "bubble"]);
+    dispose();
   });
 });
 
@@ -432,34 +395,9 @@ describe("JSX event wiring variants", () => {
   });
 });
 
-// Spread-driven event paths: `on:name` and plain `onName` non-delegated
-// events only flow through assignProp when a spread changes across
-// renders (direct JSX props short-circuit in the compiler).
+// Spread-driven non-delegated event paths only flow through assignProp when
+// a spread changes across renders (direct JSX props short-circuit in the compiler).
 describe("spread event handling", () => {
-  it("on:foo from a reactive spread swaps listeners on update", () => {
-    const firstCalls = [];
-    const secondCalls = [];
-    const h1 = e => firstCalls.push(e.type);
-    const h2 = e => secondCalls.push(e.type);
-    const [props, setProps] = createSignal({ "on:foo": h1 });
-
-    let node, dispose;
-    createRoot(d => {
-      dispose = d;
-      node = <div {...props()} />;
-    });
-
-    node.dispatchEvent(new Event("foo"));
-    expect(firstCalls).toHaveLength(1);
-
-    setProps({ "on:foo": h2 });
-    flush();
-    node.dispatchEvent(new Event("foo"));
-    expect(firstCalls).toHaveLength(1);
-    expect(secondCalls).toHaveLength(1);
-    dispose();
-  });
-
   it("non-delegated onMouseEnter from a reactive spread swaps listeners on update", () => {
     const firstCalls = [];
     const secondCalls = [];
@@ -578,36 +516,6 @@ describe("spread prop: namespace", () => {
     // Property carries the object reference directly.
     expect(node.customData).toBe(payload);
     expect(node.hasAttribute("customData")).toBe(false);
-    dispose();
-  });
-
-  // `on:name` with an options-object prev value (not a function) hits the
-  // `typeof prev !== "function" && prev` branch when removing the listener;
-  // same for the value side when attaching.
-  it("on:foo swaps an options-object listener for another options-object listener", () => {
-    const calls = [];
-    const first = { handleEvent: e => calls.push(["first", e.type]), capture: true };
-    const second = { handleEvent: e => calls.push(["second", e.type]), capture: true };
-    const [props, setProps] = createSignal({ "on:foo": first });
-
-    let node, dispose;
-    createRoot(d => {
-      dispose = d;
-      node = <div {...props()} />;
-    });
-    node.dispatchEvent(new Event("foo"));
-    expect(calls).toEqual([["first", "foo"]]);
-
-    // Update: previous value is an options object (not a function) →
-    // `typeof prev !== "function" && prev` resolves to the prev object and
-    // is forwarded as the `options` arg to removeEventListener.
-    setProps({ "on:foo": second });
-    flush();
-    node.dispatchEvent(new Event("foo"));
-    expect(calls).toEqual([
-      ["first", "foo"],
-      ["second", "foo"]
-    ]);
     dispose();
   });
 

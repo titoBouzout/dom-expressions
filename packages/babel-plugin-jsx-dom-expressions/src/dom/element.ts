@@ -973,26 +973,7 @@ function transformAttributes(
           children = value;
         } else if (key.startsWith("on")) {
           const ev = toEventName(key);
-          if (key.startsWith("on:")) {
-            const args: babelTypes.Expression[] = [
-              elem,
-              t.stringLiteral(key.split(":")[1]),
-              value.expression
-            ];
-
-            results.exprs.unshift(
-              t.expressionStatement(
-                t.callExpression(
-                  registerImportMethod(
-                    path,
-                    "addEventListener",
-                    getRendererConfig(path, "dom").moduleName
-                  ),
-                  args
-                )
-              )
-            );
-          } else if (
+          if (
             config.delegateEvents &&
             (DelegatedEvents.has(ev) || config.delegatedEvents.indexOf(ev) !== -1)
           ) {
