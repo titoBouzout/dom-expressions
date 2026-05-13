@@ -49,7 +49,6 @@ export function render(code, element, init, options = {}) {
       "The `element` passed to `render(..., element)` doesn't exist. Make sure `element` exists in the document."
     );
   }
-  const renderRoot = getChildRoot(element);
   let disposer;
   root(
     dispose => {
@@ -65,7 +64,7 @@ export function render(code, element, init, options = {}) {
         insert(
           element,
           () => tree,
-          renderRoot.firstChild ? null : undefined,
+          element.firstChild ? null : undefined,
           init,
           options.insertOptions
         );
@@ -75,7 +74,7 @@ export function render(code, element, init, options = {}) {
   );
   return () => {
     disposer();
-    renderRoot.textContent = "";
+    element.textContent = "";
   };
 }
 
@@ -247,11 +246,10 @@ export function ref(fn, element) {
 }
 
 export function insert(parent, accessor, marker, initial, options) {
-  const childRoot = getChildRoot(parent);
   const multi = marker !== undefined;
   if (multi && !initial) initial = [];
   if (isHydrating(parent)) {
-    if (!multi && initial === undefined && parent) initial = [...childRoot.childNodes];
+    if (!multi && initial === undefined && parent) initial = [...parent.childNodes];
     if (Array.isArray(initial)) {
       let j = 0;
       for (let i = 0; i < initial.length; i++) {
@@ -267,7 +265,7 @@ export function insert(parent, accessor, marker, initial, options) {
   }
   if (multi && initial.length === 0) {
     const placeholder = document.createTextNode("");
-    childRoot.insertBefore(placeholder, marker);
+    parent.insertBefore(placeholder, marker);
     initial = [placeholder];
   }
   let current = initial;
@@ -334,8 +332,7 @@ function loadModuleAssets(mapping) {
 
 // Hydrate
 export function hydrate(code, element, options = {}) {
-  if (globalThis._$HY.done)
-    return render(code, element, [...getChildRoot(element).childNodes], options);
+  if (globalThis._$HY.done) return render(code, element, [...element.childNodes], options);
   options.renderId ||= "";
   if (!globalThis._$HY.modules) globalThis._$HY.modules = {};
   if (!globalThis._$HY.loading) globalThis._$HY.loading = {};
@@ -385,7 +382,7 @@ export function hydrate(code, element, options = {}) {
       p.then(
         () => {
           try {
-            disposer = render(code, element, [...getChildRoot(element).childNodes], options);
+            disposer = render(code, element, [...element.childNodes], options);
           } finally {
             sharedConfig.hydrating = false;
           }
@@ -399,7 +396,7 @@ export function hydrate(code, element, options = {}) {
   }
   try {
     gatherHydratable(element, options.renderId);
-    return render(code, element, [...getChildRoot(element).childNodes], options);
+    return render(code, element, [...element.childNodes], options);
   } finally {
     sharedConfig.hydrating = false;
   }
@@ -456,7 +453,7 @@ export function getNextMarker(start) {
 }
 
 export function getFirstChild(node, expectedTag) {
-  const child = getChildRoot(node).firstChild;
+  const child = node.firstChild;
   if ("_DX_DEV_" && isHydrating() && expectedTag && child?.localName !== expectedTag) {
     const isMissing = !child || child.nodeType !== 1;
     console.warn(
@@ -487,7 +484,7 @@ export function getNextSibling(node, expectedTag) {
 function describeSiblings(parent, mismatchChild, expectedTag, isMissing) {
   if (!parent) return `<${expectedTag} \u2190 parent unavailable>`;
   const children = [];
-  let child = getChildRoot(parent).firstChild;
+  let child = parent.firstChild;
   while (child) {
     if (child.nodeType === 1) children.push(child);
     child = child.nextSibling;
@@ -541,10 +538,6 @@ export function runHydrationEvents() {
 // Internal Functions
 function isHydrating(node) {
   return sharedConfig.hydrating && (!node || node.isConnected);
-}
-
-function getChildRoot(node) {
-  return node && node.localName === "template" ? node.content : node;
 }
 
 function classListToObject(classList) {
@@ -688,7 +681,6 @@ function eventHandler(e) {
 function insertExpression(parent, value, current, marker) {
   if (isHydrating(parent)) return;
   if (value === current) return;
-  const childRoot = getChildRoot(parent);
   const t = typeof value,
     multi = marker !== undefined;
   // is this necessary anymore?
@@ -697,16 +689,16 @@ function insertExpression(parent, value, current, marker) {
   if (t === "string" || t === "number") {
     const tc = typeof current;
     if (tc === "string" || tc === "number") {
-      childRoot.firstChild.data = value;
-    } else childRoot.textContent = value;
+      parent.firstChild.data = value;
+    } else parent.textContent = value;
   } else if (value === undefined) {
     cleanChildren(parent, current, marker);
   } else if (value.nodeType) {
     if (Array.isArray(current)) {
       cleanChildren(parent, current, multi ? marker : null, value);
-    } else if (current === undefined || !childRoot.firstChild) {
-      childRoot.appendChild(value);
-    } else childRoot.replaceChild(value, childRoot.firstChild);
+    } else if (current === undefined || !parent.firstChild) {
+      parent.appendChild(value);
+    } else parent.replaceChild(value, parent.firstChild);
   } else if (Array.isArray(value)) {
     const currentArray = current && Array.isArray(current);
     if (value.length === 0) {
@@ -714,7 +706,7 @@ function insertExpression(parent, value, current, marker) {
     } else if (currentArray) {
       if (current.length === 0) {
         appendNodes(parent, value, marker);
-      } else reconcileArrays(childRoot, current, value);
+      } else reconcileArrays(parent, current, value);
     } else {
       current && cleanChildren(parent);
       appendNodes(parent, value);
@@ -742,12 +734,10 @@ function normalize(value, current, multi, doNotUnwrap) {
 }
 
 function appendNodes(parent, array, marker = null) {
-  parent = getChildRoot(parent);
   for (let i = 0, len = array.length; i < len; i++) parent.insertBefore(array[i], marker);
 }
 
 function cleanChildren(parent, current, marker, replacement) {
-  parent = getChildRoot(parent);
   if (marker === undefined) return (parent.textContent = "");
   if (current.length) {
     let inserted = false;
