@@ -159,7 +159,7 @@ export const parse = (tokens: Token[], voidElements: Set<string>): RootNode => {
             pos++;
             continue;
           }
-          throw new Error(`Mismatched closing tag for <${currentParent.name}> at token ${pos}.`);
+          throw new Error(`Mismatched closing tag for <${currentParent.name}>`);
         }
 
         // Handle Opening Tag: <name ...>
@@ -191,7 +191,7 @@ export const parse = (tokens: Token[], voidElements: Set<string>): RootNode => {
                 pos += 2; // Consume '...' and expression
               } else {
                 throw new Error(
-                  `Spread operator in <${node.name}> must be followed by an expression at token ${pos}.`
+                  `Spread operator in <${node.name}> must be followed by an expression`
                 );
               }
             } else if (attrToken.type === IDENTIFIER_TOKEN) {
@@ -215,7 +215,7 @@ export const parse = (tokens: Token[], voidElements: Set<string>): RootNode => {
                   pos++;
                 } else {
                   throw new Error(
-                    `Attribute value in <${node.name}> must be an expression or a string at token ${pos}.`
+                    `Attribute value for "${name}" in <${node.name}> must be an expression or a string`
                   );
                 }
               } else {
@@ -224,7 +224,7 @@ export const parse = (tokens: Token[], voidElements: Set<string>): RootNode => {
                 pos++;
               }
             } else {
-              throw new Error(`Invalid attribute in <${node.name}> at token ${pos}.`);
+              throw new Error(`Invalid attribute in <${node.name}>`);
             }
           }
 
@@ -243,7 +243,7 @@ export const parse = (tokens: Token[], voidElements: Set<string>): RootNode => {
       }
 
       default:
-        throw new Error(`Unexpected token: ${JSON.stringify(token)} at position ${pos}.`);
+        throw new Error(`Unexpected token: ${JSON.stringify(token)}  after <${(stack[stack.length - 1] as ElementNode | ComponentNode).name}>`);
     }
   }
 
