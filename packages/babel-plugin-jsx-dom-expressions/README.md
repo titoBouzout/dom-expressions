@@ -251,7 +251,7 @@ Important:
 
 - To allow for casing to work, custom delegated events should follow the all lowercase convention of native events. Use a ref/directive that calls `addEventListener` when you need native listener options or custom event casing.
 
-- Event delegates aren't cleaned up automatically off Document. If you will be completely unmounting the library and wish to remove the handlers from the current page use `clearDelegatedEvents`.
+- Event delegates are owned by render roots and are removed when those roots dispose.
 
 ### ... (spreads)
 

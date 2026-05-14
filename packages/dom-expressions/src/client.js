@@ -25,8 +25,10 @@ export {
   DelegatedEvents
 } from "./constants";
 
-const $$EVENTS = "_$DX_DELEGATE";
+const $$EVENT_OWNER = "_$DX_EVENT_OWNER";
 const INNER_OWNED = {};
+const delegatedEvents = new Set();
+const delegatedContainers = new Map();
 
 export {
   effect,
@@ -50,6 +52,7 @@ export function render(code, element, init, options = {}) {
     );
   }
   let disposer;
+  registerDelegatedRoot(element);
   root(
     dispose => {
       disposer = dispose;
@@ -74,6 +77,7 @@ export function render(code, element, init, options = {}) {
   );
   return () => {
     disposer();
+    unregisterDelegatedRoot(element);
     element.textContent = "";
   };
 }
@@ -98,21 +102,77 @@ export function template(html, flag) {
   if ("_DX_DEV_") fn._html = flag === 2 ? html.replace(/^<[^>]+>/, "") : html;
   return fn;
 }
-export function delegateEvents(eventNames, document = window.document) {
-  const e = document[$$EVENTS] || (document[$$EVENTS] = new Set());
+export function delegateEvents(eventNames) {
   for (let i = 0, l = eventNames.length; i < l; i++) {
     const name = eventNames[i];
-    if (!e.has(name)) {
-      e.add(name);
-      document.addEventListener(name, eventHandler);
+    if (!delegatedEvents.has(name)) {
+      delegatedEvents.add(name);
+      delegatedContainers.forEach((state, container) =>
+        attachDelegatedEvent(name, container, state)
+      );
     }
   }
 }
 
-export function clearDelegatedEvents(document = window.document) {
-  if (document[$$EVENTS]) {
-    for (let name of document[$$EVENTS].keys()) document.removeEventListener(name, eventHandler);
-    delete document[$$EVENTS];
+export function registerDelegatedRoot(root) {
+  const state = registerDelegatedContainer(root, root);
+  if (state) state.roots = (state.roots || 0) + 1;
+}
+
+export function unregisterDelegatedRoot(root) {
+  const state = delegatedContainers.get(root);
+  if (state) state.roots > 1 ? state.roots-- : delete state.roots;
+  unregisterDelegatedContainer(root, root);
+}
+
+export function registerDelegatedContainer(container, owner = container) {
+  if (!container || !owner) return;
+  let state = delegatedContainers.get(container);
+  if (!state)
+    delegatedContainers.set(
+      container,
+      (state = {
+        owners: new Map(),
+        handlers: new Map()
+      })
+    );
+  state.owners.set(owner, (state.owners.get(owner) || 0) + 1);
+  delegatedEvents.forEach(name => attachDelegatedEvent(name, container, state));
+  return state;
+}
+
+export function unregisterDelegatedContainer(container, owner = container) {
+  const state = delegatedContainers.get(container);
+  if (!state) return;
+  const count = state.owners.get(owner);
+  if (count > 1) state.owners.set(owner, count - 1);
+  else state.owners.delete(owner);
+  if (state.owners.size) return;
+  state.handlers.forEach((handler, name) => container.removeEventListener(name, handler));
+  delegatedContainers.delete(container);
+}
+
+function attachDelegatedEvent(name, container, state) {
+  if (state.handlers.has(name)) return;
+  const handler = e => eventHandler(e, container, state);
+  state.handlers.set(name, handler);
+  container.addEventListener(name, handler);
+}
+
+export function getDelegatedRoot(node) {
+  while (node) {
+    if (delegatedContainers.get(node)?.roots) return node;
+    node = node._$host || node.parentNode || node.host;
+  }
+}
+
+function findOwner(target, state) {
+  let node = target;
+  let distance = 0;
+  while (node) {
+    if (state.owners.has(node)) return { owner: node, distance };
+    distance++;
+    node = node._$host || node.parentNode || node.host;
   }
 }
 
@@ -524,7 +584,14 @@ export function runHydrationEvents() {
         const [el, e] = events[0];
         if (!completed.has(el)) return;
         events.shift();
-        eventHandler(e);
+        let match;
+        for (const [container, state] of delegatedContainers) {
+          if (!state.handlers.has(e.type)) continue;
+          const entry = findOwner(e.target, state);
+          if (entry && (!match || entry.distance < match.distance))
+            match = { container, state, distance: entry.distance };
+        }
+        if (match) eventHandler(e, match.container, match.state);
       }
       if (sharedConfig.done) {
         sharedConfig.events = _$HY.events = null;
@@ -612,15 +679,23 @@ function assignProp(node, prop, value, prev, skipRef, nodeName) {
   return value;
 }
 
-function eventHandler(e) {
+function eventHandler(e, container, state) {
   if (sharedConfig.registry && sharedConfig.events) {
     if (sharedConfig.events.find(([el, ev]) => ev === e)) return;
   }
+  if (e[$$EVENT_OWNER]) return;
+  const owner =
+    state &&
+    (state.owners.size === 1 && state.owners.has(container)
+      ? container
+      : findOwner(e.target, state)?.owner);
+  if (state && !owner) return;
+  e[$$EVENT_OWNER] = owner || true;
 
   let node = e.target;
   const key = `$$${e.type}`;
   const oriTarget = e.target;
-  const oriCurrentTarget = e.currentTarget;
+  const boundary = owner || container || e.currentTarget;
   const retarget = value =>
     Object.defineProperty(e, "target", {
       configurable: true,
@@ -641,32 +716,37 @@ function eventHandler(e) {
     return true;
   };
   const walkUpTree = () => {
-    while (handleNode() && (node = node._$host || node.parentNode || node.host));
+    while (handleNode()) {
+      if (node === boundary || node.parentNode === boundary) break;
+      node = node._$host || node.parentNode || node.host;
+    }
   };
 
   // simulate currentTarget
   Object.defineProperty(e, "currentTarget", {
     configurable: true,
     get() {
-      return node || document;
+      return node || boundary || document;
     }
   });
   if (e.composedPath) {
     const path = e.composedPath();
-    retarget(path[0]);
-    for (let i = 0; i < path.length - 2; i++) {
-      node = path[i];
-      if (!handleNode()) break;
-      if (node._$host) {
-        node = node._$host;
-        // bubble up from portal mount instead of composedPath
-        walkUpTree();
-        break;
+    if (path.length) {
+      retarget(path[0]);
+      for (let i = 0; i < path.length; i++) {
+        node = path[i];
+        if (!handleNode()) break;
+        if (node._$host) {
+          node = node._$host;
+          // bubble up from portal mount instead of composedPath
+          walkUpTree();
+          break;
+        }
+        if (node === boundary || node.parentNode === boundary) {
+          break; // don't bubble above root of event delegation
+        }
       }
-      if (node.parentNode === oriCurrentTarget) {
-        break; // don't bubble above root of event delegation
-      }
-    }
+    } else walkUpTree();
   }
   // fallback for browsers that don't support composedPath
   else walkUpTree();

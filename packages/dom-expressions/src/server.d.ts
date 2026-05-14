@@ -124,7 +124,7 @@ export function insert<T>(
 export function spread<T>(node: Element, accessor: T, skipChildren?: Boolean): void;
 
 /** @deprecated not supported on the server side */
-export function delegateEvents(eventNames: string[], d?: Document): void;
+export function delegateEvents(eventNames: string[]): void;
 /** @deprecated not supported on the server side */
 export function dynamicProperty(props: unknown, key: string): unknown;
 /** @deprecated not supported on the server side */

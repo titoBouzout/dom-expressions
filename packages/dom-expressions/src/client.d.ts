@@ -33,8 +33,18 @@ export function insert<T>(
   init?: JSX.Element
 ): JSX.Element;
 export function createComponent<T>(Comp: (props: T) => JSX.Element, props: T): JSX.Element;
-export function delegateEvents(eventNames: string[], d?: Document): void;
-export function clearDelegatedEvents(d?: Document): void;
+export function delegateEvents(eventNames: string[]): void;
+export function registerDelegatedRoot(root: MountableElement): void;
+export function unregisterDelegatedRoot(root: MountableElement): void;
+export function registerDelegatedContainer(
+  container: MountableElement,
+  owner?: MountableElement
+): void;
+export function unregisterDelegatedContainer(
+  container: MountableElement,
+  owner?: MountableElement
+): void;
+export function getDelegatedRoot(node: MountableElement): MountableElement | undefined;
 export function spread<T>(node: Element, accessor: T, skipChildren?: Boolean): void;
 export function assign(
   node: Element,

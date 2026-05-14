@@ -102,14 +102,15 @@ describe("Test HTML", () => {
     `;
     expect(template.outerHTML).toBe(FIXTURES[2]);
     document.body.appendChild(template);
+    r.registerDelegatedRoot(document.body);
     var event = new MouseEvent("click", { bubbles: true });
     template.firstChild.dispatchEvent(event);
     event = new MouseEvent("click", { bubbles: true });
     template.firstChild.nextSibling.dispatchEvent(event);
     expect(exec.bound).toBe(true);
     expect(exec.delegated).toBe(true);
+    r.unregisterDelegatedRoot(document.body);
     document.body.textContent = "";
-    r.clearDelegatedEvents();
   });
 
   test("Fragments", () => {

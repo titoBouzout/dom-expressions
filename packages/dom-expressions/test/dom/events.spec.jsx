@@ -30,6 +30,11 @@ describe("Test Synthetic event bubbling", () => {
       </div>
     )
   );
+  r.registerDelegatedRoot(document.body);
+
+  afterAll(() => {
+    r.unregisterDelegatedRoot(document.body);
+  });
 
   test("Fire top level event", () => {
     eventTarget = Elements.el1;
@@ -64,21 +69,21 @@ describe("Test Synthetic event bubbling", () => {
     expect(count).toBe(1);
   });
 
-  test("clear events", () => {
-    r.clearDelegatedEvents();
+  test("dispose clears root-owned events", () => {
+    const root = document.createElement("div");
+    let el, dispose;
+    dispose = r.render(() => <button ref={el} onClick={() => count++} />, root);
+    r.delegateEvents(["click"]);
+    count = 0;
+    el.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(count).toBe(1);
+    dispose();
     eventTarget = Elements.el1;
     count = 0;
     stopPropagation = false;
     var event = new MouseEvent("click", { bubbles: true });
-    eventTarget.dispatchEvent(event);
+    el.dispatchEvent(event);
     expect(count).toBe(0);
-  });
-
-  test("clearDelegatedEvents on a fresh document is a no-op", () => {
-    // Targets with no prior delegation take the `if (document[$$EVENTS])`
-    // false branch without touching addEventListener state.
-    const alt = document.implementation.createHTMLDocument("alt");
-    expect(() => r.clearDelegatedEvents(alt)).not.toThrow();
   });
 });
 
@@ -213,8 +218,7 @@ describe("eventHandler shadow/portal branches", () => {
         </aside>
       );
     });
-    // The JSX compiler's module-level delegateEvents(["click"]) may have
-    // been cleared by earlier tests in this file.
+    r.registerDelegatedRoot(document.body);
     r.delegateEvents(["click"]);
     portalChild._$host = logicalParent;
 
@@ -226,6 +230,7 @@ describe("eventHandler shadow/portal branches", () => {
     ]);
 
     dispose();
+    r.unregisterDelegatedRoot(document.body);
   });
 
   it("walks up the tree when the event has no composedPath (legacy browser fallback)", () => {
@@ -240,6 +245,7 @@ describe("eventHandler shadow/portal branches", () => {
         </div>
       );
     });
+    r.registerDelegatedRoot(document.body);
     r.delegateEvents(["click"]);
 
     // Strip composedPath so eventHandler falls back to walkUpTree.
@@ -253,32 +259,191 @@ describe("eventHandler shadow/portal branches", () => {
     ]);
 
     dispose();
+    r.unregisterDelegatedRoot(document.body);
+  });
+});
+
+describe("root-owned event delegation", () => {
+  afterEach(() => {
+    document.body.innerHTML = "";
   });
 
-  // Once walkUpTree bubbles past every host (via _$host pointing at
-  // document itself), the closure-local `node` becomes undefined. The
-  // currentTarget getter's `node || document` fallback must surface
-  // document rather than undefined.
-  it("currentTarget falls back to document after bubbling past the root", () => {
-    let portalChild, dispose;
-    createRoot(d => {
-      dispose = d;
-      document.body.appendChild(<button ref={portalChild} onClick={() => {}} />);
-    });
+  it("delegateEvents without a root does not install document listeners", () => {
+    const button = document.createElement("button");
+    const calls = [];
+    button.$$click = () => calls.push("click");
+    document.body.appendChild(button);
+
     r.delegateEvents(["click"]);
-    // _$host points at document → walkUpTree tries to step to
-    // document.parentNode/host/_$host, all of which are null.
-    portalChild._$host = document;
+    button.dispatchEvent(new MouseEvent("click", { bubbles: true }));
 
-    const event = new MouseEvent("click", { bubbles: true, composed: true });
-    portalChild.dispatchEvent(event);
-    // After dispatch the walker's node is undefined, so the getter's
-    // fallback takes over.
-    expect(event.currentTarget).toBe(document);
+    expect(calls).toEqual([]);
+  });
 
-    delete portalChild._$host;
+  it("patches roots registered before delegateEvents", () => {
+    const root = document.createElement("div");
+    let button;
+    let calls = 0;
+    const dispose = r.render(() => <button ref={button} onClick={() => calls++} />, root);
+
+    r.delegateEvents(["click"]);
+    button.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+    expect(calls).toBe(1);
     dispose();
-    document.body.innerHTML = "";
+  });
+
+  it("patches roots registered after delegateEvents", () => {
+    const root = document.createElement("div");
+    let button;
+    let calls = 0;
+
+    r.delegateEvents(["click"]);
+    const dispose = r.render(() => <button ref={button} onClick={() => calls++} />, root);
+    button.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+    expect(calls).toBe(1);
+    dispose();
+  });
+
+  it("rendered ShadowRoot roots walk inside the shadow tree only", () => {
+    const host = document.createElement("div");
+    const shadow = host.attachShadow({ mode: "open" });
+    let button;
+    const calls = [];
+
+    document.body.appendChild(host);
+    host.$$click = () => calls.push("host");
+    const dispose = r.render(
+      () => (
+        <section onClick={() => calls.push("section")}>
+          <button ref={button} onClick={() => calls.push("button")} />
+        </section>
+      ),
+      shadow
+    );
+
+    r.delegateEvents(["click"]);
+    button.dispatchEvent(new MouseEvent("click", { bubbles: true, composed: true }));
+
+    expect(calls).toEqual(["button", "section"]);
+    dispose();
+  });
+
+  it("keeps nested roots isolated for delegated handlers", () => {
+    const outerRoot = document.createElement("div");
+    const innerRoot = document.createElement("div");
+    document.body.appendChild(outerRoot);
+    outerRoot.appendChild(innerRoot);
+    let innerButton;
+    const calls = [];
+
+    const disposeOuter = r.render(() => <section onClick={() => calls.push("outer")} />, outerRoot);
+    const disposeInner = r.render(
+      () => <button ref={innerButton} onClick={() => calls.push("inner")} />,
+      innerRoot
+    );
+
+    innerButton.dispatchEvent(new MouseEvent("click", { bubbles: true, composed: true }));
+
+    expect(calls).toEqual(["inner"]);
+    disposeInner();
+    disposeOuter();
+  });
+
+  it("dispatches portal containers through their owner root without duplicate parent dispatch", () => {
+    const root = document.createElement("div");
+    const portalMount = document.createElement("div");
+    let logicalParent, portalChild;
+    const calls = [];
+
+    document.body.appendChild(root);
+    document.body.appendChild(portalMount);
+    const dispose = r.render(
+      () => <section ref={logicalParent} onClick={() => calls.push("logical")} />,
+      root
+    );
+    portalMount.appendChild(<button ref={portalChild} onClick={() => calls.push("portal")} />);
+    portalChild._$host = logicalParent;
+    r.registerDelegatedContainer(portalMount, root);
+
+    portalChild.dispatchEvent(new MouseEvent("click", { bubbles: true, composed: true }));
+
+    expect(calls).toEqual(["portal", "logical"]);
+    r.unregisterDelegatedContainer(portalMount, root);
+    dispose();
+  });
+
+  it("keeps container listeners until the final matching unregister", () => {
+    const root = document.createElement("div");
+    let button;
+    let calls = 0;
+    const dispose = r.render(() => <button ref={button} onClick={() => calls++} />, root);
+
+    r.registerDelegatedRoot(root);
+    r.delegateEvents(["click"]);
+    r.unregisterDelegatedRoot(root);
+    button.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(calls).toBe(1);
+
+    r.unregisterDelegatedRoot(root);
+    button.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(calls).toBe(1);
+    dispose();
+  });
+
+  it("removes shared container listeners after the final owner unregisters", () => {
+    const container = document.createElement("div");
+    const ownerA = document.createElement("section");
+    const ownerB = document.createElement("section");
+    const remove = jest.spyOn(container, "removeEventListener");
+    r.registerDelegatedContainer(container, ownerA);
+    r.registerDelegatedContainer(container, ownerB);
+    r.delegateEvents(["click"]);
+
+    r.unregisterDelegatedContainer(container, ownerA);
+    expect(remove).not.toHaveBeenCalledWith("click", expect.any(Function));
+
+    r.unregisterDelegatedContainer(container, ownerB);
+    expect(remove).toHaveBeenCalledWith("click", expect.any(Function));
+    remove.mockRestore();
+  });
+
+  it("shared portal containers dispatch only to the owner found through _$host", () => {
+    const portalMount = document.createElement("div");
+    const ownerA = document.createElement("section");
+    const ownerB = document.createElement("section");
+    const logicalA = document.createElement("div");
+    const logicalB = document.createElement("div");
+    const buttonA = document.createElement("button");
+    const buttonB = document.createElement("button");
+    const calls = [];
+
+    logicalA.$$click = () => calls.push("ownerA");
+    logicalB.$$click = () => calls.push("ownerB");
+    buttonA.$$click = () => calls.push("buttonA");
+    buttonB.$$click = () => calls.push("buttonB");
+    buttonA._$host = logicalA;
+    buttonB._$host = logicalB;
+    ownerA.appendChild(logicalA);
+    ownerB.appendChild(logicalB);
+    portalMount.append(buttonA, buttonB);
+
+    r.registerDelegatedRoot(ownerA);
+    r.registerDelegatedRoot(ownerB);
+    r.registerDelegatedContainer(portalMount, ownerA);
+    r.registerDelegatedContainer(portalMount, ownerB);
+    r.delegateEvents(["click"]);
+
+    buttonA.dispatchEvent(new MouseEvent("click", { bubbles: true, composed: true }));
+    buttonB.dispatchEvent(new MouseEvent("click", { bubbles: true, composed: true }));
+
+    expect(calls).toEqual(["buttonA", "ownerA", "buttonB", "ownerB"]);
+
+    r.unregisterDelegatedContainer(portalMount, ownerA);
+    r.unregisterDelegatedContainer(portalMount, ownerB);
+    r.unregisterDelegatedRoot(ownerA);
+    r.unregisterDelegatedRoot(ownerB);
   });
 });
 
