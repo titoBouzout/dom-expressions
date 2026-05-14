@@ -329,11 +329,14 @@ describe("SLD Integration Tests", () => {
       createRoot(dispose => {
         let elementRef: HTMLDivElement | undefined;
         let clickCount = 0;
+        const ref = (el: HTMLDivElement) => {
+          elementRef = el;
+          el.addEventListener("click", () => clickCount++);
+        };
 
         const el = sld`
       <div 
-        ref=${(el: HTMLDivElement) => (elementRef = el)} 
-        on:click=${() => clickCount++}
+        ref=${ref}
       >Click me</div>` as HTMLDivElement;
 
         expect(elementRef).toBe(el);
@@ -342,33 +345,42 @@ describe("SLD Integration Tests", () => {
         dispose();
       }));
 
-    it("integrates bound, delegated, and native listener events", () =>
-      createRoot(dispose => {
-        const exec = { bound: false, delegated: false, listener: false };
+    it("integrates ref listeners and delegated events", () => {
+      const exec = { first: false, delegated: false, second: false };
+      const container = document.createElement("div");
+      document.body.append(container);
+      const dispose = r.render(
+        () =>
+          sld`
+          <div id="main">
+            <button ref=${(node: HTMLButtonElement) =>
+              node.addEventListener("click", () => (exec.first = true))}>Bound</button>
+            <button onClick=${[(v: any) => (exec.delegated = v), true]}>Delegated</button>
+            <button ref=${(node: HTMLButtonElement) =>
+              node.addEventListener("click", () => (exec.second = true), {
+                capture: true
+              })}>Ref Listener</button>
+          </div>
+        `,
+        container
+      );
+      const el = container.firstElementChild as HTMLElement;
 
-        const el = sld`
-        <div id="main">
-          <button onclick=${() => (exec.bound = true)}>Bound</button>
-          <button onClick=${[(v: any) => (exec.delegated = v), true]}>Delegated</button>
-          <button on:click=${() => (exec.listener = true)}>Listener</button>
-        </div>
-      ` as HTMLElement;
-        document.body.append(el);
+      const [btn1, btn2, btn3] = el.querySelectorAll("button");
 
-        const [btn1, btn2, btn3] = el.querySelectorAll("button");
+      expect(btn1.textContent).toBe("Bound");
+      expect(btn2.textContent).toBe("Delegated");
+      expect(btn3.textContent).toBe("Ref Listener");
 
-        expect(btn1.textContent).toBe("Bound");
-        expect(btn2.textContent).toBe("Delegated");
-        expect(btn3.textContent).toBe("Listener");
+      btn1.click();
+      btn2.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      btn3.click();
 
-        btn1.click();
-        btn2.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-        btn3.click();
-
-        expect(exec.delegated).toBe(true);
-        expect(exec.listener).toBe(true);
-        dispose();
-      }));
+      expect(exec.first).toBe(true);
+      expect(exec.delegated).toBe(true);
+      expect(exec.second).toBe(true);
+      dispose();
+    });
 
     it("captures refs across components and elements", () =>
       createRoot(dispose => {
@@ -741,12 +753,11 @@ describe("SLD Integration Tests", () => {
         createRoot(dispose => {
           let clickCount = 0;
           let mouseOverCount = 0;
-          let inputChangeCount = 0;
-
           const div = sld`<div>
-          <button on:click=${() => clickCount++}>Click me</button>
-          <span on:mouseover=${() => mouseOverCount++}>Hover me</span>
-          <input on:input=${() => inputChangeCount++} />
+          <button ref=${(node: HTMLButtonElement) =>
+            node.addEventListener("click", () => clickCount++)}>Click me</button>
+          <span ref=${(node: HTMLSpanElement) =>
+            node.addEventListener("mouseover", () => mouseOverCount++)}>Hover me</span>
         </div>` as HTMLElement;
           const container = document.createElement("div");
           container.append(div);
@@ -763,26 +774,27 @@ describe("SLD Integration Tests", () => {
           dispose();
         }));
 
-      it("handles event delegation with stopPropagation", () =>
-        createRoot(dispose => {
-          const events: string[] = [];
+      it("handles event delegation with stopPropagation", () => {
+        const events: string[] = [];
+        const container = document.createElement("div");
+        document.body.append(container);
+        const dispose = r.render(
+          () =>
+            sld`<div onClick=${() => events.push("parent")}>
+            <button onClick=${(e: Event) => {
+              e.stopPropagation();
+              events.push("child");
+            }}>Child</button>
+          </div>`,
+          container
+        );
 
-          const div = sld`<div onClick=${() => events.push("parent")}>
-          <button onClick=${(e: Event) => {
-            e.stopPropagation();
-            events.push("child");
-          }}>Child</button>
-        </div>` as HTMLElement;
-          const container = document.createElement("div");
-          container.append(div);
-          document.body.append(container);
+        const button = container.querySelector("button")!;
+        button.click();
 
-          const button = container.querySelector("button")!;
-          button.click();
-
-          expect(events.length).toBeGreaterThan(0);
-          dispose();
-        }));
+        expect(events.length).toBeGreaterThan(0);
+        dispose();
+      });
     });
 
     describe("Form Element Integration", () => {

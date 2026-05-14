@@ -229,6 +229,9 @@ const template32 = <Comp ref={refFn} />
 const template33 = <Comp ref={refConst} />
 
 const template34 = <Comp ref={refUnknown} />
+const template35 = <Comp ref={binding?.prop} />
+const template36 = <Comp ref={binding?.[prop]} />
+const template37 = <Comp ref={binding.nested?.prop} />
 
 function MyComponent(props) {
   let el

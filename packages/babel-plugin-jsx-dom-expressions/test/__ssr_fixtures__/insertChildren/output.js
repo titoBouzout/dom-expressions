@@ -76,9 +76,9 @@ const template23 = Module({
 const template24 = _$ssrElement("module", dynamic, ["Hi", () => _$escape(dynamic.children)], false);
 const tiles = [];
 tiles.push(_$ssr(_tmpl$5));
-var _v$10 = _$escape(tiles);
-const template25 = _$ssr(_tmpl$6, _v$10);
-var _v$11 = () => _$escape((expression(), "static"));
-const comma = _$ssr(_tmpl$6, _v$11);
-var _v$12 = () => _$escape(children()());
-const double = _$ssr(_tmpl$6, _v$12);
+var _v$0 = _$escape(tiles);
+const template25 = _$ssr(_tmpl$6, _v$0);
+var _v$1 = () => _$escape((expression(), "static"));
+const comma = _$ssr(_tmpl$6, _v$1);
+var _v$10 = () => _$escape(children()());
+const double = _$ssr(_tmpl$6, _v$10);

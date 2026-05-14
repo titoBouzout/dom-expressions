@@ -1,4 +1,35 @@
-export default {
+export type RendererName = "dom" | "ssr" | "universal" | string;
+
+export interface RendererConfig {
+  name: RendererName;
+  moduleName?: string;
+  elements: string[];
+}
+
+export interface JSXDOMExpressionsConfig {
+  moduleName: string;
+  generate: "dom" | "ssr" | "universal" | "dynamic";
+  hydratable: boolean;
+  dev: boolean;
+  delegateEvents: boolean;
+  delegatedEvents: string[];
+  builtIns: string[];
+  requireImportSource: false | string;
+  wrapConditionals: boolean;
+  omitNestedClosingTags: boolean;
+  omitLastClosingTag: boolean;
+  omitQuotes: boolean;
+  omitAttributeSpacing: boolean;
+  contextToCustomElements: boolean;
+  staticMarker: string;
+  effectWrapper: string;
+  memoWrapper: string;
+  validate: boolean;
+  inlineStyles: boolean;
+  renderers?: RendererConfig[];
+}
+
+const config: JSXDOMExpressionsConfig = {
   moduleName: "dom",
   generate: "dom",
   hydratable: false,
@@ -11,6 +42,7 @@ export default {
   omitNestedClosingTags: false,
   omitLastClosingTag: true,
   omitQuotes: true,
+  omitAttributeSpacing: true,
   contextToCustomElements: false,
   staticMarker: "@once",
   effectWrapper: "effect",
@@ -18,3 +50,5 @@ export default {
   validate: true,
   inlineStyles: true
 };
+
+export default config;

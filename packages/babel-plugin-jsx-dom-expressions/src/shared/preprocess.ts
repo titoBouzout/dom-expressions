@@ -1,10 +1,14 @@
 import config from "../config";
+import type * as t from "@babel/types";
+import type { NodePath } from "@babel/traverse";
+import type { BabelHubWithMetadata, JSXDOMExpressionsPass } from "../types";
 
-export default (path, state) => {
-  const merged = (path.hub.file.metadata.config = Object.assign({}, config, state.opts));
+export default (path: NodePath<t.Program>, state: JSXDOMExpressionsPass) => {
+  const file = (path.hub as unknown as BabelHubWithMetadata).file;
+  const merged = (file.metadata.config = Object.assign({}, config, state.opts));
   const lib = merged.requireImportSource;
   if (lib) {
-    const comments = path.hub.file.ast.comments;
+    const comments = file.ast.comments ?? [];
     let process = false;
     for (let i = 0; i < comments.length; i++) {
       const comment = comments[i];

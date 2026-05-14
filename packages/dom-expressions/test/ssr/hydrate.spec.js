@@ -905,11 +905,13 @@ describe("runHydrationEvents drain", () => {
     sharedConfig.events = undefined;
     sharedConfig.completed = undefined;
     sharedConfig.done = false;
+    r.unregisterDelegatedRoot(container);
   });
 
   it("drains completed events from the queue and clears state when done", async () => {
     const btn = document.createElement("button");
     container.appendChild(btn);
+    r.registerDelegatedRoot(container);
     r.delegateEvents(["click"]);
 
     // Dispatch a real event so target is set naturally; the SSR-queued
@@ -934,6 +936,7 @@ describe("runHydrationEvents drain", () => {
     const btnB = document.createElement("button");
     container.appendChild(btnA);
     container.appendChild(btnB);
+    r.registerDelegatedRoot(container);
     r.delegateEvents(["click"]);
 
     const eventA = new MouseEvent("click", { bubbles: true });
@@ -959,6 +962,37 @@ describe("runHydrationEvents drain", () => {
     expect(sharedConfig.events.length).toBe(1);
     expect(sharedConfig.events[0][0]).toBe(btnB);
   });
+
+  it("replays through the nearest registered root when document is also a root", async () => {
+    const outer = jest.fn();
+    const inner = jest.fn();
+    const root = document.createElement("div");
+    const btn = document.createElement("button");
+    document.body.appendChild(root);
+    root.appendChild(btn);
+    document.$$click = outer;
+    btn.$$click = inner;
+    r.registerDelegatedRoot(document);
+    r.registerDelegatedRoot(root);
+    r.delegateEvents(["click"]);
+
+    const event = new MouseEvent("click", { bubbles: true });
+    sharedConfig.registry = new Map();
+    sharedConfig.events = [[btn, event]];
+    sharedConfig.completed = new WeakSet([btn]);
+    btn.dispatchEvent(event);
+
+    sharedConfig.done = false;
+    r.runHydrationEvents();
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    expect(inner).toHaveBeenCalledTimes(1);
+    expect(outer).not.toHaveBeenCalled();
+
+    delete document.$$click;
+    r.unregisterDelegatedRoot(root);
+    r.unregisterDelegatedRoot(document);
+  });
 });
 
 // eventHandler short-circuits for events already queued in sharedConfig.events
@@ -972,6 +1006,7 @@ describe("eventHandler hydration early-return", () => {
     container.innerHTML = "";
     sharedConfig.registry = undefined;
     sharedConfig.events = undefined;
+    r.unregisterDelegatedRoot(container);
   });
 
   it("skips dispatch when the event is already in the sharedConfig queue", () => {
@@ -980,6 +1015,7 @@ describe("eventHandler hydration early-return", () => {
     const handler = jest.fn();
     btn.$$click = handler;
 
+    r.registerDelegatedRoot(container);
     r.delegateEvents(["click"]);
 
     const event = new MouseEvent("click", { bubbles: true });

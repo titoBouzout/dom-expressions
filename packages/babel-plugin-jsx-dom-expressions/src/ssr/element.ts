@@ -1,4 +1,6 @@
-import * as t from "@babel/types";
+import * as babelTypes from "@babel/types";
+
+const t = babelTypes;
 import { decode } from "html-entities";
 import { ChildProperties, VoidElements } from "dom-expressions/src/constants";
 import {
@@ -19,9 +21,39 @@ import {
 } from "../shared/utils";
 import { transformNode, getCreateTemplate } from "../shared/transform";
 import { createTemplate } from "./template";
+import type {
+  BabelPath,
+  JSXNode,
+  SSRTransformResult,
+  TransformInfo,
+  TransformResult
+} from "../types";
 
-function appendToTemplate(template, value) {
-  let array;
+type JSXAttributePath = BabelPath<babelTypes.JSXAttribute | babelTypes.JSXSpreadAttribute>;
+type JSXAttributeOnlyPath = BabelPath<babelTypes.JSXAttribute>;
+type JSXChildPath = BabelPath<JSXNode>;
+type SSRTransformInfo = TransformInfo & ReturnType<typeof getConfig>;
+type SSRSpreadTransformResult = TransformResult & {
+  exprs: babelTypes.Expression[];
+  template: "";
+  declarations: [];
+  spreadElement: true;
+};
+
+interface HoistOptions {
+  group?: boolean;
+  post?: boolean;
+  skipWrap?: boolean;
+}
+
+interface GroupRun {
+  start: number;
+  end: number;
+  ids: string[];
+}
+
+function appendToTemplate(template: string[], value: string | string[]) {
+  let array: string[] | undefined;
   if (Array.isArray(value)) {
     [value, ...array] = value;
   }
@@ -29,7 +61,12 @@ function appendToTemplate(template, value) {
   if (array && array.length) template.push.apply(template, array);
 }
 
-function hoistExpression(path, results, expr, { group, post, skipWrap } = {}) {
+function hoistExpression(
+  path: BabelPath,
+  results: SSRTransformResult,
+  expr: babelTypes.Expression,
+  { group, post }: HoistOptions = {}
+): babelTypes.Identifier {
   // Each dynamic gets a temp `_v$N` variable that's later assigned + passed
   // to `ssr(_tmpl, _v$N, …)`. The temp-var indirection is a V8 call-site
   // IC stability tactic: when `ssr()` always sees stable `Identifier`
@@ -56,17 +93,17 @@ function hoistExpression(path, results, expr, { group, post, skipWrap } = {}) {
 // Coalesce contiguous runs of >=2 groupable templateValues entries into
 // `_$ssrGroup(() => [...bodies], N)`, repeated N times in the `ssr(...)`
 // arg list. Inserts/children break a run, so child isolation is preserved.
-function groupAttributeClosures(path, results) {
+function groupAttributeClosures(path: BabelPath, results: SSRTransformResult): void {
   const groupable = results.groupable;
   if (!groupable || groupable.size < 2) return;
-  const tv = results.templateValues;
+  const tv = results.templateValues as babelTypes.Expression[];
 
-  const runs = [];
+  const runs: GroupRun[] = [];
   let runStart = -1;
-  let runIds = [];
+  let runIds: string[] = [];
   for (let i = 0; i <= tv.length; i++) {
     const v = i < tv.length ? tv[i] : null;
-    if (v && t.isIdentifier(v) && groupable.has(v.name)) {
+    if (v && babelTypes.isIdentifier(v) && groupable.has(v.name)) {
       if (runStart === -1) {
         runStart = i;
         runIds = [];
@@ -82,30 +119,33 @@ function groupAttributeClosures(path, results) {
 
   // Name → declarator index. Consumed slots are nulled in place (kept
   // stable for the whole pass, then filtered at the end).
-  const declMap = new Map();
+  const declMap = new Map<string, number>();
   for (let i = 0; i < results.declarations.length; i++) {
     const d = results.declarations[i];
-    if (d && t.isIdentifier(d.id)) declMap.set(d.id.name, i);
+    if (d && babelTypes.isIdentifier(d.id)) declMap.set(d.id.name, i);
   }
 
   // Reverse so `tv.splice` for earlier runs doesn't shift later indices.
   for (let r = runs.length - 1; r >= 0; r--) {
     const run = runs[r];
-    const bodies = [];
+    const bodies: babelTypes.Expression[] = [];
     let firstIdx = -1;
     for (let k = 0; k < run.ids.length; k++) {
-      const di = declMap.get(run.ids[k]);
-      const init = results.declarations[di].init;
+      const di = declMap.get(run.ids[k])!;
+      const init = results.declarations[di]!.init as babelTypes.Expression;
       // Arrow w/ expression body → inline its body. Anything else
       // (bare identifier, `_$escape(/*@once*/ x)`, …) gets dropped in
       // as-is; the runtime's type dispatch handles both fn and value slots.
       bodies.push(
-        t.isArrowFunctionExpression(init) && !t.isBlockStatement(init.body) ? init.body : init
+        babelTypes.isArrowFunctionExpression(init) && !babelTypes.isBlockStatement(init.body)
+          ? (init.body as babelTypes.Expression)
+          : init
       );
       if (k === 0) firstIdx = di;
       else results.declarations[di] = null;
     }
 
+    if (firstIdx < 0) continue;
     const groupId = path.scope.generateUidIdentifier("g$");
     const groupInit = t.callExpression(registerImportMethod(path, "ssrGroup"), [
       t.arrowFunctionExpression([], t.arrayExpression(bodies)),
@@ -113,22 +153,27 @@ function groupAttributeClosures(path, results) {
     ]);
     results.declarations[firstIdx] = t.variableDeclarator(groupId, groupInit);
 
-    const replacements = new Array(run.ids.length);
+    const replacements: babelTypes.Identifier[] = new Array(run.ids.length);
     for (let k = 0; k < run.ids.length; k++) replacements[k] = t.cloneNode(groupId);
     tv.splice(run.start, run.end - run.start, ...replacements);
   }
 
-  results.declarations = results.declarations.filter(d => d !== null);
+  results.declarations = results.declarations.filter(
+    (d): d is babelTypes.VariableDeclarator => d !== null
+  );
 }
 
-export function transformElement(path, info) {
+export function transformElement(
+  path: BabelPath<babelTypes.JSXElement> & { doNotEscape?: boolean },
+  info: TransformInfo = {}
+): SSRTransformResult | SSRSpreadTransformResult {
   const tagName = getTagName(path.node);
 
   path
     .get("openingElement")
     .get("attributes")
-    .forEach(attr => {
-      evaluateAndInline(attr.node.value, attr.get("value"));
+    .forEach((attr: JSXAttributePath) => {
+      if (t.isJSXAttribute(attr.node)) evaluateAndInline(attr.node.value, attr.get("value"));
     });
 
   const config = getConfig(path);
@@ -142,12 +187,13 @@ export function transformElement(path, info) {
   // last value (matching DOM-mode and JSX spread semantics). Strip the
   // earlier occurrences before the rest of the SSR transform runs.
   {
-    const seenAttributes = {};
-    const duplicates = [];
+    const seenAttributes: Record<string, JSXAttributePath> = {};
+    const duplicates: JSXAttributePath[] = [];
     path
       .get("openingElement")
       .get("attributes")
-      .forEach(attr => {
+      .forEach((attr: JSXAttributePath) => {
+        if (!t.isJSXAttribute(attr.node)) return;
         const key = t.isJSXNamespacedName(attr.node.name)
           ? `${attr.node.name.namespace.name}:${attr.node.name.name.name}`
           : attr.node.name.name;
@@ -163,7 +209,7 @@ export function transformElement(path, info) {
   }
 
   const voidTag = VoidElements.has(tagName),
-    results = {
+    results: SSRTransformResult = {
       template: [`<${tagName}`],
       templateValues: [],
       declarations: [],
@@ -171,7 +217,7 @@ export function transformElement(path, info) {
       exprs: [],
       dynamics: info.parentResults?.dynamics || [],
       tagName,
-      wontEscape: path.node.wontEscape,
+      wontEscape: (path.node as babelTypes.JSXElement & { wontEscape?: boolean }).wontEscape,
       renderer: "ssr",
       groupId: info.parentResults?.groupId
     };
@@ -199,17 +245,25 @@ export function transformElement(path, info) {
   return results;
 }
 
-function setAttr(tagName, attribute, results, name, value, isDynamic, isBoolean) {
+function setAttr(
+  tagName: string,
+  attribute: BabelPath,
+  results: SSRTransformResult,
+  name: string,
+  value: babelTypes.Expression,
+  isDynamic: boolean | undefined,
+  isBoolean: boolean
+) {
   // strip out namespaces for now, everything at this point is an attribute
   let parts;
   if ((parts = name.split(":")) && parts[1] && reservedNameSpaces.has(parts[0])) {
     name = parts[1];
   }
 
-  let attr = t.callExpression(registerImportMethod(attribute, "ssrAttribute"), [
-    t.stringLiteral(name),
-    value
-  ]);
+  let attr: babelTypes.Expression = t.callExpression(
+    registerImportMethod(attribute, "ssrAttribute"),
+    [t.stringLiteral(name), value]
+  );
   if (isDynamic) {
     attr = t.arrowFunctionExpression([], attr);
 
@@ -228,61 +282,122 @@ function setAttr(tagName, attribute, results, name, value, isDynamic, isBoolean)
   }
 }
 
-function escapeExpression(path, expression, attr, escapeLiterals) {
+function escapeExpression(
+  path: BabelPath,
+  expression:
+    | babelTypes.Expression
+    | babelTypes.JSXElement
+    | babelTypes.JSXFragment
+    | null
+    | undefined,
+  attr?: boolean,
+  escapeLiterals?: boolean
+): babelTypes.Expression | babelTypes.JSXElement | babelTypes.JSXFragment | null | undefined {
+  if (!expression) return expression;
   if (
     t.isStringLiteral(expression) ||
     t.isNumericLiteral(expression) ||
     (t.isTemplateLiteral(expression) && expression.expressions.length === 0)
   ) {
     if (escapeLiterals) {
-      if (t.isStringLiteral(expression)) return t.stringLiteral(escapeHTML(expression.value, attr));
+      if (t.isStringLiteral(expression))
+        return t.stringLiteral(escapeHTML(expression.value, attr) as string);
       else if (t.isTemplateLiteral(expression))
-        return t.stringLiteral(escapeHTML(expression.quasis[0].value.raw, attr));
+        return t.stringLiteral(escapeHTML(expression.quasis[0].value.raw, attr) as string);
     }
     return expression;
   } else if (t.isFunction(expression)) {
     if (t.isBlockStatement(expression.body)) {
       expression.body.body = expression.body.body.map(e => {
         if (t.isReturnStatement(e))
-          e.argument = escapeExpression(path, e.argument, attr, escapeLiterals);
+          e.argument = escapeExpression(
+            path,
+            e.argument,
+            attr,
+            escapeLiterals
+          ) as babelTypes.Expression | null;
         return e;
       });
-    } else expression.body = escapeExpression(path, expression.body, attr, escapeLiterals);
+    } else
+      expression.body = escapeExpression(path, expression.body, attr, escapeLiterals) as
+        | babelTypes.Expression
+        | babelTypes.BlockStatement;
     return expression;
   } else if (t.isTemplateLiteral(expression)) {
-    expression.expressions = expression.expressions.map(e =>
-      escapeExpression(path, e, attr, escapeLiterals)
+    expression.expressions = expression.expressions.map(
+      e =>
+        escapeExpression(
+          path,
+          e as babelTypes.Expression,
+          attr,
+          escapeLiterals
+        ) as babelTypes.Expression
     );
     return expression;
   } else if (t.isUnaryExpression(expression)) {
     return expression;
   } else if (t.isBinaryExpression(expression)) {
-    expression.left = escapeExpression(path, expression.left, attr, escapeLiterals);
-    expression.right = escapeExpression(path, expression.right, attr, escapeLiterals);
+    expression.left = escapeExpression(
+      path,
+      expression.left as babelTypes.Expression,
+      attr,
+      escapeLiterals
+    ) as babelTypes.Expression | babelTypes.PrivateName;
+    expression.right = escapeExpression(
+      path,
+      expression.right,
+      attr,
+      escapeLiterals
+    ) as babelTypes.Expression;
     return expression;
   } else if (t.isConditionalExpression(expression)) {
-    expression.consequent = escapeExpression(path, expression.consequent, attr, escapeLiterals);
-    expression.alternate = escapeExpression(path, expression.alternate, attr, escapeLiterals);
+    expression.consequent = escapeExpression(
+      path,
+      expression.consequent,
+      attr,
+      escapeLiterals
+    ) as babelTypes.Expression;
+    expression.alternate = escapeExpression(
+      path,
+      expression.alternate,
+      attr,
+      escapeLiterals
+    ) as babelTypes.Expression;
     return expression;
   } else if (t.isLogicalExpression(expression)) {
     // Preserve the cheaper short-circuit path for && while escaping the
     // selected result of || and ?? as a whole.
     if (expression.operator === "&&") {
-      expression.right = escapeExpression(path, expression.right, attr, escapeLiterals);
+      expression.right = escapeExpression(
+        path,
+        expression.right,
+        attr,
+        escapeLiterals
+      ) as babelTypes.Expression;
       return expression;
     }
   } else if (t.isCallExpression(expression) && t.isFunction(expression.callee)) {
     if (t.isBlockStatement(expression.callee.body)) {
       expression.callee.body.body = expression.callee.body.body.map(e => {
         if (t.isReturnStatement(e))
-          e.argument = escapeExpression(path, e.argument, attr, escapeLiterals);
+          e.argument = escapeExpression(
+            path,
+            e.argument,
+            attr,
+            escapeLiterals
+          ) as babelTypes.Expression | null;
         return e;
       });
     } else
-      expression.callee.body = escapeExpression(path, expression.callee.body, attr, escapeLiterals);
+      expression.callee.body = escapeExpression(
+        path,
+        expression.callee.body,
+        attr,
+        escapeLiterals
+      ) as babelTypes.Expression | babelTypes.BlockStatement;
     return expression;
   } else if (t.isJSXElement(expression) && !isComponent(getTagName(expression))) {
-    expression.wontEscape = true;
+    (expression as babelTypes.JSXElement & { wontEscape?: boolean }).wontEscape = true;
     return expression;
   } else if (t.isJSXFragment(expression) && fragmentWillSelfEscape(expression)) {
     // The fragment will later be transformed into a runtime value the
@@ -296,7 +411,7 @@ function escapeExpression(path, expression, attr, escapeLiterals) {
 
   return t.callExpression(
     registerImportMethod(path, "escape"),
-    [expression].concat(attr ? [t.booleanLiteral(true)] : [])
+    [expression as babelTypes.Expression].concat(attr ? [t.booleanLiteral(true)] : [])
   );
 }
 
@@ -320,49 +435,67 @@ function escapeExpression(path, expression, attr, escapeLiterals) {
 //   B. `<><native /></>` — a single native (non-component) JSXElement.
 //      `createTemplate` emits `_$ssr(_tmpl$N, …)`, which returns an
 //      SSRNode object; `escape(object)` is a pass-through.
-function fragmentWillSelfEscape(fragment) {
-  let only = null;
+function fragmentWillSelfEscape(fragment: babelTypes.JSXFragment): boolean {
+  let only: babelTypes.JSXElement | babelTypes.JSXExpressionContainer | null = null;
   for (const c of fragment.children) {
     if (t.isJSXText(c)) {
-      if (trimWhitespace(c.extra.raw).length === 0) continue;
+      if (trimWhitespace((c.extra?.raw as string | undefined) ?? "").length === 0) continue;
       return false;
     }
-    if (t.isJSXExpressionContainer(c) && t.isJSXEmptyExpression(c.expression)) continue;
+    if (babelTypes.isJSXExpressionContainer(c) && babelTypes.isJSXEmptyExpression(c.expression))
+      continue;
     if (only !== null) return false;
-    only = c;
+    if (babelTypes.isJSXElement(c) || babelTypes.isJSXExpressionContainer(c)) only = c;
+    else return false;
   }
   if (!only) return false;
-  if (t.isJSXExpressionContainer(only)) {
+  if (babelTypes.isJSXExpressionContainer(only)) {
     const expr = only.expression;
+    if (babelTypes.isJSXEmptyExpression(expr)) return false;
     return (
       t.isCallExpression(expr) ||
       t.isOptionalCallExpression(expr) ||
       t.isTaggedTemplateExpression(expr) ||
       t.isMemberExpression(expr) ||
       t.isOptionalMemberExpression(expr) ||
-      (t.isBinaryExpression(expr) && expr.operator === "in")
+      (babelTypes.isBinaryExpression(expr) && expr.operator === "in")
     );
   }
-  if (t.isJSXElement(only)) return !isComponent(getTagName(only));
+  if (babelTypes.isJSXElement(only)) return !isComponent(getTagName(only));
   return false;
 }
 
-function transformToObject(attrName, attributes, selectedAttributes) {
-  const properties = [];
-  const existingAttribute = attributes.find(a => a.node.name.name === attrName);
+function transformToObject(
+  attrName: string,
+  attributes: JSXAttributePath[],
+  selectedAttributes: JSXAttributeOnlyPath[]
+): void {
+  const properties: babelTypes.ObjectProperty[] = [];
+  const existingAttribute = attributes.find(
+    (a): a is JSXAttributeOnlyPath =>
+      t.isJSXAttribute(a.node) && t.isJSXIdentifier(a.node.name, { name: attrName })
+  );
   for (let i = 0; i < selectedAttributes.length; i++) {
     const attr = selectedAttributes[i].node;
-    const computed = !t.isValidIdentifier(attr.name.name.name);
+    const namespaceName = attr.name.name;
+    const namespaceIdentifier =
+      typeof namespaceName === "string"
+        ? t.identifier(namespaceName)
+        : (namespaceName as unknown as babelTypes.Identifier);
+    const namespaceKey = namespaceIdentifier.name;
+    const computed = !t.isValidIdentifier(namespaceKey);
     if (!computed) {
-      attr.name.name.type = "Identifier";
+      namespaceIdentifier.type = "Identifier";
     }
     properties.push(
       t.objectProperty(
-        computed ? t.stringLiteral(attr.name.name.name) : attr.name.name,
-        t.isJSXExpressionContainer(attr.value) ? attr.value.expression : attr.value
+        computed ? t.stringLiteral(namespaceKey) : namespaceIdentifier,
+        (t.isJSXExpressionContainer(attr.value)
+          ? attr.value.expression
+          : attr.value) as babelTypes.Expression
       )
     );
-    (existingAttribute || i) && attributes.splice(selectedAttributes[i].key, 1);
+    if (existingAttribute || i) attributes.splice(Number(selectedAttributes[i].key), 1);
   }
   if (
     existingAttribute &&
@@ -378,21 +511,30 @@ function transformToObject(attrName, attributes, selectedAttributes) {
   }
 }
 
-function normalizeAttributes(path) {
+function normalizeAttributes(path: BabelPath<babelTypes.JSXElement>): JSXAttributePath[] {
   const attributes = path.get("openingElement").get("attributes"),
     styleAttributes = attributes.filter(
-      a => t.isJSXNamespacedName(a.node.name) && a.node.name.namespace.name === "style"
+      (a): a is JSXAttributeOnlyPath =>
+        t.isJSXAttribute(a.node) &&
+        t.isJSXNamespacedName(a.node.name) &&
+        a.node.name.namespace.name === "style"
     ),
     classNamespaceAttributes = attributes.filter(
-      a => t.isJSXNamespacedName(a.node.name) && a.node.name.namespace.name === "class"
+      (a): a is JSXAttributeOnlyPath =>
+        t.isJSXAttribute(a.node) &&
+        t.isJSXNamespacedName(a.node.name) &&
+        a.node.name.namespace.name === "class"
     );
   if (classNamespaceAttributes.length)
     transformToObject("class", attributes, classNamespaceAttributes);
-  const classAttributes = attributes.filter(a => a.node.name && a.node.name.name === "class");
+  const classAttributes = attributes.filter(
+    (a): a is JSXAttributeOnlyPath =>
+      t.isJSXAttribute(a.node) && t.isJSXIdentifier(a.node.name, { name: "class" })
+  );
   // combine class propertoes
   if (classAttributes.length > 1) {
     const first = classAttributes[0].node,
-      values = [],
+      values: babelTypes.Expression[] = [],
       quasis = [t.templateElement({ raw: "" })];
     for (let i = 0; i < classAttributes.length; i++) {
       const attr = classAttributes[i].node,
@@ -401,11 +543,15 @@ function normalizeAttributes(path) {
         const prev = quasis.pop();
         quasis.push(
           t.templateElement({
-            raw: (prev ? prev.value.raw : "") + `${attr.value.value}` + (isLast ? "" : " ")
+            raw:
+              (prev ? prev.value.raw : "") +
+              `${(attr.value as babelTypes.StringLiteral).value}` +
+              (isLast ? "" : " ")
           })
         );
       } else {
         let expr = attr.value.expression;
+        if (t.isJSXEmptyExpression(expr)) continue;
         if (attr.name.name === "class") {
           if (t.isObjectExpression(expr) && !expr.properties.some(p => t.isSpreadElement(p))) {
             transformClasslistObject(path, expr, values, quasis);
@@ -427,14 +573,19 @@ function normalizeAttributes(path) {
   return attributes;
 }
 
-function transformAttributes(path, results, info) {
+function transformAttributes(
+  path: BabelPath<babelTypes.JSXElement> & { doNotEscape?: boolean },
+  results: SSRTransformResult,
+  info: SSRTransformInfo
+): void {
   const tagName = getTagName(path.node);
 
   const hasChildren = path.node.children.length > 0,
     attributes = normalizeAttributes(path);
-  let children;
+  let children: babelTypes.JSXExpressionContainer | undefined;
 
   attributes.forEach(attribute => {
+    if (!t.isJSXAttribute(attribute.node)) return;
     const node = attribute.node;
 
     let value = node.value,
@@ -460,6 +611,7 @@ function transformAttributes(path, results, info) {
           t.isBooleanLiteral(value.expression)
         ))
     ) {
+      if (t.isJSXEmptyExpression(value.expression)) return;
       if (key === "ref") {
         results.declarations.push(
           t.variableDeclarator(path.scope.generateUidIdentifier("_ref$"), value.expression)
@@ -475,7 +627,10 @@ function transformAttributes(path, results, info) {
         }
         if (key === "innerHTML") path.doNotEscape = true;
         // textContent groups with attributes; innerHTML stays opaque.
-        if (key === "textContent") value._groupableTextContent = true;
+        if (key === "textContent")
+          (
+            value as babelTypes.JSXExpressionContainer & { _groupableTextContent?: boolean }
+          )._groupableTextContent = true;
         children = value;
       } else {
         const isDynamicValue = isDynamic(attribute.get("value").get("expression"), {
@@ -496,7 +651,8 @@ function transformAttributes(path, results, info) {
             if (value.expression.properties.length === 0) {
               return;
             }
-            const props = value.expression.properties.map((p, i) => {
+            const props = value.expression.properties.flatMap((p, i) => {
+              if (t.isSpreadElement(p) || t.isObjectMethod(p)) return [];
               if (p.computed) {
                 // Computed keys are user-controlled at runtime; wrap with
                 // `_$escape(..., true)` so ssrStyleProperty can stay a pure
@@ -505,23 +661,40 @@ function transformAttributes(path, results, info) {
                 return t.callExpression(registerImportMethod(path, "ssrStyleProperty"), [
                   t.binaryExpression(
                     "+",
-                    t.callExpression(escape, [p.key, t.booleanLiteral(true)]),
+                    t.callExpression(escape, [
+                      p.key as babelTypes.Expression,
+                      t.booleanLiteral(true)
+                    ]),
                     t.stringLiteral(":")
                   ),
-                  escapeExpression(path, p.value, true, true)
+                  escapeExpression(
+                    path,
+                    p.value as babelTypes.Expression,
+                    true,
+                    true
+                  ) as babelTypes.Expression
                 ]);
               }
               return t.callExpression(registerImportMethod(path, "ssrStyleProperty"), [
                 t.stringLiteral(
-                  (i ? ";" : "") + (t.isIdentifier(p.key) ? p.key.name : p.key.value) + ":"
+                  (i ? ";" : "") +
+                    (t.isIdentifier(p.key)
+                      ? p.key.name
+                      : (p.key as babelTypes.StringLiteral | babelTypes.NumericLiteral).value) +
+                    ":"
                 ),
-                escapeExpression(path, p.value, true, true)
+                escapeExpression(
+                  path,
+                  p.value as babelTypes.Expression,
+                  true,
+                  true
+                ) as babelTypes.Expression
               ]);
             });
 
-            let res = props[0];
+            let res = props[0] as babelTypes.Expression;
             for (let i = 1; i < props.length; i++) {
-              res = t.binaryExpression("+", res, props[i]);
+              res = t.binaryExpression("+", res, props[i] as babelTypes.Expression);
             }
             value.expression = res;
           } else {
@@ -536,7 +709,7 @@ function transformAttributes(path, results, info) {
             t.isObjectExpression(value.expression) &&
             !value.expression.properties.some(p => t.isSpreadElement(p))
           ) {
-            const values = [],
+            const values: babelTypes.Expression[] = [],
               quasis = [t.templateElement({ raw: "" })];
             transformClasslistObject(path, value.expression, values, quasis);
             if (!values.length) value.expression = t.stringLiteral(quasis[0].value.raw);
@@ -551,33 +724,47 @@ function transformAttributes(path, results, info) {
           key = "class";
           doEscape = false;
         }
-        if (doEscape) value.expression = escapeExpression(path, value.expression, true);
+        if (doEscape)
+          value.expression = escapeExpression(
+            path,
+            value.expression as babelTypes.Expression,
+            true
+          ) as babelTypes.Expression;
+        const expression = value.expression as babelTypes.Expression;
 
-        if (!(doEscape || isBoolean) || t.isLiteral(value.expression)) {
+        if (!(doEscape || isBoolean) || t.isLiteral(expression)) {
           if (isBoolean) {
-            value.expression.value === true && appendToTemplate(results.template, ` ${key}`);
+            t.isBooleanLiteral(expression) &&
+              expression.value === true &&
+              appendToTemplate(results.template, ` ${key}`);
             return;
           }
           appendToTemplate(results.template, ` ${key}="`);
           results.template.push(`"`);
           if (isDynamicValue) {
             results.templateValues.push(
-              hoistExpression(path, results, inlineCallExpression(value.expression), {
+              hoistExpression(path, results, inlineCallExpression(expression), {
                 group: true
               })
             );
-          } else results.templateValues.push(value.expression);
-        } else
-          setAttr(tagName, attribute, results, key, value.expression, isDynamicValue, isBoolean);
+          } else results.templateValues.push(expression);
+        } else setAttr(tagName, attribute, results, key, expression, isDynamicValue, isBoolean);
       }
     } else {
       if (key === "$ServerOnly") return;
-      if (t.isJSXExpressionContainer(value)) value = value.expression;
-      const isBoolean = t.isBooleanLiteral(value);
-      if (isBoolean && value && value.value !== "" && !value.value) return;
+      let staticValue: babelTypes.Expression | babelTypes.JSXAttribute["value"] = value;
+      if (t.isJSXExpressionContainer(value)) {
+        if (t.isJSXEmptyExpression(value.expression)) return;
+        staticValue = value.expression as babelTypes.Expression;
+      }
+      const booleanLiteral = t.isBooleanLiteral(staticValue) ? staticValue : undefined;
+      const isBoolean = !!booleanLiteral;
+      if (booleanLiteral && !booleanLiteral.value) return;
       appendToTemplate(results.template, ` ${key}`);
-      if (!value) return;
-      let text = isBoolean ? "" : value.value;
+      if (!staticValue) return;
+      let text = isBoolean
+        ? ""
+        : (staticValue as babelTypes.StringLiteral | babelTypes.NumericLiteral).value;
       if (key === "style" || key === "class") {
         text = trimWhitespace(String(text));
         if (key === "style") {
@@ -597,17 +784,24 @@ function transformAttributes(path, results, info) {
   }
 }
 
-function transformClasslistObject(path, expr, values, quasis) {
+function transformClasslistObject(
+  path: BabelPath,
+  expr: babelTypes.ObjectExpression,
+  values: babelTypes.Expression[],
+  quasis: babelTypes.TemplateElement[]
+) {
   expr.properties.forEach((prop, i) => {
+    if (t.isSpreadElement(prop) || t.isObjectMethod(prop)) return;
     const isLast = expr.properties.length - 1 === i;
-    let key = prop.key;
-    if (t.isIdentifier(prop.key) && !prop.computed) key = t.stringLiteral(key.name);
+    let key: babelTypes.Expression;
+    if (t.isIdentifier(prop.key) && !prop.computed) key = t.stringLiteral(prop.key.name);
     else if (prop.computed) {
       key = t.callExpression(registerImportMethod(path, "escape"), [
-        prop.key,
+        prop.key as babelTypes.Expression,
         t.booleanLiteral(true)
       ]);
-    } else key = t.stringLiteral(escapeHTML(prop.key.value));
+    } else
+      key = t.stringLiteral(escapeHTML((prop.key as babelTypes.StringLiteral).value) as string);
     if (t.isBooleanLiteral(prop.value)) {
       if (prop.value.value === true) {
         if (!prop.computed) {
@@ -615,28 +809,41 @@ function transformClasslistObject(path, expr, values, quasis) {
           quasis.push(
             t.templateElement({
               raw:
-                (prev ? prev.value.raw : "") + (i ? " " : "") + `${key.value}` + (isLast ? "" : " ")
+                (prev ? prev.value.raw : "") +
+                (i ? " " : "") +
+                `${(key as babelTypes.StringLiteral).value}` +
+                (isLast ? "" : " ")
             })
           );
         } else {
-          values.push(key);
+          values.push(key as babelTypes.Expression);
           quasis.push(t.templateElement({ raw: isLast ? "" : " " }));
         }
       }
     } else {
-      values.push(t.conditionalExpression(prop.value, key, t.stringLiteral("")));
+      values.push(
+        t.conditionalExpression(
+          prop.value as babelTypes.Expression,
+          key as babelTypes.Expression,
+          t.stringLiteral("")
+        )
+      );
       quasis.push(t.templateElement({ raw: isLast ? "" : " " }));
     }
   });
 }
 
-function transformChildren(path, results, { hydratable }) {
+function transformChildren(
+  path: BabelPath<babelTypes.JSXElement> & { doNotEscape?: boolean },
+  results: SSRTransformResult,
+  { hydratable }: SSRTransformInfo
+): void {
   const doNotEscape = path.doNotEscape;
   const tagName = getTagName(path.node);
   const filteredChildren = filterChildren(path.get("children"));
   const multi = checkLength(filteredChildren),
     markers = hydratable && multi;
-  filteredChildren.forEach(node => {
+  filteredChildren.forEach((node: JSXChildPath) => {
     if (node.isJSXFragment()) {
       throw new Error(
         `Fragments can only be used top level in JSX. Not used under a <${tagName}>.`
@@ -644,9 +851,12 @@ function transformChildren(path, results, { hydratable }) {
     }
     const child = transformNode(node, { doNotEscape, parentResults: results });
     if (!child) return;
-    appendToTemplate(results.template, child.template);
+    appendToTemplate(results.template, child.template as string | string[]);
     results.templateValues.push.apply(results.templateValues, child.templateValues || []);
-    child.declarations && results.declarations.push(...child.declarations);
+    child.declarations &&
+      results.declarations.push(
+        ...(child.declarations as Array<babelTypes.VariableDeclarator | null>)
+      );
     child.postDeclarations && results.postDeclarations.push(...child.postDeclarations);
     if (child.groupable) {
       if (!results.groupable) results.groupable = new Set();
@@ -655,27 +865,37 @@ function transformChildren(path, results, { hydratable }) {
     results.groupId ||= child.groupId;
     if (child.exprs.length) {
       if (!doNotEscape && !child.spreadElement)
-        child.exprs[0] = escapeExpression(path, child.exprs[0]);
+        child.exprs[0] = escapeExpression(path, child.exprs[0] as babelTypes.Expression)!;
 
       // textContent flows through here as a synthesized child; flag it
       // for grouping (see `transformAttributes`).
-      const hoistOpts = node.node && node.node._groupableTextContent ? { group: true } : undefined;
+      const hoistOpts = (node.node as babelTypes.Node & { _groupableTextContent?: boolean })
+        ._groupableTextContent
+        ? { group: true }
+        : undefined;
 
       // boxed by textNodes
       if (markers && !child.spreadElement) {
         appendToTemplate(results.template, `<!--$-->`);
         results.template.push("");
-        results.templateValues.push(hoistExpression(path, results, child.exprs[0], hoistOpts));
+        results.templateValues.push(
+          hoistExpression(path, results, child.exprs[0] as babelTypes.Expression, hoistOpts)
+        );
         appendToTemplate(results.template, `<!--/-->`);
       } else {
         results.template.push("");
-        results.templateValues.push(hoistExpression(path, results, child.exprs[0], hoistOpts));
+        results.templateValues.push(
+          hoistExpression(path, results, child.exprs[0] as babelTypes.Expression, hoistOpts)
+        );
       }
     }
   });
 }
 
-function createElement(path, { topLevel, hydratable }) {
+function createElement(
+  path: BabelPath<babelTypes.JSXElement> & { doNotEscape?: boolean },
+  { topLevel, hydratable }: SSRTransformInfo
+): SSRSpreadTransformResult {
   const tagName = getTagName(path.node),
     config = getConfig(path),
     attributes = normalizeAttributes(path),
@@ -684,9 +904,9 @@ function createElement(path, { topLevel, hydratable }) {
   const filteredChildren = filterChildren(path.get("children")),
     multi = checkLength(filteredChildren),
     markers = hydratable && multi,
-    childNodes = filteredChildren.reduce((memo, path) => {
+    childNodes = filteredChildren.reduce((memo: babelTypes.Expression[], path: JSXChildPath) => {
       if (t.isJSXText(path.node)) {
-        const v = decode(trimWhitespace(path.node.extra.raw));
+        const v = decode(trimWhitespace((path.node.extra?.raw as string | undefined) ?? ""));
         if (v.length) memo.push(t.stringLiteral(v));
       } else {
         if (path.isJSXFragment()) {
@@ -695,23 +915,26 @@ function createElement(path, { topLevel, hydratable }) {
           );
         }
         const child = transformNode(path);
+        if (!child) return memo;
         if (markers && child.exprs.length && !child.spreadElement)
           memo.push(t.stringLiteral("<!--$-->"));
         if (child.exprs.length && !doNotEscape && !child.spreadElement)
-          child.exprs[0] = escapeExpression(path, child.exprs[0]);
-        memo.push(getCreateTemplate(config, path, child)(path, child, false));
+          child.exprs[0] = escapeExpression(path, child.exprs[0] as babelTypes.Expression)!;
+        memo.push(
+          getCreateTemplate(config, path, child)(path, child, false) as babelTypes.Expression
+        );
         if (markers && child.exprs.length && !child.spreadElement)
           memo.push(t.stringLiteral("<!--/-->"));
       }
       return memo;
     }, []);
 
-  let props;
-  if (attributes.length === 1) {
+  let props: babelTypes.Expression[];
+  if (attributes.length === 1 && t.isJSXSpreadAttribute(attributes[0].node)) {
     props = [attributes[0].node.argument];
   } else {
     props = [];
-    let runningObject = [],
+    let runningObject: Array<babelTypes.ObjectProperty | babelTypes.ObjectMethod> = [],
       dynamicSpread = false,
       hasChildren = path.node.children.length > 0;
 
@@ -729,7 +952,7 @@ function createElement(path, { topLevel, hydratable }) {
             ? inlineCallExpression(node.argument)
             : node.argument
         );
-      } else {
+      } else if (t.isJSXAttribute(node)) {
         const value = node.value || t.booleanLiteral(true),
           id = convertJSXIdentifier(node.name),
           key = t.isJSXNamespacedName(node.name)
@@ -739,7 +962,9 @@ function createElement(path, { topLevel, hydratable }) {
         if (hasChildren && key === "children") return;
         if (key === "ref") return;
         if (key.startsWith("prop:") || key.startsWith("on")) return;
-        if (t.isJSXExpressionContainer(value))
+        if (t.isJSXExpressionContainer(value)) {
+          if (t.isJSXEmptyExpression(value.expression)) return;
+          const expression = value.expression as babelTypes.Expression;
           if (
             isDynamic(attribute.get("value").get("expression"), {
               checkMember: true,
@@ -751,12 +976,12 @@ function createElement(path, { topLevel, hydratable }) {
                 "get",
                 id,
                 [],
-                t.blockStatement([t.returnStatement(value.expression)]),
+                t.blockStatement([t.returnStatement(expression)]),
                 !t.isValidIdentifier(key)
               )
             );
-          } else runningObject.push(t.objectProperty(id, value.expression));
-        else runningObject.push(t.objectProperty(id, value));
+          } else runningObject.push(t.objectProperty(id, expression));
+        } else runningObject.push(t.objectProperty(id, value as babelTypes.Expression));
       }
     });
 
@@ -784,5 +1009,5 @@ function createElement(path, { topLevel, hydratable }) {
       t.booleanLiteral(Boolean(topLevel && config.hydratable))
     ])
   ];
-  return { exprs, template: "", declarations: [], spreadElement: true };
+  return { exprs, template: "", declarations: [], dynamics: [], spreadElement: true };
 }

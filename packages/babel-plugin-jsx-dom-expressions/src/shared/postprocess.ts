@@ -2,25 +2,31 @@ import * as t from "@babel/types";
 import { getRendererConfig, registerImportMethod } from "./utils";
 import { appendTemplates as appendTemplatesDOM } from "../dom/template";
 import { appendTemplates as appendTemplatesSSR } from "../ssr/template";
-import { isInvalidMarkup } from "./validate.js";
+import { isInvalidMarkup } from "./validate";
+import type { NodePath } from "@babel/traverse";
+import type { BabelHubWithMetadata, JSXDOMExpressionsPass, ProgramScopeData } from "../types";
 
 // add to the top/bottom of the module.
-export default (path, state) => {
+export default (path: NodePath<t.Program>, state: JSXDOMExpressionsPass) => {
   if (state.skip) return;
 
-  if (path.scope.data.events) {
+  const data = path.scope.data as ProgramScopeData;
+  const config = (path.hub as unknown as BabelHubWithMetadata).file.metadata.config;
+  if (!config) return;
+
+  if (data.events) {
     path.node.body.push(
       t.expressionStatement(
         t.callExpression(
           registerImportMethod(path, "delegateEvents", getRendererConfig(path, "dom").moduleName),
-          [t.arrayExpression(Array.from(path.scope.data.events).map(e => t.stringLiteral(e)))]
+          [t.arrayExpression(Array.from(data.events).map(e => t.stringLiteral(e)))]
         )
       )
     );
   }
-  if (path.scope.data.templates?.length) {
-    if (path.hub.file.metadata.config.validate) {
-      for (const template of path.scope.data.templates) {
+  if (data.templates?.length) {
+    if (config.validate) {
+      for (const template of data.templates) {
         const html = template.templateWithClosingTags;
         // not sure when/why this is not a string
         if (typeof html === "string") {
@@ -37,8 +43,8 @@ export default (path, state) => {
         }
       }
     }
-    let domTemplates = path.scope.data.templates.filter(temp => temp.renderer === "dom");
-    let ssrTemplates = path.scope.data.templates.filter(temp => temp.renderer === "ssr");
+    let domTemplates = data.templates.filter(temp => temp.renderer === "dom");
+    let ssrTemplates = data.templates.filter(temp => temp.renderer === "ssr");
     domTemplates.length > 0 && appendTemplatesDOM(path, domTemplates);
     ssrTemplates.length > 0 && appendTemplatesSSR(path, ssrTemplates);
   }

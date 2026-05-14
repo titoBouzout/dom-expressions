@@ -51,7 +51,8 @@ describe("Synthetic event target with shadow DOM web components", () => {
     )
   );
 
-  r.delegateEvents(["click"], document);
+  r.registerDelegatedRoot(document);
+  r.delegateEvents(["click"]);
 
   test("Events inside web component have target button", () => {
     let target = null;

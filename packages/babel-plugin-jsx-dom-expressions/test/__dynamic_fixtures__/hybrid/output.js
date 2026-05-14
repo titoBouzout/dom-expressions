@@ -31,14 +31,14 @@ const Child = props => {
       _$effect(
         () =>
           (() => {
-            var _el$10 = _tmpl$4();
+            var _el$0 = _tmpl$4();
             _$effect(
               () => (s() ? "red" : "green"),
               _v$ => {
-                _$setAttribute(_el$10, "backgroundColor", _v$);
+                _$setAttribute(_el$0, "backgroundColor", _v$);
               }
             );
-            return _el$10;
+            return _el$0;
           })(),
         _v$ => {
           _$setAttribute(_el$, "element", _v$);
@@ -64,23 +64,23 @@ const Child = props => {
                   _el$5,
                   "geometry",
                   (() => {
-                    var _el$11 = _$createElement("boxBufferGeometry");
-                    _$setProp(_el$11, "args", [0, 1, 2]);
-                    return _el$11;
+                    var _el$1 = _$createElement("boxBufferGeometry");
+                    _$setProp(_el$1, "args", [0, 1, 2]);
+                    return _el$1;
                   })()
                 );
                 _$effect(
                   () =>
                     (() => {
-                      var _el$12 = _$createElement("basicMaterial");
-                      _$setProp(_el$12, "alpha", 0);
+                      var _el$10 = _$createElement("basicMaterial");
+                      _$setProp(_el$10, "alpha", 0);
                       _$effect(
                         () => (s() ? "red" : "green"),
                         (_v$, _$p) => {
-                          _$setProp(_el$12, "color", _v$, _$p);
+                          _$setProp(_el$10, "color", _v$, _$p);
                         }
                       );
-                      return _el$12;
+                      return _el$10;
                     })(),
                   (_v$, _$p) => {
                     _$setProp(_el$5, "material", _v$, _$p);
@@ -103,14 +103,14 @@ const Child = props => {
                       _$effect(
                         () =>
                           (() => {
-                            var _el$13 = _tmpl$4();
+                            var _el$11 = _tmpl$4();
                             _$effect(
                               () => (s() ? "red" : "green"),
                               _v$ => {
-                                _$setAttribute(_el$13, "backgroundColor", _v$);
+                                _$setAttribute(_el$11, "backgroundColor", _v$);
                               }
                             );
-                            return _el$13;
+                            return _el$11;
                           })(),
                         _v$ => {
                           _$setAttribute(_el$7, "element", _v$);
@@ -132,69 +132,69 @@ const Child = props => {
   ];
 };
 const Component = props => {
-  var _el$14 = _tmpl$4();
+  var _el$12 = _tmpl$4();
   _$insert(
-    _el$14,
+    _el$12,
     (() => {
       var _c$ = _$memo(() => !!props.three);
       return () =>
         _c$()
           ? (() => {
-              var _el$15 = _$createElement("mesh"),
-                _el$16 = _$createElement("pointLight");
-              _$insertNode(_el$15, _el$16);
-              _$setProp(_el$15, "scale", 2);
-              _$setProp(_el$15, "position", [0, 0, 0]);
+              var _el$13 = _$createElement("mesh"),
+                _el$14 = _$createElement("pointLight");
+              _$insertNode(_el$13, _el$14);
+              _$setProp(_el$13, "scale", 2);
+              _$setProp(_el$13, "position", [0, 0, 0]);
               _$setProp(
-                _el$15,
+                _el$13,
                 "geometry",
                 (() => {
-                  var _el$17 = _$createElement("boxBufferGeometry");
-                  _$setProp(_el$17, "args", [0, 1, 2]);
-                  return _el$17;
+                  var _el$15 = _$createElement("boxBufferGeometry");
+                  _$setProp(_el$15, "args", [0, 1, 2]);
+                  return _el$15;
                 })()
               );
               _$effect(
                 () =>
                   (() => {
-                    var _el$18 = _$createElement("basicMaterial");
-                    _$setProp(_el$18, "alpha", 0);
+                    var _el$16 = _$createElement("basicMaterial");
+                    _$setProp(_el$16, "alpha", 0);
                     _$effect(
                       () => (s() ? "red" : "green"),
                       (_v$, _$p) => {
-                        _$setProp(_el$18, "color", _v$, _$p);
+                        _$setProp(_el$16, "color", _v$, _$p);
                       }
                     );
-                    return _el$18;
+                    return _el$16;
                   })(),
                 (_v$, _$p) => {
-                  _$setProp(_el$15, "material", _v$, _$p);
+                  _$setProp(_el$13, "material", _v$, _$p);
                 }
               );
-              return _el$15;
+              return _el$13;
             })()
           : _tmpl$5();
     })()
   );
-  return _el$14;
+  return _el$12;
 };
 const Mesh = props => {
-  var _el$20 = _$createElement("group");
-  _$spread(_el$20, props, true);
-  _$insert2(_el$20, [
+  var _el$18 = _$createElement("group");
+  _$spread(_el$18, props, true);
+  _$insert2(_el$18, [
     (() => {
-      var _el$21 = _$createElement("group");
-      _$insert2(_el$21, a ? _$createElement("mesh") : _$createElement("instancedMesh"));
-      return _el$21;
+      var _el$19 = _$createElement("group");
+      _$insert2(_el$19, a ? _$createElement("mesh") : _$createElement("instancedMesh"));
+      return _el$19;
     })(),
     _$createComponent(HTML, {
       get children() {
-        var _el$22 = _tmpl$4();
-        _$spread2(_el$22, props, true);
-        _$insert(_el$22, b ? _tmpl$4() : _tmpl$2());
-        return _el$22;
+        var _el$20 = _tmpl$4();
+        _$spread2(_el$20, props, true);
+        _$insert(_el$20, b ? _tmpl$4() : _tmpl$2());
+        return _el$20;
       }
     })
   ]);
-  return _el$20;
+  return _el$18;
 };

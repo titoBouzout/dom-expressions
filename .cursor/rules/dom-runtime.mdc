@@ -26,8 +26,9 @@ All modules import reactive primitives from `"rxcore"`. This is rewritten at con
 - `template(html, count)` — creates a `<template>` element, caches it, returns clones. `count` indicates expected child count for normalization.
 - `insert(parent, accessor, marker, initial)` — core insertion. Wraps reactive accessors in `effect()`. Handles strings, numbers, nodes, arrays, and functions.
 - `spread(node, props, skipChildren)` — applies a dynamic props object to a DOM element. Handles style objects, classList, event listeners, refs, and attributes.
-- `delegateEvents(eventNames)` — attaches a single listener per event type to `document`. Events are dispatched via `_$DX_DELEGATE` property on nodes.
-- `render(code, element)` — entry point. Creates a reactive root and inserts into the target element.
+- `delegateEvents(eventNames)` — records delegated event demand and patches currently registered delegated containers.
+- `render(code, element)` — entry point. Creates a reactive root, registers `element` as a delegated root for listener lifecycle, and inserts into the target element.
+- `registerDelegatedRoot()` / `registerDelegatedContainer()` — root-owned event delegation primitives used by custom render roots and portals.
 
 ## Hydration
 

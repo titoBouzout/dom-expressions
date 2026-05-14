@@ -1,4 +1,5 @@
 import { JSX } from "./jsx.js";
+export const DOMWithState: Record<string, Record<string, 1 | 2>>;
 export const ChildProperties: Set<string>;
 export const DelegatedEvents: Set<string>;
 export const DOMElements: Set<string>;
@@ -124,7 +125,23 @@ export function insert<T>(
 export function spread<T>(node: Element, accessor: T, skipChildren?: Boolean): void;
 
 /** @deprecated not supported on the server side */
-export function delegateEvents(eventNames: string[], d?: Document): void;
+export function delegateEvents(eventNames: string[]): void;
+/** @deprecated not supported on the server side */
+export function registerDelegatedRoot(root: MountableElement): void;
+/** @deprecated not supported on the server side */
+export function unregisterDelegatedRoot(root: MountableElement): void;
+/** @deprecated not supported on the server side */
+export function registerDelegatedContainer(
+  container: MountableElement,
+  owner?: MountableElement
+): void;
+/** @deprecated not supported on the server side */
+export function unregisterDelegatedContainer(
+  container: MountableElement,
+  owner?: MountableElement
+): void;
+/** @deprecated not supported on the server side */
+export function getDelegatedRoot(node: MountableElement): MountableElement | undefined;
 /** @deprecated not supported on the server side */
 export function dynamicProperty(props: unknown, key: string): unknown;
 /** @deprecated not supported on the server side */
@@ -172,3 +189,10 @@ export function getNextMatch(start: Node, elementName: string): Element;
 export function getNextMarker(start: Node): [Node, Array<Node>];
 /** @deprecated not supported on the server side */
 export function runHydrationEvents(): void;
+/** @deprecated not supported on the server side */
+export function ref(
+  fn: () => ((element: Element) => void) | ((element: Element) => void)[],
+  element: Element
+): void;
+/** @deprecated not supported on the server side */
+export function setStyleProperty(node: Element, name: string, value: any): void;

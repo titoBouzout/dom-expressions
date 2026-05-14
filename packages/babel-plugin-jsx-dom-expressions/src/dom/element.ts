@@ -1,4 +1,6 @@
-import * as t from "@babel/types";
+import * as babelTypes from "@babel/types";
+
+const t = babelTypes;
 
 import {
   ChildProperties,
@@ -33,6 +35,49 @@ import {
 } from "../shared/utils";
 import { transformNode } from "../shared/transform";
 import { InlineElements, BlockElements } from "./constants";
+import type {
+  BabelPath,
+  DOMTransformResult,
+  JSXNode,
+  TransformInfo,
+  TransformResult
+} from "../types";
+
+type JSXAttributePath = BabelPath<babelTypes.JSXAttribute | babelTypes.JSXSpreadAttribute>;
+type JSXAttributeOnlyPath = BabelPath<babelTypes.JSXAttribute>;
+type JSXChildPath = BabelPath<JSXNode>;
+type DOMTransformInfo = TransformInfo & ReturnType<typeof getConfig>;
+type DOMSetAttrOptions = {
+  dynamic?: boolean;
+  prevId?: babelTypes.Expression;
+  tagName?: string;
+};
+type SpreadOptions = {
+  elem: babelTypes.Expression;
+  hasChildren: boolean;
+  wrapConditionals: boolean;
+};
+type HubWithFileMetadata = {
+  file?: {
+    opts?: {
+      filename?: string;
+    };
+  };
+};
+type ProgramDataWithEvents = {
+  events?: Set<string>;
+};
+
+function isNamedAttribute(
+  attribute: JSXAttributePath,
+  name: string
+): attribute is JSXAttributeOnlyPath {
+  return (
+    t.isJSXAttribute(attribute.node) &&
+    t.isJSXIdentifier(attribute.node.name) &&
+    attribute.node.name.name === name
+  );
+}
 
 const alwaysClose = [
   "title",
@@ -58,14 +103,17 @@ const alwaysClose = [
   "fieldset"
 ];
 
-export function transformElement(path, info) {
+export function transformElement(
+  path: BabelPath<babelTypes.JSXElement>,
+  info: TransformInfo = {}
+): DOMTransformResult {
   let tagName = getTagName(path.node);
 
   path
     .get("openingElement")
     .get("attributes")
-    .forEach(attr => {
-      evaluateAndInline(attr.node.value, attr.get("value"));
+    .forEach((attr: JSXAttributePath) => {
+      if (t.isJSXAttribute(attr.node)) evaluateAndInline(attr.node.value, attr.get("value"));
     });
 
   let isWrapped = false;
@@ -83,11 +131,12 @@ export function transformElement(path, info) {
 
     // svg and math tags are already wrapped
     if (tagName !== "svg" && tagName !== "math") {
-      const xmlns = xmlnsAttr
-        ? xmlnsAttr.node.value?.expression
-          ? xmlnsAttr.node.value?.expression.value
-          : xmlnsAttr.node.value?.value
-        : undefined;
+      const xmlnsValue = xmlnsAttr?.node.value;
+      const xmlns = babelTypes.isJSXExpressionContainer(xmlnsValue)
+        ? (xmlnsValue.expression as babelTypes.StringLiteral).value
+        : babelTypes.isStringLiteral(xmlnsValue)
+          ? xmlnsValue.value
+          : undefined;
 
       if (SVGElements.has(tagName) || xmlns === Namespaces.svg) {
         isWrapped = true;
@@ -110,15 +159,25 @@ export function transformElement(path, info) {
       path
         .get("openingElement")
         .get("attributes")
-        .some(a => a.node?.name?.name === "is" || a.name?.name === "is"),
+        .some(
+          (a: JSXAttributePath) =>
+            t.isJSXAttribute(a.node) &&
+            !t.isJSXNamespacedName(a.node.name) &&
+            a.node.name.name === "is"
+        ),
     isImportNode =
       hasCustomElement ||
       ((tagName === "img" || tagName === "iframe") &&
         path
           .get("openingElement")
           .get("attributes")
-          .some(a => a.node.name?.name === "loading")),
-    results = {
+          .some(
+            (a: JSXAttributePath) =>
+              t.isJSXAttribute(a.node) &&
+              !t.isJSXNamespacedName(a.node.name) &&
+              a.node.name.name === "loading"
+          )),
+    results: DOMTransformResult = {
       template: `<${tagName}`,
       templateWithClosingTags: `<${tagName}`,
       declarations: [],
@@ -136,9 +195,19 @@ export function transformElement(path, info) {
     path
       .get("openingElement")
       .get("attributes")
-      .forEach(a => {
-        if (a.node.name?.name === "style") {
-          let value = a.node.value.expression ? a.node.value.expression : a.node.value;
+      .forEach((a: JSXAttributePath) => {
+        if (
+          t.isJSXAttribute(a.node) &&
+          !t.isJSXNamespacedName(a.node.name) &&
+          a.node.name.name === "style"
+        ) {
+          let value: babelTypes.Expression | babelTypes.BlockStatement | null =
+            t.isJSXExpressionContainer(a.node.value) &&
+            !t.isJSXEmptyExpression(a.node.value.expression)
+              ? a.node.value.expression
+              : t.isStringLiteral(a.node.value)
+                ? a.node.value
+                : null;
           if (t.isStringLiteral(value)) {
             // jsx attribute value is a sting that may takes more than one line
             value = t.templateLiteral(
@@ -146,9 +215,10 @@ export function transformElement(path, info) {
               []
             );
           }
-          a.get("value").replaceWith(
-            t.jSXExpressionContainer(t.callExpression(t.arrowFunctionExpression([], value), []))
-          );
+          if (value)
+            a.get("value").replaceWith(
+              t.jSXExpressionContainer(t.callExpression(t.arrowFunctionExpression([], value), []))
+            );
         }
       });
   }
@@ -156,12 +226,18 @@ export function transformElement(path, info) {
   path
     .get("openingElement")
     .get("attributes")
-    .some(a => {
-      if (a.node.name?.name === "_hk") {
+    .some((a: JSXAttributePath) => {
+      if (
+        t.isJSXAttribute(a.node) &&
+        !t.isJSXNamespacedName(a.node.name) &&
+        a.node.name.name === "_hk"
+      ) {
         a.remove();
         let filename = "";
         try {
-          filename = path.scope.getProgramParent().path.hub.file.opts.filename;
+          filename =
+            ((path.scope.getProgramParent().path.hub as HubWithFileMetadata).file?.opts
+              ?.filename as string | undefined) || "";
         } catch (e) {}
 
         console.log(
@@ -199,7 +275,8 @@ export function transformElement(path, info) {
     if (toBeClosed) {
       results.toBeClosed = new Set(info.toBeClosed || alwaysClose);
       results.toBeClosed.add(tagName);
-      if (InlineElements.includes(tagName)) BlockElements.forEach(i => results.toBeClosed.add(i));
+      if (InlineElements.includes(tagName))
+        BlockElements.forEach((i: string) => results.toBeClosed!.add(i));
     } else results.toBeClosed = info.toBeClosed;
     if (tagName !== "noscript") transformChildren(path, results, config);
     if (toBeClosed) results.template += `</${tagName}>`;
@@ -220,7 +297,13 @@ export function transformElement(path, info) {
   return results;
 }
 
-export function setAttr(path, elem, name, value, { dynamic, prevId, tagName }) {
+export function setAttr(
+  path: BabelPath,
+  elem: babelTypes.Expression,
+  name: string,
+  value: babelTypes.Expression,
+  { dynamic, prevId, tagName }: DOMSetAttrOptions = {}
+): babelTypes.Expression {
   // pull out namespace
   const config = getConfig(path);
   let parts, namespace;
@@ -339,12 +422,15 @@ export function setAttr(path, elem, name, value, { dynamic, prevId, tagName }) {
   }
 }
 
-function detectResolvableEventHandler(attribute, handler) {
+function detectResolvableEventHandler(
+  attribute: BabelPath,
+  handler: babelTypes.Expression
+): boolean {
   while (t.isIdentifier(handler)) {
     const lookup = attribute.scope.getBinding(handler.name);
     if (lookup) {
       if (t.isVariableDeclarator(lookup.path.node)) {
-        handler = lookup.path.node.init;
+        handler = lookup.path.node.init as babelTypes.Expression;
       } else if (t.isFunctionDeclaration(lookup.path.node)) {
         return true;
       } else return false;
@@ -353,12 +439,15 @@ function detectResolvableEventHandler(attribute, handler) {
   return t.isFunction(handler);
 }
 
-function transformAttributes(path, results) {
-  let elem = results.id,
+function transformAttributes(
+  path: BabelPath<babelTypes.JSXElement>,
+  results: DOMTransformResult
+): void {
+  let elem = results.id as babelTypes.Expression,
     hasHydratableEvent = false,
-    children,
-    spreadExpr,
-    attributes = path.get("openingElement").get("attributes");
+    children: babelTypes.JSXExpressionContainer | babelTypes.JSXText | undefined,
+    spreadExpr: babelTypes.ExpressionStatement | undefined,
+    attributes = path.get("openingElement").get("attributes") as JSXAttributePath[];
   const tagName = getTagName(path.node),
     hasChildren = path.node.children.length > 0,
     config = getConfig(path);
@@ -377,12 +466,13 @@ function transformAttributes(path, results) {
     //NOTE: can't be checked at compile time so add to compiled output
     hasHydratableEvent = true;
   } else {
-    const seenAttributes = {};
-    const duplicates = [];
+    const seenAttributes: Record<string, JSXAttributeOnlyPath> = {};
+    const duplicates: JSXAttributeOnlyPath[] = [];
     path
       .get("openingElement")
       .get("attributes")
-      .forEach(attr => {
+      .forEach((attr: JSXAttributePath) => {
+        if (!t.isJSXAttribute(attr.node)) return;
         const key = t.isJSXNamespacedName(attr.node.name)
           ? `${attr.node.name.namespace.name}:${attr.node.name.name.name}`
           : attr.node.name.name;
@@ -390,7 +480,7 @@ function transformAttributes(path, results) {
         if (key !== "ref" && seenAttributes[key]) {
           duplicates.push(seenAttributes[key]);
         }
-        seenAttributes[key] = attr;
+        seenAttributes[key] = attr as JSXAttributeOnlyPath;
       });
     for (const duplicate of duplicates) {
       duplicate.remove();
@@ -408,34 +498,42 @@ function transformAttributes(path, results) {
    * Also, when `key` is computed value is also `value.evaluate().confident`
    */
 
-  attributes = path.get("openingElement").get("attributes");
+  attributes = path.get("openingElement").get("attributes") as JSXAttributePath[];
 
-  const styleAttributes = attributes.filter(a => a.node.name && a.node.name.name === "style");
+  const styleAttributes = attributes.filter((a): a is JSXAttributeOnlyPath =>
+    isNamedAttribute(a, "style")
+  );
   if (styleAttributes.length > 0) {
     let inlinedStyle = "";
 
     for (let i = 0; i < styleAttributes.length; i++) {
       const attr = styleAttributes[i];
 
-      let value = attr.node.value;
-      const node = attr.get("value");
+      let value = attr.node.value as
+        | babelTypes.Expression
+        | babelTypes.JSXExpressionContainer
+        | null;
       if (t.isJSXExpressionContainer(value)) {
-        value = value.expression;
+        value = value.expression as babelTypes.Expression;
       }
 
       if (t.isStringLiteral(value)) {
         inlinedStyle += `${value.value.replace(/;$/, "")};`;
         attr.remove();
       } else if (t.isObjectExpression(value)) {
-        const properties = value.properties;
-        const propertiesNode = node.get("expression").get("properties");
-        const toRemoveProperty = [];
+        const styleObject = value;
+        const properties = styleObject.properties;
+        const propertiesNode = (attr.get("value") as BabelPath)
+          .get("expression")
+          .get("properties") as BabelPath[];
+        const toRemoveProperty: babelTypes.ObjectProperty[] = [];
         for (let i = 0; i < properties.length; i++) {
           const property = properties[i];
 
+          if (!t.isObjectProperty(property)) continue;
           if (property.computed) {
             /* { [computed]: `${1+1}px` } => { [computed]: `2px` } */
-            const r = propertiesNode[i].get("value").evaluate();
+            const r = (propertiesNode[i].get("value") as BabelPath).evaluate();
             if (r.confident && (typeof r.value === "string" || typeof r.value === "number")) {
               property.value = t.inherits(t.stringLiteral(`${r.value}`), property.value);
             }
@@ -443,8 +541,10 @@ function transformAttributes(path, results) {
             continue;
           }
 
-          if (t.isObjectProperty(property)) {
-            const key = t.isIdentifier(property.key) ? property.key.name : property.key.value;
+          {
+            const key = t.isIdentifier(property.key)
+              ? property.key.name
+              : (property.key as babelTypes.StringLiteral | babelTypes.NumericLiteral).value;
             if (t.isStringLiteral(property.value) || t.isNumericLiteral(property.value)) {
               inlinedStyle += `${key}:${property.value.value};`;
               toRemoveProperty.push(property);
@@ -454,7 +554,7 @@ function transformAttributes(path, results) {
             ) {
               toRemoveProperty.push(property);
             } else {
-              const r = propertiesNode[i].get("value").evaluate();
+              const r = (propertiesNode[i].get("value") as BabelPath).evaluate();
               if (r.confident && (typeof r.value === "string" || typeof r.value === "number")) {
                 inlinedStyle += `${key}:${r.value};`;
                 toRemoveProperty.push(property);
@@ -463,9 +563,9 @@ function transformAttributes(path, results) {
           }
         }
         for (const remove of toRemoveProperty) {
-          value.properties.splice(value.properties.indexOf(remove), 1);
+          styleObject.properties.splice(styleObject.properties.indexOf(remove), 1);
         }
-        if (value.properties.length === 0) {
+        if (styleObject.properties.length === 0) {
           attr.remove();
         }
       }
@@ -484,144 +584,178 @@ function transformAttributes(path, results) {
   const styleAttribute = path
     .get("openingElement")
     .get("attributes")
-    .find(
-      a =>
-        a.node.name &&
-        a.node.name.name === "style" &&
-        t.isJSXExpressionContainer(a.node.value) &&
-        t.isObjectExpression(a.node.value.expression) &&
-        !a.node.value.expression.properties.some(p => t.isSpreadElement(p))
-    );
+    .find((a): a is JSXAttributeOnlyPath => {
+      if (!isNamedAttribute(a as JSXAttributePath, "style")) return false;
+      const value = (a as JSXAttributeOnlyPath).node.value;
+      return (
+        t.isJSXExpressionContainer(value) &&
+        t.isObjectExpression(value.expression) &&
+        !value.expression.properties.some((p: babelTypes.ObjectMember | babelTypes.SpreadElement) =>
+          t.isSpreadElement(p)
+        )
+      );
+    });
   if (styleAttribute) {
+    const styleValue = styleAttribute.node.value as babelTypes.JSXExpressionContainer & {
+      expression: babelTypes.ObjectExpression;
+    };
     let i = 0,
-      leading = styleAttribute.node.value.expression.leadingComments;
-    styleAttribute.node.value.expression.properties.slice().forEach((p, index) => {
+      leading = styleValue.expression.leadingComments;
+    styleValue.expression.properties.slice().forEach((p, index) => {
+      if (!t.isObjectProperty(p)) return;
       if (!p.computed) {
         if (leading) p.value.leadingComments = leading;
         path
           .get("openingElement")
           .node.attributes.splice(
-            styleAttribute.key + ++i,
+            Number(styleAttribute.key) + ++i,
             0,
             t.jsxAttribute(
               t.jsxNamespacedName(
                 t.jsxIdentifier("style"),
-                t.jsxIdentifier(t.isIdentifier(p.key) ? p.key.name : p.key.value)
+                t.jsxIdentifier(
+                  t.isIdentifier(p.key)
+                    ? p.key.name
+                    : String((p.key as babelTypes.StringLiteral | babelTypes.NumericLiteral).value)
+                )
               ),
-              t.jsxExpressionContainer(p.value)
+              t.jsxExpressionContainer(p.value as babelTypes.Expression)
             )
           );
-        styleAttribute.node.value.expression.properties.splice(index - i - 1, 1);
+        styleValue.expression.properties.splice(index - i - 1, 1);
       }
     });
-    if (!styleAttribute.node.value.expression.properties.length)
-      path.get("openingElement").node.attributes.splice(styleAttribute.key, 1);
+    if (!styleValue.expression.properties.length)
+      path.get("openingElement").node.attributes.splice(Number(styleAttribute.key), 1);
   }
 
   // preprocess leading static classes in fixed-shape class arrays
-  attributes = path.get("openingElement").get("attributes");
+  attributes = path.get("openingElement").get("attributes") as JSXAttributePath[];
   const classArrayAttribute = attributes.find(
-    a =>
-      a.node.name &&
-      a.node.name.name === "class" &&
+    (a): a is JSXAttributeOnlyPath =>
+      isNamedAttribute(a, "class") &&
       t.isJSXExpressionContainer(a.node.value) &&
       t.isArrayExpression(a.node.value.expression)
   );
   if (classArrayAttribute) {
-    const elements = classArrayAttribute.get("value").get("expression").get("elements");
+    const classArrayValue = classArrayAttribute.node.value as babelTypes.JSXExpressionContainer & {
+      expression: babelTypes.ArrayExpression;
+    };
+    const elements = classArrayValue.expression.elements;
     let i = 0,
-      staticClasses = [];
-    while (t.isStringLiteral(elements[i]?.node)) {
-      staticClasses.push(elements[i].node.value);
+      staticClasses: string[] = [];
+    while (t.isStringLiteral(elements[i])) {
+      staticClasses.push((elements[i] as babelTypes.StringLiteral).value);
       i++;
     }
+    const dynamicClassElement = elements[i] as babelTypes.ObjectExpression | null;
     const staticClassSet = new Set(
       staticClasses.flatMap(className => trimWhitespace(className).split(/\s+/).filter(Boolean))
     );
     if (
       staticClasses.length &&
       i === elements.length - 1 &&
-      t.isObjectExpression(elements[i].node) &&
-      !elements[i].node.properties.some(
-        p =>
+      t.isObjectExpression(dynamicClassElement) &&
+      !dynamicClassElement.properties.some(
+        (p: babelTypes.ObjectMember | babelTypes.SpreadElement) =>
           t.isSpreadElement(p) ||
           p.computed ||
           (t.isStringLiteral(p.key) && (p.key.value.includes(" ") || p.key.value.includes(":"))) ||
-          staticClassSet.has(t.isIdentifier(p.key) ? p.key.name : p.key.value)
+          staticClassSet.has(
+            t.isIdentifier(p.key)
+              ? p.key.name
+              : String((p.key as babelTypes.StringLiteral | babelTypes.NumericLiteral).value)
+          )
       )
     ) {
       classArrayAttribute.node.value = t.stringLiteral(staticClasses.join(" "));
       path
         .get("openingElement")
         .node.attributes.splice(
-          classArrayAttribute.key + 1,
+          Number(classArrayAttribute.key) + 1,
           0,
-          t.jsxAttribute(t.jsxIdentifier("class"), t.jsxExpressionContainer(elements[i].node))
+          t.jsxAttribute(t.jsxIdentifier("class"), t.jsxExpressionContainer(dynamicClassElement))
         );
     }
   }
 
   // preprocess optimal class objects
-  attributes = path.get("openingElement").get("attributes");
+  attributes = path.get("openingElement").get("attributes") as JSXAttributePath[];
   const classListAttribute = attributes.find(
-    a =>
-      a.node.name &&
-      a.node.name.name === "class" &&
+    (a): a is JSXAttributeOnlyPath =>
+      isNamedAttribute(a, "class") &&
       t.isJSXExpressionContainer(a.node.value) &&
       t.isObjectExpression(a.node.value.expression) &&
       !a.node.value.expression.properties.some(
-        p =>
+        (p: babelTypes.ObjectMember | babelTypes.SpreadElement) =>
           t.isSpreadElement(p) ||
           p.computed ||
           (t.isStringLiteral(p.key) && (p.key.value.includes(" ") || p.key.value.includes(":")))
       )
   );
   if (classListAttribute) {
+    const classListValue = classListAttribute.node.value as babelTypes.JSXExpressionContainer & {
+      expression: babelTypes.ObjectExpression;
+    };
     let i = 0,
-      leading = classListAttribute.node.value.expression.leadingComments,
-      classListProperties = classListAttribute.get("value").get("expression").get("properties");
+      leading = classListValue.expression.leadingComments,
+      classListProperties = classListAttribute
+        .get("value")
+        .get("expression")
+        .get("properties") as BabelPath[];
     classListProperties.slice().forEach((propPath, index) => {
       const p = propPath.node;
+      if (!t.isObjectProperty(p)) return;
       const { confident, value: computed } = propPath.get("value").evaluate();
       if (leading) p.value.leadingComments = leading;
       if (!confident) {
         path
           .get("openingElement")
           .node.attributes.splice(
-            classListAttribute.key + ++i,
+            Number(classListAttribute.key) + ++i,
             0,
             t.jsxAttribute(
               t.jsxNamespacedName(
                 t.jsxIdentifier("class"),
-                t.jsxIdentifier(t.isIdentifier(p.key) ? p.key.name : p.key.value)
+                t.jsxIdentifier(
+                  t.isIdentifier(p.key)
+                    ? p.key.name
+                    : String((p.key as babelTypes.StringLiteral | babelTypes.NumericLiteral).value)
+                )
               ),
-              t.jsxExpressionContainer(p.value)
+              t.jsxExpressionContainer(p.value as babelTypes.Expression)
             )
           );
       } else if (computed) {
         path
           .get("openingElement")
           .node.attributes.splice(
-            classListAttribute.key + ++i,
+            Number(classListAttribute.key) + ++i,
             0,
             t.jsxAttribute(
               t.jsxIdentifier("class"),
-              t.stringLiteral(t.isIdentifier(p.key) ? p.key.name : p.key.value)
+              t.stringLiteral(
+                t.isIdentifier(p.key)
+                  ? p.key.name
+                  : String((p.key as babelTypes.StringLiteral | babelTypes.NumericLiteral).value)
+              )
             )
           );
       }
       classListProperties.splice(index - i - 1, 1);
     });
     if (!classListProperties.length)
-      path.get("openingElement").node.attributes.splice(classListAttribute.key, 1);
+      path.get("openingElement").node.attributes.splice(Number(classListAttribute.key), 1);
   }
 
   // combine class properties
-  attributes = path.get("openingElement").get("attributes");
-  const classAttributes = attributes.filter(a => a.node.name && a.node.name.name === "class");
+  attributes = path.get("openingElement").get("attributes") as JSXAttributePath[];
+  const classAttributes = attributes.filter((a): a is JSXAttributeOnlyPath =>
+    isNamedAttribute(a, "class")
+  );
   if (classAttributes.length > 1) {
     const first = classAttributes[0].node,
-      values = [],
+      values: babelTypes.Expression[] = [],
       quasis = [t.templateElement({ raw: "" })];
     for (let i = 0; i < classAttributes.length; i++) {
       const attr = classAttributes[i].node,
@@ -630,11 +764,20 @@ function transformAttributes(path, results) {
         const prev = quasis.pop();
         quasis.push(
           t.templateElement({
-            raw: (prev ? prev.value.raw : "") + `${attr.value.value}` + (isLast ? "" : " ")
+            raw:
+              (prev ? prev.value.raw : "") +
+              `${(attr.value as babelTypes.StringLiteral).value}` +
+              (isLast ? "" : " ")
           })
         );
       } else {
-        values.push(t.logicalExpression("||", attr.value.expression, t.stringLiteral("")));
+        values.push(
+          t.logicalExpression(
+            "||",
+            attr.value.expression as babelTypes.Expression,
+            t.stringLiteral("")
+          )
+        );
         quasis.push(t.templateElement({ raw: isLast ? "" : " " }));
       }
       i && attributes.splice(attributes.indexOf(classAttributes[i]), 1);
@@ -650,7 +793,11 @@ function transformAttributes(path, results) {
   let needsSpacing = true;
 
   // scoped because of `needsSpacing`
-  function inlineAttributeOnTemplate(key, results, value) {
+  function inlineAttributeOnTemplate(
+    key: string,
+    results: DOMTransformResult,
+    value: babelTypes.StringLiteral | babelTypes.NumericLiteral | babelTypes.BooleanLiteral | null
+  ): void {
     results.template += `${needsSpacing ? " " : ""}${key}`;
 
     if (!value) {
@@ -658,8 +805,7 @@ function transformAttributes(path, results) {
       return;
     }
 
-    let text = value.value;
-    if (typeof text === "number") text = String(text);
+    let text = String(value.value);
     let needsQuoting = !config.omitQuotes;
 
     if (key === "style" || key === "class") {
@@ -695,7 +841,7 @@ function transformAttributes(path, results) {
     }
 
     if (needsQuoting) {
-      needsSpacing = false;
+      needsSpacing = !config.omitAttributeSpacing;
       results.template += `="${escapeHTML(text, true)}"`;
     } else {
       needsSpacing = true;
@@ -706,7 +852,8 @@ function transformAttributes(path, results) {
   path
     .get("openingElement")
     .get("attributes")
-    .forEach(attribute => {
+    .forEach((attribute: JSXAttributePath) => {
+      if (!t.isJSXAttribute(attribute.node)) return;
       const node = attribute.node;
       let value = node.value,
         key = t.isJSXNamespacedName(node.name)
@@ -742,6 +889,7 @@ function transformAttributes(path, results) {
             t.isBooleanLiteral(value.expression)
           ))
       ) {
+        if (t.isJSXEmptyExpression(value.expression)) return;
         if (key === "ref") {
           // Normalize expressions for non-null and type-as
           while (
@@ -825,30 +973,14 @@ function transformAttributes(path, results) {
           children = value;
         } else if (key.startsWith("on")) {
           const ev = toEventName(key);
-          if (key.startsWith("on:")) {
-            const args = [elem, t.stringLiteral(key.split(":")[1]), value.expression];
-
-            results.exprs.unshift(
-              t.expressionStatement(
-                t.callExpression(
-                  registerImportMethod(
-                    path,
-                    "addEventListener",
-                    getRendererConfig(path, "dom").moduleName
-                  ),
-                  args
-                )
-              )
-            );
-          } else if (
+          if (
             config.delegateEvents &&
             (DelegatedEvents.has(ev) || config.delegatedEvents.indexOf(ev) !== -1)
           ) {
             // can only hydrate delegated events
             hasHydratableEvent = true;
-            const events =
-              attribute.scope.getProgramParent().data.events ||
-              (attribute.scope.getProgramParent().data.events = new Set());
+            const programData = attribute.scope.getProgramParent().data as ProgramDataWithEvents;
+            const events = programData.events || (programData.events = new Set());
             events.add(ev);
             let handler = value.expression;
             const resolveable = detectResolvableEventHandler(attribute, handler);
@@ -859,12 +991,12 @@ function transformAttributes(path, results) {
                     t.assignmentExpression(
                       "=",
                       t.memberExpression(elem, t.identifier(`$$${ev}Data`)),
-                      handler.elements[1]
+                      handler.elements[1] as babelTypes.Expression
                     )
                   )
                 );
               }
-              handler = handler.elements[0];
+              handler = handler.elements[0] as babelTypes.Expression;
               results.exprs.unshift(
                 t.expressionStatement(
                   t.assignmentExpression(
@@ -905,9 +1037,12 @@ function transformAttributes(path, results) {
               if (handler.elements.length > 1) {
                 handler = t.arrowFunctionExpression(
                   [t.identifier("e")],
-                  t.callExpression(handler.elements[0], [handler.elements[1], t.identifier("e")])
+                  t.callExpression(handler.elements[0] as babelTypes.Expression, [
+                    handler.elements[1] as babelTypes.Expression,
+                    t.identifier("e")
+                  ])
                 );
-              } else handler = handler.elements[0];
+              } else handler = handler.elements[0] as babelTypes.Expression;
               results.exprs.unshift(
                 t.expressionStatement(
                   t.callExpression(t.memberExpression(elem, t.identifier("addEventListener")), [
@@ -950,13 +1085,16 @@ function transformAttributes(path, results) {
               !hasStaticMarker(value, path)))
         ) {
           // own effect
-          let nextElem = elem;
+          let nextElem = elem as babelTypes.Expression;
           if (key === "textContent") {
             nextElem = attribute.scope.generateUidIdentifier("el$");
             children = t.jsxText(" ");
             children.extra = { raw: " ", rawValue: " " };
             results.declarations.push(
-              t.variableDeclarator(nextElem, t.memberExpression(elem, t.identifier("firstChild")))
+              t.variableDeclarator(
+                nextElem as babelTypes.LVal,
+                t.memberExpression(elem, t.identifier("firstChild"))
+              )
             );
           }
           results.dynamics.push({
@@ -975,13 +1113,18 @@ function transformAttributes(path, results) {
           results.skipTemplate = true;
           return;
         }
-        if (t.isJSXExpressionContainer(value)) value = value.expression;
+        let staticValue: babelTypes.Expression | babelTypes.JSXAttribute["value"] = value;
+        if (t.isJSXExpressionContainer(value)) {
+          if (t.isJSXEmptyExpression(value.expression)) return;
+          staticValue = value.expression as babelTypes.Expression;
+        }
 
         // boolean as `<el attr={true | false}/>`, not as `<el attr={"true" | "false"}/>`
         // `<el attr={true}/>` becomes `<el attr/>`
         // `<el attr={false}/>` becomes `<el/>`
-        if (t.isBooleanLiteral(value)) {
-          if (value.value === true) {
+        const booleanLiteral = t.isBooleanLiteral(staticValue) ? staticValue : undefined;
+        if (booleanLiteral) {
+          if (booleanLiteral.value === true) {
             results.template += `${needsSpacing ? " " : ""}${key}`;
             needsSpacing = true;
           }
@@ -989,24 +1132,30 @@ function transformAttributes(path, results) {
         }
 
         // properties
-        if (value && ChildProperties.has(key)) {
+        if (staticValue && ChildProperties.has(key)) {
           results.exprs.push(
-            t.expressionStatement(setAttr(attribute, elem, key, value, { tagName }))
+            t.expressionStatement(
+              setAttr(attribute, elem, key, staticValue as babelTypes.Expression, { tagName })
+            )
           );
         } else {
-          inlineAttributeOnTemplate(key, results, value);
+          inlineAttributeOnTemplate(
+            key,
+            results,
+            staticValue as babelTypes.StringLiteral | babelTypes.NumericLiteral | null
+          );
         }
       }
     });
   if (!hasChildren && children) {
     path.node.children.push(children);
   }
-  if (spreadExpr) results.exprs.push(spreadExpr);
+  if (spreadExpr) results.exprs.push(...(Array.isArray(spreadExpr) ? spreadExpr : [spreadExpr]));
 
   results.hasHydratableEvent = results.hasHydratableEvent || hasHydratableEvent;
 }
 
-function findLastElement(children, hydratable) {
+function findLastElement(children: JSXChildPath[], hydratable?: boolean): number {
   let lastElement = -1,
     tagName;
   for (let i = children.length - 1; i >= 0; i--) {
@@ -1014,7 +1163,9 @@ function findLastElement(children, hydratable) {
     if (
       hydratable ||
       t.isJSXText(node) ||
-      getStaticExpression(children[i]) !== false ||
+      (t.isJSXExpressionContainer(node) &&
+        getStaticExpression(children[i] as BabelPath<babelTypes.JSXExpressionContainer>) !==
+          false) ||
       (t.isJSXElement(node) && (tagName = getTagName(node)) && !isComponent(tagName))
     ) {
       lastElement = i;
@@ -1024,34 +1175,42 @@ function findLastElement(children, hydratable) {
   return lastElement;
 }
 
-function transformChildren(path, results, config) {
-  let tempPath = results.id && results.id.name,
+function transformChildren(
+  path: BabelPath<babelTypes.JSXElement>,
+  results: DOMTransformResult,
+  config: DOMTransformInfo
+): void {
+  let tempPath = (results.id && results.id.name) || "",
     tagName = getTagName(path.node),
-    nextPlaceholder,
-    childPostExprs = [],
+    nextPlaceholder: babelTypes.Identifier | undefined | null,
+    childPostExprs: babelTypes.Statement[] = [],
     i = 0;
   const filteredChildren = filterChildren(path.get("children")),
     lastElement = findLastElement(filteredChildren, config.hydratable),
-    childNodes = filteredChildren.reduce((memo, child, index) => {
-      if (child.isJSXFragment()) {
-        throw new Error(
-          `Fragments can only be used top level in JSX. Not used under a <${tagName}>.`
-        );
-      }
-      const transformed = transformNode(child, {
-        toBeClosed: results.toBeClosed,
-        lastElement: index === lastElement,
-        skipId: !results.id || !detectExpressions(filteredChildren, index, config)
-      });
-      if (!transformed) return memo;
-      const i = memo.length;
-      if (transformed.text && i && memo[i - 1].text) {
-        memo[i - 1].template += transformed.template;
-        memo[i - 1].templateWithClosingTags +=
-          transformed.templateWithClosingTags || transformed.template;
-      } else memo.push(transformed);
-      return memo;
-    }, []);
+    childNodes = filteredChildren.reduce(
+      (memo: TransformResult[], child: JSXChildPath, index: number) => {
+        if (child.isJSXFragment()) {
+          throw new Error(
+            `Fragments can only be used top level in JSX. Not used under a <${tagName}>.`
+          );
+        }
+        const transformed = transformNode(child, {
+          toBeClosed: results.toBeClosed,
+          lastElement: index === lastElement,
+          skipId: !results.id || !detectExpressions(filteredChildren, index, config)
+        });
+        if (!transformed) return memo;
+        const i = memo.length;
+        if (transformed.text && i && memo[i - 1].text) {
+          memo[i - 1].template =
+            `${memo[i - 1].template as string}${transformed.template as string}`;
+          memo[i - 1].templateWithClosingTags +=
+            transformed.templateWithClosingTags || (transformed.template as string);
+        } else memo.push(transformed);
+        return memo;
+      },
+      []
+    );
 
   childNodes.forEach((child, index) => {
     if (!child) return;
@@ -1060,8 +1219,8 @@ function transformChildren(path, results, config) {
       Wrap the usage with a component that would render this element, eg. Canvas`);
     }
 
-    results.template += child.template;
-    results.templateWithClosingTags += child.templateWithClosingTags || child.template;
+    results.template += child.template as string;
+    results.templateWithClosingTags += child.templateWithClosingTags || (child.template as string);
     results.isImportNode = results.isImportNode || child.isImportNode;
     results.isWrapped = results.isWrapped || child.isWrapped;
 
@@ -1077,7 +1236,7 @@ function transformChildren(path, results, config) {
           t.identifier(tempPath),
           t.identifier(i === 0 ? "firstChild" : "nextSibling")
         );
-        walkExpr = t.callExpression(getNextMatch, [walk, t.stringLiteral(child.tagName)]);
+        walkExpr = t.callExpression(getNextMatch, [walk, t.stringLiteral(child.tagName as string)]);
       } else if (config.dev && config.hydratable && child.tagName) {
         const helperName = i === 0 ? "getFirstChild" : "getNextSibling";
         const helper = registerImportMethod(
@@ -1096,11 +1255,12 @@ function transformChildren(path, results, config) {
         );
       }
       results.declarations.push(t.variableDeclarator(child.id, walkExpr));
-      results.declarations.push(...child.declarations);
-      results.exprs.push(...child.exprs);
+      results.declarations.push(...(child.declarations as babelTypes.VariableDeclarator[]));
+      results.exprs.push(...(child.exprs as babelTypes.Statement[]));
       results.dynamics.push(...child.dynamics);
-      childPostExprs.push(...child.postExprs);
-      results.hasHydratableEvent = results.hasHydratableEvent || child.hasHydratableEvent;
+      childPostExprs.push(...(child.postExprs || []));
+      results.hasHydratableEvent =
+        results.hasHydratableEvent || (child as DOMTransformResult).hasHydratableEvent;
       results.isImportNode = results.isImportNode || child.isImportNode;
       results.isWrapped = results.isWrapped || child.isWrapped;
       tempPath = child.id.name;
@@ -1112,7 +1272,8 @@ function transformChildren(path, results, config) {
         markers = config.hydratable && multi;
       // boxed by textNodes
       if (markers || wrappedByText(childNodes, index)) {
-        let exprId, contentId;
+        let exprId: babelTypes.Identifier;
+        let contentId: babelTypes.Identifier | undefined;
         if (markers) tempPath = createPlaceholder(path, results, tempPath, i++, "$")[0].name;
         if (nextPlaceholder) {
           exprId = nextPlaceholder;
@@ -1120,30 +1281,35 @@ function transformChildren(path, results, config) {
           [exprId, contentId] = createPlaceholder(path, results, tempPath, i++, markers ? "/" : "");
         }
         if (!markers) nextPlaceholder = exprId;
-        results.exprs.push(
-          t.expressionStatement(
-            t.callExpression(
-              insert,
+        const args = contentId
+          ? ([
+              results.id!,
+              child.exprs[0] as babelTypes.Expression,
+              exprId,
               contentId
-                ? [results.id, child.exprs[0], exprId, contentId]
-                : [results.id, child.exprs[0], exprId]
-            )
-          )
-        );
+            ] as babelTypes.Expression[])
+          : ([
+              results.id!,
+              child.exprs[0] as babelTypes.Expression,
+              exprId
+            ] as babelTypes.Expression[]);
+        results.exprs.push(t.expressionStatement(t.callExpression(insert, args)));
         tempPath = exprId.name;
       } else if (multi) {
         results.exprs.push(
           t.expressionStatement(
             t.callExpression(insert, [
-              results.id,
-              child.exprs[0],
+              results.id!,
+              child.exprs[0] as babelTypes.Expression,
               nextChild(childNodes, index) || t.nullLiteral()
             ])
           )
         );
       } else {
         results.exprs.push(
-          t.expressionStatement(t.callExpression(insert, [results.id, child.exprs[0]]))
+          t.expressionStatement(
+            t.callExpression(insert, [results.id!, child.exprs[0] as babelTypes.Expression])
+          )
         );
       }
     } else nextPlaceholder = null;
@@ -1151,7 +1317,13 @@ function transformChildren(path, results, config) {
   results.postExprs.unshift(...childPostExprs);
 }
 
-function createPlaceholder(path, results, tempPath, i, char) {
+function createPlaceholder(
+  path: BabelPath<babelTypes.JSXElement>,
+  results: DOMTransformResult,
+  tempPath: string,
+  i: number,
+  char: string
+): [babelTypes.Identifier, babelTypes.Identifier | undefined] {
   const exprId = path.scope.generateUidIdentifier("el$"),
     config = getConfig(path);
   let contentId;
@@ -1181,18 +1353,23 @@ function createPlaceholder(path, results, tempPath, i, char) {
   return [exprId, contentId];
 }
 
-function nextChild(children, index) {
+function nextChild(children: TransformResult[], index: number): babelTypes.Identifier | undefined {
   return children[index + 1] && (children[index + 1].id || nextChild(children, index + 1));
 }
 
 // reduce unnecessary refs
-function detectExpressions(children, index, config) {
+function detectExpressions(
+  children: JSXChildPath[],
+  index: number,
+  config: DOMTransformInfo
+): boolean | undefined {
   if (children[index - 1]) {
     const node = children[index - 1].node;
     if (
       t.isJSXExpressionContainer(node) &&
       !t.isJSXEmptyExpression(node.expression) &&
-      getStaticExpression(children[index - 1]) === false
+      getStaticExpression(children[index - 1] as BabelPath<babelTypes.JSXExpressionContainer>) ===
+        false
     )
       return true;
     let tagName;
@@ -1201,7 +1378,10 @@ function detectExpressions(children, index, config) {
   for (let i = index; i < children.length; i++) {
     const child = children[i].node;
     if (t.isJSXExpressionContainer(child)) {
-      if (!t.isJSXEmptyExpression(child.expression) && getStaticExpression(children[i]) === false)
+      if (
+        !t.isJSXEmptyExpression(child.expression) &&
+        getStaticExpression(children[i] as BabelPath<babelTypes.JSXExpressionContainer>) === false
+      )
         return true;
     } else if (t.isJSXElement(child)) {
       const tagName = getTagName(child);
@@ -1210,15 +1390,18 @@ function detectExpressions(children, index, config) {
         config.contextToCustomElements &&
         (tagName === "slot" ||
           tagName.indexOf("-") > -1 ||
-          child.openingElement.attributes.some(a => a.name?.name === "is"))
+          child.openingElement.attributes.some(
+            a => t.isJSXAttribute(a) && !t.isJSXNamespacedName(a.name) && a.name.name === "is"
+          ))
       )
         return true;
       if (
         child.openingElement.attributes.some(
           attr =>
             t.isJSXSpreadAttribute(attr) ||
-            ["textContent", "innerHTML", "innerText"].includes(attr.name.name) ||
-            (attr.name.namespace && attr.name.namespace.name === "prop") ||
+            (t.isJSXIdentifier(attr.name) &&
+              ["textContent", "innerHTML", "innerText"].includes(attr.name.name)) ||
+            (t.isJSXNamespacedName(attr.name) && attr.name.namespace.name === "prop") ||
             (t.isJSXExpressionContainer(attr.value) &&
               !(
                 t.isStringLiteral(attr.value.expression) ||
@@ -1228,12 +1411,17 @@ function detectExpressions(children, index, config) {
       )
         return true;
       const nextChildren = filterChildren(children[i].get("children"));
-      if (nextChildren.length) if (detectExpressions(nextChildren, 0, config)) return true;
+      if (nextChildren.length)
+        if (detectExpressions(nextChildren as JSXChildPath[], 0, config)) return true;
     }
   }
 }
 
-function contextToCustomElement(path, results) {
+function contextToCustomElement(
+  path: BabelPath<babelTypes.JSXElement>,
+  results: DOMTransformResult
+): void {
+  if (!results.id) return;
   results.exprs.push(
     t.expressionStatement(
       t.assignmentExpression(
@@ -1248,14 +1436,18 @@ function contextToCustomElement(path, results) {
   );
 }
 
-function processSpreads(path, attributes, { elem, hasChildren, wrapConditionals }) {
+function processSpreads(
+  path: BabelPath<babelTypes.JSXElement>,
+  attributes: JSXAttributePath[],
+  { elem, hasChildren, wrapConditionals }: SpreadOptions
+): [JSXAttributePath[], babelTypes.ExpressionStatement] {
   const config = getConfig(path);
   const tagName = getTagName(path.node);
 
   // TODO: skip but collect the names of any properties after the last spread to not overwrite them
-  const filteredAttributes = [];
-  const spreadArgs = [];
-  let runningObject = [];
+  const filteredAttributes: JSXAttributePath[] = [];
+  const spreadArgs: babelTypes.Expression[] = [];
+  let runningObject: Array<babelTypes.ObjectProperty | babelTypes.ObjectMethod> = [];
   let dynamicSpread = false;
   attributes.forEach(attribute => {
     const node = attribute.node;
@@ -1284,7 +1476,10 @@ function processSpreads(path, attributes, { elem, hasChildren, wrapConditionals 
 
       spreadArgs.push(isStatic ? t.objectExpression([t.spreadElement(s)]) : s);
     } else if (key && key !== "ref") {
-      const isContainer = t.isJSXExpressionContainer(node.value);
+      const value = node.value;
+      const isContainer = t.isJSXExpressionContainer(value);
+      const expression =
+        isContainer && !t.isJSXEmptyExpression(value.expression) ? value.expression : undefined;
       const dynamic =
         isContainer && isDynamic(attribute.get("value").get("expression"), { checkMember: true });
       const normalized = isLockedDOMProperty(tagName, key) ? key.replace(/^prop:/, "") : key;
@@ -1293,12 +1488,17 @@ function processSpreads(path, attributes, { elem, hasChildren, wrapConditionals 
           ? t.identifier(normalized)
           : convertJSXIdentifier(node.name);
 
-        let expr =
+        let expr: babelTypes.ArrowFunctionExpression & { body: babelTypes.Expression } =
           wrapConditionals &&
-          (t.isLogicalExpression(node.value.expression) ||
-            t.isConditionalExpression(node.value.expression))
+          expression &&
+          (t.isLogicalExpression(expression) || t.isConditionalExpression(expression))
             ? transformCondition(attribute.get("value").get("expression"), true)
-            : t.arrowFunctionExpression([], node.value.expression);
+            : (t.arrowFunctionExpression(
+                [],
+                expression as babelTypes.Expression
+              ) as babelTypes.ArrowFunctionExpression & {
+                body: babelTypes.Expression;
+              });
         runningObject.push(
           t.objectMethod(
             "get",
@@ -1312,7 +1512,9 @@ function processSpreads(path, attributes, { elem, hasChildren, wrapConditionals 
         runningObject.push(
           t.objectProperty(
             t.stringLiteral(normalized),
-            isContainer ? node.value.expression : node.value || t.booleanLiteral(true)
+            (isContainer
+              ? expression
+              : node.value || t.booleanLiteral(true)) as babelTypes.Expression
           )
         );
       }

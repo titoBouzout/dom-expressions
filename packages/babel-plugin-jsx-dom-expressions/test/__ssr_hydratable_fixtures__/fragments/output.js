@@ -12,6 +12,8 @@ var _v$,
   _v$7,
   _v$8,
   _v$9,
+  _v$0,
+  _v$1,
   _v$10,
   _v$11,
   _v$12,
@@ -20,9 +22,7 @@ var _v$,
   _v$15,
   _v$16,
   _v$17,
-  _v$18,
-  _v$19,
-  _v$20;
+  _v$18;
 var _tmpl$ = ["<div", ">First</div>"],
   _tmpl$2 = ["<div", ">Last</div>"],
   _tmpl$3 = ["<div", "", ">First</div>"],
@@ -56,24 +56,24 @@ const singleDynamic = _$memo(() => _$escape(inserted()));
 const firstStatic = [inserted, ((_v$9 = _$ssrHydrationKey()), _$ssr(_tmpl$5, _v$9))];
 const firstDynamic = [
   _$memo(() => _$escape(inserted())),
-  ((_v$10 = _$ssrHydrationKey()), _$ssr(_tmpl$5, _v$10))
+  ((_v$0 = _$ssrHydrationKey()), _$ssr(_tmpl$5, _v$0))
 ];
-const firstComponent = [Component({}), ((_v$11 = _$ssrHydrationKey()), _$ssr(_tmpl$5, _v$11))];
-const lastStatic = [((_v$12 = _$ssrHydrationKey()), _$ssr(_tmpl$5, _v$12)), inserted];
+const firstComponent = [Component({}), ((_v$1 = _$ssrHydrationKey()), _$ssr(_tmpl$5, _v$1))];
+const lastStatic = [((_v$10 = _$ssrHydrationKey()), _$ssr(_tmpl$5, _v$10)), inserted];
 const lastDynamic = [
-  ((_v$13 = _$ssrHydrationKey()), _$ssr(_tmpl$5, _v$13)),
+  ((_v$11 = _$ssrHydrationKey()), _$ssr(_tmpl$5, _v$11)),
   _$memo(() => _$escape(inserted()))
 ];
-const lastComponent = [((_v$14 = _$ssrHydrationKey()), _$ssr(_tmpl$5, _v$14)), Component({})];
+const lastComponent = [((_v$12 = _$ssrHydrationKey()), _$ssr(_tmpl$5, _v$12)), Component({})];
 const spaces = [
-  ((_v$15 = _$ssrHydrationKey()), _$ssr(_tmpl$6, _v$15)),
+  ((_v$13 = _$ssrHydrationKey()), _$ssr(_tmpl$6, _v$13)),
   " ",
-  ((_v$16 = _$ssrHydrationKey()), _$ssr(_tmpl$7, _v$16)),
+  ((_v$14 = _$ssrHydrationKey()), _$ssr(_tmpl$7, _v$14)),
   " ",
-  ((_v$17 = _$ssrHydrationKey()), _$ssr(_tmpl$8, _v$17))
+  ((_v$15 = _$ssrHydrationKey()), _$ssr(_tmpl$8, _v$15))
 ];
 const multiLineTrailing = [
-  ((_v$18 = _$ssrHydrationKey()), _$ssr(_tmpl$6, _v$18)),
-  ((_v$19 = _$ssrHydrationKey()), _$ssr(_tmpl$7, _v$19)),
-  ((_v$20 = _$ssrHydrationKey()), _$ssr(_tmpl$8, _v$20))
+  ((_v$16 = _$ssrHydrationKey()), _$ssr(_tmpl$6, _v$16)),
+  ((_v$17 = _$ssrHydrationKey()), _$ssr(_tmpl$7, _v$17)),
+  ((_v$18 = _$ssrHydrationKey()), _$ssr(_tmpl$8, _v$18))
 ];

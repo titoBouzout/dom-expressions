@@ -25,8 +25,10 @@ export {
   DelegatedEvents
 } from "./constants";
 
-const $$EVENTS = "_$DX_DELEGATE";
+const $$EVENT_OWNER = "_$DX_EVENT_OWNER";
 const INNER_OWNED = {};
+const delegatedEvents = new Set();
+const delegatedContainers = new Map();
 
 export {
   effect,
@@ -49,8 +51,8 @@ export function render(code, element, init, options = {}) {
       "The `element` passed to `render(..., element)` doesn't exist. Make sure `element` exists in the document."
     );
   }
-  const renderRoot = getChildRoot(element);
   let disposer;
+  registerDelegatedRoot(element);
   root(
     dispose => {
       disposer = dispose;
@@ -65,7 +67,7 @@ export function render(code, element, init, options = {}) {
         insert(
           element,
           () => tree,
-          renderRoot.firstChild ? null : undefined,
+          element.firstChild ? null : undefined,
           init,
           options.insertOptions
         );
@@ -75,7 +77,8 @@ export function render(code, element, init, options = {}) {
   );
   return () => {
     disposer();
-    renderRoot.textContent = "";
+    unregisterDelegatedRoot(element);
+    element.textContent = "";
   };
 }
 
@@ -99,21 +102,77 @@ export function template(html, flag) {
   if ("_DX_DEV_") fn._html = flag === 2 ? html.replace(/^<[^>]+>/, "") : html;
   return fn;
 }
-export function delegateEvents(eventNames, document = window.document) {
-  const e = document[$$EVENTS] || (document[$$EVENTS] = new Set());
+export function delegateEvents(eventNames) {
   for (let i = 0, l = eventNames.length; i < l; i++) {
     const name = eventNames[i];
-    if (!e.has(name)) {
-      e.add(name);
-      document.addEventListener(name, eventHandler);
+    if (!delegatedEvents.has(name)) {
+      delegatedEvents.add(name);
+      delegatedContainers.forEach((state, container) =>
+        attachDelegatedEvent(name, container, state)
+      );
     }
   }
 }
 
-export function clearDelegatedEvents(document = window.document) {
-  if (document[$$EVENTS]) {
-    for (let name of document[$$EVENTS].keys()) document.removeEventListener(name, eventHandler);
-    delete document[$$EVENTS];
+export function registerDelegatedRoot(root) {
+  const state = registerDelegatedContainer(root, root);
+  if (state) state.roots = (state.roots || 0) + 1;
+}
+
+export function unregisterDelegatedRoot(root) {
+  const state = delegatedContainers.get(root);
+  if (state) state.roots > 1 ? state.roots-- : delete state.roots;
+  unregisterDelegatedContainer(root, root);
+}
+
+export function registerDelegatedContainer(container, owner = container) {
+  if (!container || !owner) return;
+  let state = delegatedContainers.get(container);
+  if (!state)
+    delegatedContainers.set(
+      container,
+      (state = {
+        owners: new Map(),
+        handlers: new Map()
+      })
+    );
+  state.owners.set(owner, (state.owners.get(owner) || 0) + 1);
+  delegatedEvents.forEach(name => attachDelegatedEvent(name, container, state));
+  return state;
+}
+
+export function unregisterDelegatedContainer(container, owner = container) {
+  const state = delegatedContainers.get(container);
+  if (!state) return;
+  const count = state.owners.get(owner);
+  if (count > 1) state.owners.set(owner, count - 1);
+  else state.owners.delete(owner);
+  if (state.owners.size) return;
+  state.handlers.forEach((handler, name) => container.removeEventListener(name, handler));
+  delegatedContainers.delete(container);
+}
+
+function attachDelegatedEvent(name, container, state) {
+  if (state.handlers.has(name)) return;
+  const handler = e => eventHandler(e, container, state);
+  state.handlers.set(name, handler);
+  container.addEventListener(name, handler);
+}
+
+export function getDelegatedRoot(node) {
+  while (node) {
+    if (delegatedContainers.get(node)?.roots) return node;
+    node = node._$host || node.parentNode || node.host;
+  }
+}
+
+function findOwner(target, state) {
+  let node = target;
+  let distance = 0;
+  while (node) {
+    if (state.owners.has(node)) return { owner: node, distance };
+    distance++;
+    node = node._$host || node.parentNode || node.host;
   }
 }
 
@@ -247,11 +306,10 @@ export function ref(fn, element) {
 }
 
 export function insert(parent, accessor, marker, initial, options) {
-  const childRoot = getChildRoot(parent);
   const multi = marker !== undefined;
   if (multi && !initial) initial = [];
   if (isHydrating(parent)) {
-    if (!multi && initial === undefined && parent) initial = [...childRoot.childNodes];
+    if (!multi && initial === undefined && parent) initial = [...parent.childNodes];
     if (Array.isArray(initial)) {
       let j = 0;
       for (let i = 0; i < initial.length; i++) {
@@ -267,7 +325,7 @@ export function insert(parent, accessor, marker, initial, options) {
   }
   if (multi && initial.length === 0) {
     const placeholder = document.createTextNode("");
-    childRoot.insertBefore(placeholder, marker);
+    parent.insertBefore(placeholder, marker);
     initial = [placeholder];
   }
   let current = initial;
@@ -334,8 +392,7 @@ function loadModuleAssets(mapping) {
 
 // Hydrate
 export function hydrate(code, element, options = {}) {
-  if (globalThis._$HY.done)
-    return render(code, element, [...getChildRoot(element).childNodes], options);
+  if (globalThis._$HY.done) return render(code, element, [...element.childNodes], options);
   options.renderId ||= "";
   if (!globalThis._$HY.modules) globalThis._$HY.modules = {};
   if (!globalThis._$HY.loading) globalThis._$HY.loading = {};
@@ -385,7 +442,7 @@ export function hydrate(code, element, options = {}) {
       p.then(
         () => {
           try {
-            disposer = render(code, element, [...getChildRoot(element).childNodes], options);
+            disposer = render(code, element, [...element.childNodes], options);
           } finally {
             sharedConfig.hydrating = false;
           }
@@ -399,7 +456,7 @@ export function hydrate(code, element, options = {}) {
   }
   try {
     gatherHydratable(element, options.renderId);
-    return render(code, element, [...getChildRoot(element).childNodes], options);
+    return render(code, element, [...element.childNodes], options);
   } finally {
     sharedConfig.hydrating = false;
   }
@@ -456,7 +513,7 @@ export function getNextMarker(start) {
 }
 
 export function getFirstChild(node, expectedTag) {
-  const child = getChildRoot(node).firstChild;
+  const child = node.firstChild;
   if ("_DX_DEV_" && isHydrating() && expectedTag && child?.localName !== expectedTag) {
     const isMissing = !child || child.nodeType !== 1;
     console.warn(
@@ -487,7 +544,7 @@ export function getNextSibling(node, expectedTag) {
 function describeSiblings(parent, mismatchChild, expectedTag, isMissing) {
   if (!parent) return `<${expectedTag} \u2190 parent unavailable>`;
   const children = [];
-  let child = getChildRoot(parent).firstChild;
+  let child = parent.firstChild;
   while (child) {
     if (child.nodeType === 1) children.push(child);
     child = child.nextSibling;
@@ -527,7 +584,14 @@ export function runHydrationEvents() {
         const [el, e] = events[0];
         if (!completed.has(el)) return;
         events.shift();
-        eventHandler(e);
+        let match;
+        for (const [container, state] of delegatedContainers) {
+          if (!state.handlers.has(e.type)) continue;
+          const entry = findOwner(e.target, state);
+          if (entry && (!match || entry.distance < match.distance))
+            match = { container, state, distance: entry.distance };
+        }
+        if (match) eventHandler(e, match.container, match.state);
       }
       if (sharedConfig.done) {
         sharedConfig.events = _$HY.events = null;
@@ -541,10 +605,6 @@ export function runHydrationEvents() {
 // Internal Functions
 function isHydrating(node) {
   return sharedConfig.hydrating && (!node || node.isConnected);
-}
-
-function getChildRoot(node) {
-  return node && node.localName === "template" ? node.content : node;
 }
 
 function classListToObject(classList) {
@@ -590,11 +650,7 @@ function assignProp(node, prop, value, prev, skipRef, nodeName) {
 
   const hasNamespace = prop.indexOf(":") > -1;
 
-  if (hasNamespace && prop.slice(0, 3) === "on:") {
-    const e = prop.slice(3);
-    prev && node.removeEventListener(e, prev, typeof prev !== "function" && prev);
-    value && node.addEventListener(e, value, typeof value !== "function" && value);
-  } else if (!hasNamespace && prop.slice(0, 2) === "on") {
+  if (!hasNamespace && prop.slice(0, 2) === "on") {
     const name = prop.slice(2).toLowerCase();
     const delegate = DelegatedEvents.has(name);
     if (!delegate && prev) {
@@ -623,15 +679,23 @@ function assignProp(node, prop, value, prev, skipRef, nodeName) {
   return value;
 }
 
-function eventHandler(e) {
+function eventHandler(e, container, state) {
   if (sharedConfig.registry && sharedConfig.events) {
     if (sharedConfig.events.find(([el, ev]) => ev === e)) return;
   }
+  if (e[$$EVENT_OWNER]) return;
+  const owner =
+    state &&
+    (state.owners.size === 1 && state.owners.has(container)
+      ? container
+      : findOwner(e.target, state)?.owner);
+  if (state && !owner) return;
+  e[$$EVENT_OWNER] = owner || true;
 
   let node = e.target;
   const key = `$$${e.type}`;
   const oriTarget = e.target;
-  const oriCurrentTarget = e.currentTarget;
+  const boundary = owner || container || e.currentTarget;
   const retarget = value =>
     Object.defineProperty(e, "target", {
       configurable: true,
@@ -652,32 +716,37 @@ function eventHandler(e) {
     return true;
   };
   const walkUpTree = () => {
-    while (handleNode() && (node = node._$host || node.parentNode || node.host));
+    while (handleNode()) {
+      if (node === boundary || node.parentNode === boundary) break;
+      node = node._$host || node.parentNode || node.host;
+    }
   };
 
   // simulate currentTarget
   Object.defineProperty(e, "currentTarget", {
     configurable: true,
     get() {
-      return node || document;
+      return node || boundary || document;
     }
   });
   if (e.composedPath) {
     const path = e.composedPath();
-    retarget(path[0]);
-    for (let i = 0; i < path.length - 2; i++) {
-      node = path[i];
-      if (!handleNode()) break;
-      if (node._$host) {
-        node = node._$host;
-        // bubble up from portal mount instead of composedPath
-        walkUpTree();
-        break;
+    if (path.length) {
+      retarget(path[0]);
+      for (let i = 0; i < path.length; i++) {
+        node = path[i];
+        if (!handleNode()) break;
+        if (node._$host) {
+          node = node._$host;
+          // bubble up from portal mount instead of composedPath
+          walkUpTree();
+          break;
+        }
+        if (node === boundary || node.parentNode === boundary) {
+          break; // don't bubble above root of event delegation
+        }
       }
-      if (node.parentNode === oriCurrentTarget) {
-        break; // don't bubble above root of event delegation
-      }
-    }
+    } else walkUpTree();
   }
   // fallback for browsers that don't support composedPath
   else walkUpTree();
@@ -688,7 +757,6 @@ function eventHandler(e) {
 function insertExpression(parent, value, current, marker) {
   if (isHydrating(parent)) return;
   if (value === current) return;
-  const childRoot = getChildRoot(parent);
   const t = typeof value,
     multi = marker !== undefined;
   // is this necessary anymore?
@@ -697,16 +765,16 @@ function insertExpression(parent, value, current, marker) {
   if (t === "string" || t === "number") {
     const tc = typeof current;
     if (tc === "string" || tc === "number") {
-      childRoot.firstChild.data = value;
-    } else childRoot.textContent = value;
+      parent.firstChild.data = value;
+    } else parent.textContent = value;
   } else if (value === undefined) {
     cleanChildren(parent, current, marker);
   } else if (value.nodeType) {
     if (Array.isArray(current)) {
       cleanChildren(parent, current, multi ? marker : null, value);
-    } else if (current === undefined || !childRoot.firstChild) {
-      childRoot.appendChild(value);
-    } else childRoot.replaceChild(value, childRoot.firstChild);
+    } else if (current === undefined || !parent.firstChild) {
+      parent.appendChild(value);
+    } else parent.replaceChild(value, parent.firstChild);
   } else if (Array.isArray(value)) {
     const currentArray = current && Array.isArray(current);
     if (value.length === 0) {
@@ -714,7 +782,7 @@ function insertExpression(parent, value, current, marker) {
     } else if (currentArray) {
       if (current.length === 0) {
         appendNodes(parent, value, marker);
-      } else reconcileArrays(childRoot, current, value);
+      } else reconcileArrays(parent, current, value);
     } else {
       current && cleanChildren(parent);
       appendNodes(parent, value);
@@ -742,12 +810,10 @@ function normalize(value, current, multi, doNotUnwrap) {
 }
 
 function appendNodes(parent, array, marker = null) {
-  parent = getChildRoot(parent);
   for (let i = 0, len = array.length; i < len; i++) parent.insertBefore(array[i], marker);
 }
 
 function cleanChildren(parent, current, marker, replacement) {
-  parent = getChildRoot(parent);
   if (marker === undefined) return (parent.textContent = "");
   if (current.length) {
     let inserted = false;

@@ -1,18 +1,23 @@
-// import parse5 from "parse5";
-const parse5 = require("parse5");
+import * as parse5 from "parse5";
+
+type Document = parse5.DefaultTreeAdapterMap["document"];
+type ParentNode = parse5.DefaultTreeAdapterMap["parentNode"];
+type Element = parse5.DefaultTreeAdapterMap["element"];
+type DocumentWithHtml = Document & { childNodes: [unknown, Element] };
+type HtmlWithBody = Element & { childNodes: [unknown, Element] };
 
 /** `bodyElement` will be used as a `context` (The place where we run `innerHTML`) */
-const bodyElement = parse5.parse(
-  `<!DOCTYPE html><html><head></head><body></body></html>`
-  // @ts-ignore
-).childNodes[1].childNodes[1];
+const bodyElement = (
+  (parse5.parse(`<!DOCTYPE html><html><head></head><body></body></html>`) as DocumentWithHtml)
+    .childNodes[1] as HtmlWithBody
+).childNodes[1];
 
-function innerHTML(htmlFragment) {
+function innerHTML(htmlFragment: string) {
   /** `htmlFragment` will be parsed as if it was set to the `bodyElement`'s `innerHTML` property. */
-  const parsedFragment = parse5.parseFragment(bodyElement, htmlFragment);
+  const parsedFragment = parse5.parseFragment(bodyElement, htmlFragment, {});
 
   /** `serialize` returns back a string from the parsed nodes */
-  return parse5.serialize(parsedFragment);
+  return parse5.serialize(parsedFragment as ParentNode);
 }
 
 /**
@@ -24,7 +29,7 @@ function innerHTML(htmlFragment) {
  *   browser: string; // what the browser returned from evaluating `html`
  * } | null}
  */
-export function isInvalidMarkup(html) {
+export function isInvalidMarkup(html: string): { html: string; browser: string } | undefined {
   html = html
 
     // normalize dom-expressions comments, so comments location are also validated

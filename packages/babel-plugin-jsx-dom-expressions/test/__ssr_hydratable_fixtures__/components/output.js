@@ -6,7 +6,7 @@ import { applyRef as _$applyRef } from "r-server";
 import { ssr as _$ssr } from "r-server";
 import { escape as _$escape } from "r-server";
 import { ssrHydrationKey as _$ssrHydrationKey } from "r-server";
-var _v$12, _v$13, _v$14, _v$16, _v$34, _v$35, _v$36, _v$37, _v$38, _v$39, _v$40;
+var _v$10, _v$11, _v$12, _v$14, _v$32, _v$33, _v$34, _v$35, _v$36, _v$37, _v$38;
 var _tmpl$ = ["<div", ">Hello <!--$-->", "<!--/--></div>"],
   _tmpl$2 = ["<div", ">", "</div>"],
   _tmpl$3 = ["<div", ">From Parent</div>"],
@@ -34,8 +34,8 @@ var _tmpl$ = ["<div", ">Hello <!--$-->", "<!--/--></div>"],
   ],
   _tmpl$8 = ["<div", "> | <!--$-->", "<!--/--> |  |  | <!--$-->", "<!--/--> | </div>"],
   _tmpl$9 = ["<span", ">1</span>"],
-  _tmpl$10 = ["<span", ">2</span>"],
-  _tmpl$11 = ["<span", ">3</span>"];
+  _tmpl$0 = ["<span", ">2</span>"],
+  _tmpl$1 = ["<span", ">3</span>"];
 import { Show } from "somewhere";
 const Child = props => {
   var _v$, _ref$, _v$2, _v$3, _ref$2, _v$4;
@@ -78,7 +78,7 @@ const template = props => {
         )
       )
     ),
-    _v$10 = _$escape(
+    _v$0 = _$escape(
       Child(
         _$mergeProps(
           {
@@ -101,7 +101,7 @@ const template = props => {
         )
       )
     ),
-    _v$11 = (() => {
+    _v$1 = (() => {
       var _ref$5 = props.consumerRef();
       return _$escape(
         Context.Consumer({
@@ -112,7 +112,7 @@ const template = props => {
         })
       );
     })();
-  return _$ssr(_tmpl$4, _v$5, _v$7, _v$10, _v$11);
+  return _$ssr(_tmpl$4, _v$5, _v$7, _v$0, _v$1);
 };
 const template2 = Child({
   name: "Jake",
@@ -129,9 +129,9 @@ const template2 = Child({
 const template3 = Child({
   get children() {
     return [
+      ((_v$10 = _$ssrHydrationKey()), _$ssr(_tmpl$5, _v$10)),
+      ((_v$11 = _$ssrHydrationKey()), _$ssr(_tmpl$5, _v$11)),
       ((_v$12 = _$ssrHydrationKey()), _$ssr(_tmpl$5, _v$12)),
-      ((_v$13 = _$ssrHydrationKey()), _$ssr(_tmpl$5, _v$13)),
-      ((_v$14 = _$ssrHydrationKey()), _$ssr(_tmpl$5, _v$14)),
       "After"
     ];
   }
@@ -140,8 +140,8 @@ const [s, set] = createSignal();
 const template4 = Child({
   ref: set,
   get children() {
-    var _v$15 = _$ssrHydrationKey();
-    return _$ssr(_tmpl$5, _v$15);
+    var _v$13 = _$ssrHydrationKey();
+    return _$ssr(_tmpl$5, _v$13);
   }
 });
 const template5 = Child({
@@ -172,7 +172,7 @@ const template6 = _$For({
 const template7 = Child({
   get children() {
     return [
-      ((_v$16 = _$ssrHydrationKey()), _$ssr(_tmpl$5, _v$16)),
+      ((_v$14 = _$ssrHydrationKey()), _$ssr(_tmpl$5, _v$14)),
       _$memo(() => _$escape(state.dynamic))
     ];
   }
@@ -185,82 +185,82 @@ const template8 = Child({
 const template9 = _garbage({
   children: "Hi"
 });
-var _v$17 = _$ssrHydrationKey(),
-  _v$18 = _$escape(
+var _v$15 = _$ssrHydrationKey(),
+  _v$16 = _$escape(
     Link({
       children: "new"
+    })
+  ),
+  _v$17 = _$escape(
+    Link({
+      children: "comments"
+    })
+  ),
+  _v$18 = _$escape(
+    Link({
+      children: "show"
     })
   ),
   _v$19 = _$escape(
     Link({
-      children: "comments"
+      children: "ask"
     })
   ),
   _v$20 = _$escape(
     Link({
-      children: "show"
+      children: "jobs"
     })
   ),
   _v$21 = _$escape(
     Link({
-      children: "ask"
-    })
-  ),
-  _v$22 = _$escape(
-    Link({
-      children: "jobs"
-    })
-  ),
-  _v$23 = _$escape(
-    Link({
       children: "submit"
     })
   );
-const template10 = _$ssr(_tmpl$6, _v$17, _v$18, _v$19, _v$20, _v$21, _v$22, _v$23);
-var _v$24 = _$ssrHydrationKey(),
-  _v$25 = _$escape(
+const template10 = _$ssr(_tmpl$6, _v$15, _v$16, _v$17, _v$18, _v$19, _v$20, _v$21);
+var _v$22 = _$ssrHydrationKey(),
+  _v$23 = _$escape(
     Link({
       children: "new"
     })
   ),
-  _v$26 = _$escape(
+  _v$24 = _$escape(
     Link({
       children: "comments"
     })
   ),
-  _v$27 = _$escape(
+  _v$25 = _$escape(
     Link({
       children: "show"
     })
   ),
-  _v$28 = _$escape(
+  _v$26 = _$escape(
     Link({
       children: "ask"
     })
   ),
-  _v$29 = _$escape(
+  _v$27 = _$escape(
     Link({
       children: "jobs"
     })
   ),
-  _v$30 = _$escape(
+  _v$28 = _$escape(
     Link({
       children: "submit"
     })
   );
-const template11 = _$ssr(_tmpl$7, _v$24, _v$25, _v$26, _v$27, _v$28, _v$29, _v$30);
-var _v$31 = _$ssrHydrationKey(),
-  _v$32 = _$escape(
+const template11 = _$ssr(_tmpl$7, _v$22, _v$23, _v$24, _v$25, _v$26, _v$27, _v$28);
+var _v$29 = _$ssrHydrationKey(),
+  _v$30 = _$escape(
     Link({
       children: "comments"
     })
   ),
-  _v$33 = _$escape(
+  _v$31 = _$escape(
     Link({
       children: "show"
     })
   );
-const template12 = _$ssr(_tmpl$8, _v$31, _v$32, _v$33);
+const template12 = _$ssr(_tmpl$8, _v$29, _v$30, _v$31);
 class Template13 {
   render() {
     const _self$ = this;
@@ -299,20 +299,20 @@ const Template16 = Component(
 const Template17 = Pre({
   get children() {
     return [
-      ((_v$34 = _$ssrHydrationKey()), _$ssr(_tmpl$9, _v$34)),
+      ((_v$32 = _$ssrHydrationKey()), _$ssr(_tmpl$9, _v$32)),
       " ",
-      ((_v$35 = _$ssrHydrationKey()), _$ssr(_tmpl$10, _v$35)),
+      ((_v$33 = _$ssrHydrationKey()), _$ssr(_tmpl$0, _v$33)),
       " ",
-      ((_v$36 = _$ssrHydrationKey()), _$ssr(_tmpl$11, _v$36))
+      ((_v$34 = _$ssrHydrationKey()), _$ssr(_tmpl$1, _v$34))
     ];
   }
 });
 const Template18 = Pre({
   get children() {
     return [
-      ((_v$37 = _$ssrHydrationKey()), _$ssr(_tmpl$9, _v$37)),
-      ((_v$38 = _$ssrHydrationKey()), _$ssr(_tmpl$10, _v$38)),
-      ((_v$39 = _$ssrHydrationKey()), _$ssr(_tmpl$11, _v$39))
+      ((_v$35 = _$ssrHydrationKey()), _$ssr(_tmpl$9, _v$35)),
+      ((_v$36 = _$ssrHydrationKey()), _$ssr(_tmpl$0, _v$36)),
+      ((_v$37 = _$ssrHydrationKey()), _$ssr(_tmpl$1, _v$37))
     ];
   }
 });
@@ -351,7 +351,7 @@ const template24 = Component({
 });
 const template25 = Component({
   get children() {
-    return (_v$40 = _$ssrHydrationKey()), _$ssr(_tmpl$5, _v$40);
+    return (_v$38 = _$ssrHydrationKey()), _$ssr(_tmpl$5, _v$38);
   }
 });
 function MyComponent(props) {

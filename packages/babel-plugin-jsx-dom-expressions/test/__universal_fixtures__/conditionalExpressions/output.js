@@ -57,87 +57,87 @@ _$insert(
   })()
 );
 const template6a = _el$9;
-var _el$10 = _$createElement("div");
+var _el$0 = _$createElement("div");
 _$insert(
-  _el$10,
+  _el$0,
   (() => {
     var _c$5 = _$memo(() => state.count > 5);
     return () => (_c$5() ? (_$memo(() => !!state.dynamic)() ? best : good()) : bad);
   })()
 );
-const template7 = _el$10;
-var _el$11 = _$createElement("div");
+const template7 = _el$0;
+var _el$1 = _$createElement("div");
 _$insert(
-  _el$11,
+  _el$1,
   (() => {
     var _c$6 = _$memo(() => state.count > 5);
     return () => (_c$6() ? (_$memo(() => !!state.dynamic)() ? best : good.good) : bad);
   })()
 );
-const template7a = _el$11;
-var _el$12 = _$createElement("div");
+const template7a = _el$1;
+var _el$10 = _$createElement("div");
 _$insert(
-  _el$12,
+  _el$10,
   (() => {
     var _c$7 = _$memo(() => !!(state.dynamic && state.something));
     return () => _c$7() && good();
   })()
 );
-const template8 = _el$12;
-var _el$13 = _$createElement("div");
+const template8 = _el$10;
+var _el$11 = _$createElement("div");
 _$insert(
-  _el$13,
+  _el$11,
   (() => {
     var _c$8 = _$memo(() => !!(state.dynamic && state.something));
     return () => _c$8() && good.good;
   })()
 );
-const template8a = _el$13;
-var _el$14 = _$createElement("div");
+const template8a = _el$11;
+var _el$12 = _$createElement("div");
 _$insert(
-  _el$14,
+  _el$12,
   (() => {
     var _c$9 = _$memo(() => !!state.dynamic);
     return () => (_c$9() && good()) || bad;
   })()
 );
-const template9 = _el$14;
+const template9 = _el$12;
+var _el$13 = _$createElement("div");
+_$insert(
+  _el$13,
+  (() => {
+    var _c$0 = _$memo(() => !!state.dynamic);
+    return () => (_c$0() && good.good) || bad;
+  })()
+);
+const template9a = _el$13;
+var _el$14 = _$createElement("div");
+_$insert(
+  _el$14,
+  (() => {
+    var _c$1 = _$memo(() => !!state.a);
+    return () => (_c$1() ? "a" : _$memo(() => !!state.b)() ? "b" : state.c ? "c" : "fallback");
+  })()
+);
+const template10 = _el$14;
 var _el$15 = _$createElement("div");
 _$insert(
   _el$15,
   (() => {
-    var _c$10 = _$memo(() => !!state.dynamic);
-    return () => (_c$10() && good.good) || bad;
+    var _c$10 = _$memo(() => !!state.a);
+    return () => (_c$10() ? a() : _$memo(() => !!state.b)() ? b() : state.c ? "c" : "fallback");
   })()
 );
-const template9a = _el$15;
+const template11 = _el$15;
 var _el$16 = _$createElement("div");
 _$insert(
   _el$16,
   (() => {
     var _c$11 = _$memo(() => !!state.a);
-    return () => (_c$11() ? "a" : _$memo(() => !!state.b)() ? "b" : state.c ? "c" : "fallback");
+    return () => (_c$11() ? a.a : _$memo(() => !!state.b)() ? b.b : state.c ? "c" : "fallback");
   })()
 );
-const template10 = _el$16;
-var _el$17 = _$createElement("div");
-_$insert(
-  _el$17,
-  (() => {
-    var _c$12 = _$memo(() => !!state.a);
-    return () => (_c$12() ? a() : _$memo(() => !!state.b)() ? b() : state.c ? "c" : "fallback");
-  })()
-);
-const template11 = _el$17;
-var _el$18 = _$createElement("div");
-_$insert(
-  _el$18,
-  (() => {
-    var _c$13 = _$memo(() => !!state.a);
-    return () => (_c$13() ? a.a : _$memo(() => !!state.b)() ? b.b : state.c ? "c" : "fallback");
-  })()
-);
-const template11a = _el$18;
+const template11a = _el$16;
 const template12 = _$createComponent(Comp, {
   get render() {
     return _$memo(() => !!state.dynamic)() ? good() : bad;
@@ -196,23 +196,23 @@ const template18 = _$createComponent(Comp, {
       : _$createComponent(Comp, {});
   }
 });
-var _el$19 = _$createElement("div");
+var _el$17 = _$createElement("div");
 _$effect(
   () => (state.dynamic ? _$createComponent(Comp, {}) : _$createComponent(Comp, {})),
   (_v$, _$p) => {
-    _$setProp(_el$19, "innerHTML", _v$, _$p);
+    _$setProp(_el$17, "innerHTML", _v$, _$p);
   }
 );
-const template19 = _el$19;
-var _el$20 = _$createElement("div");
+const template19 = _el$17;
+var _el$18 = _$createElement("div");
 _$insert(
-  _el$20,
+  _el$18,
   (() => {
-    var _c$14 = _$memo(() => !!state.dynamic);
-    return () => (_c$14() ? _$createComponent(Comp, {}) : _$createComponent(Comp, {}));
+    var _c$12 = _$memo(() => !!state.dynamic);
+    return () => (_c$12() ? _$createComponent(Comp, {}) : _$createComponent(Comp, {}));
   })()
 );
-const template20 = _el$20;
+const template20 = _el$18;
 const template21 = _$createComponent(Comp, {
   get render() {
     return state?.dynamic ? "a" : "b";
@@ -223,17 +223,17 @@ const template22 = _$createComponent(Comp, {
     return state?.dynamic ? "a" : "b";
   }
 });
-var _el$21 = _$createElement("div");
+var _el$19 = _$createElement("div");
 _$effect(
   () => (state?.dynamic ? "a" : "b"),
   (_v$, _$p) => {
-    _$setProp(_el$21, "innerHTML", _v$, _$p);
+    _$setProp(_el$19, "innerHTML", _v$, _$p);
   }
 );
-const template23 = _el$21;
-var _el$22 = _$createElement("div");
-_$insert(_el$22, () => (state?.dynamic ? "a" : "b"));
-const template24 = _el$22;
+const template23 = _el$19;
+var _el$20 = _$createElement("div");
+_$insert(_el$20, () => (state?.dynamic ? "a" : "b"));
+const template24 = _el$20;
 const template25 = _$createComponent(Comp, {
   get render() {
     return state.dynamic ?? _$createComponent(Comp, {});
@@ -244,41 +244,41 @@ const template26 = _$createComponent(Comp, {
     return state.dynamic ?? _$createComponent(Comp, {});
   }
 });
-var _el$23 = _$createElement("div");
+var _el$21 = _$createElement("div");
 _$effect(
   () => state.dynamic ?? _$createComponent(Comp, {}),
   (_v$, _$p) => {
-    _$setProp(_el$23, "innerHTML", _v$, _$p);
+    _$setProp(_el$21, "innerHTML", _v$, _$p);
   }
 );
-const template27 = _el$23;
+const template27 = _el$21;
+var _el$22 = _$createElement("div");
+_$insert(_el$22, () => state.dynamic ?? _$createComponent(Comp, {}));
+const template28 = _el$22;
+var _el$23 = _$createElement("div");
+_$insert(
+  _el$23,
+  (() => {
+    var _c$13 = _$memo(() => !!thing());
+    return () => (_c$13() && thing1()) ?? thing2() ?? thing3();
+  })()
+);
+const template29 = _el$23;
 var _el$24 = _$createElement("div");
-_$insert(_el$24, () => state.dynamic ?? _$createComponent(Comp, {}));
-const template28 = _el$24;
+_$insert(
+  _el$24,
+  (() => {
+    var _c$14 = _$memo(() => !!thing.thing);
+    return () => (_c$14() && thing1.thing1) ?? thing2.thing2 ?? thing3.thing3;
+  })()
+);
+const template29a = _el$24;
 var _el$25 = _$createElement("div");
-_$insert(
-  _el$25,
-  (() => {
-    var _c$15 = _$memo(() => !!thing());
-    return () => (_c$15() && thing1()) ?? thing2() ?? thing3();
-  })()
-);
-const template29 = _el$25;
+_$insert(_el$25, () => thing() || thing1() || thing2());
+const template30 = _el$25;
 var _el$26 = _$createElement("div");
-_$insert(
-  _el$26,
-  (() => {
-    var _c$16 = _$memo(() => !!thing.thing);
-    return () => (_c$16() && thing1.thing1) ?? thing2.thing2 ?? thing3.thing3;
-  })()
-);
-const template29a = _el$26;
-var _el$27 = _$createElement("div");
-_$insert(_el$27, () => thing() || thing1() || thing2());
-const template30 = _el$27;
-var _el$28 = _$createElement("div");
-_$insert(_el$28, () => thing.thing || thing1.thing1 || thing2.thing2);
-const template30a = _el$28;
+_$insert(_el$26, () => thing.thing || thing1.thing1 || thing2.thing2);
+const template30a = _el$26;
 const template31 = _$createComponent(Comp, {
   get value() {
     return _$memo(() => !!count())() ? (_$memo(() => !!count())() ? count() : count()) : count();
@@ -293,9 +293,9 @@ const template31a = _$createComponent(Comp, {
       : count.count;
   }
 });
-var _el$29 = _$createElement("div");
-_$insert(_el$29, () => something?.());
-const template32 = _el$29;
+var _el$27 = _$createElement("div");
+_$insert(_el$27, () => something?.());
+const template32 = _el$27;
 const template33 = _$createComponent(Comp, {
   get children() {
     return something?.();
@@ -331,9 +331,9 @@ const template43 = _$memo(() =>
   _$memo(() => !!obj1.prop)()
     ? _$memo(() => !!obj2.prop)()
       ? (() => {
-          var _el$30 = _$createElement("div");
-          _$insertNode(_el$30, _$createTextNode(`Output`));
-          return _el$30;
+          var _el$28 = _$createElement("div");
+          _$insertNode(_el$28, _$createTextNode(`Output`));
+          return _el$28;
         })()
       : []
     : []

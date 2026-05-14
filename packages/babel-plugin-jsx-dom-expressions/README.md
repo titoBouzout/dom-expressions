@@ -20,18 +20,20 @@ This library uses a heuristic whether to dynamic wrap expressions based on if th
 ```jsx
 const view = ({ item }) => {
   const itemId = item.id;
-  return <tr class={itemId === selected() ? "danger" : ""}>
-    <td class="col-md-1">{itemId}</td>
-    <td class="col-md-4">
-      <a onclick={e => select(item, e)}>{item.label}</a>
-    </td>
-    <td class="col-md-1">
-      <a onclick={e => del(item, e)}>
-        <span class="glyphicon glyphicon-remove" aria-hidden="true"></span>
-      </a>
-    </td>
-    <td class="col-md-6"></td>
-  </tr>;
+  return (
+    <tr class={itemId === selected() ? "danger" : ""}>
+      <td class="col-md-1">{itemId}</td>
+      <td class="col-md-4">
+        <a onClick={e => select(item, e)}>{item.label}</a>
+      </td>
+      <td class="col-md-1">
+        <a onClick={e => del(item, e)}>
+          <span class="glyphicon glyphicon-remove" aria-hidden="true"></span>
+        </a>
+      </td>
+      <td class="col-md-6"></td>
+    </tr>
+  );
 };
 ```
 
@@ -44,10 +46,11 @@ import { className as _$className } from "dom";
 import { effect as _$effect } from "dom";
 import { insert as _$insert } from "dom";
 
-const _tmpl$ = /*#__PURE__*/_$template(`<tr><td class="col-md-1"></td><td class="col-md-4"><a></a></td><td class="col-md-1"><a><span class="glyphicon glyphicon-remove" aria-hidden="true"></span></a></td><td class="col-md-6"></td></tr>`, 16);
-const view = ({
-  item
-}) => {
+const _tmpl$ = /*#__PURE__*/ _$template(
+  `<tr><td class="col-md-1"></td><td class="col-md-4"><a></a></td><td class="col-md-1"><a><span class="glyphicon glyphicon-remove" aria-hidden="true"></span></a></td><td class="col-md-6"></td></tr>`,
+  16
+);
+const view = ({ item }) => {
   const itemId = item.id;
   return (() => {
     const _el$ = _tmpl$.cloneNode(true),
@@ -60,7 +63,10 @@ const view = ({
     _el$4.$$click = e => select(item, e);
     _$insert(_el$4, () => item.label);
     _el$6.$$click = e => del(item, e);
-    _$effect(() => selected(), _v$ => _$className(_el$, itemId === _v$ ? "danger" : ""));
+    _$effect(
+      () => selected(),
+      _v$ => _$className(_el$, itemId === _v$ ? "danger" : "")
+    );
     return _el$;
   })();
 };
@@ -175,6 +181,12 @@ Removes tags from the template output if they have no closing parents and are th
 
 Removes quotes for html attributes when possible from the template output. This may not work in all browser-like environments the same. The solution has been tested again Chrome/Edge/Firefox/Safari.
 
+### omitAttributeSpacing
+
+- Type: `boolean`
+- Default: `true`
+
+When `true`, quoted attributes may omit the space before the next attribute. Set this to `false` to emit strictly spaced attributes for stricter HTML/SVG parsers.
 
 ### requireImportSource
 
@@ -183,14 +195,18 @@ Removes quotes for html attributes when possible from the template output. This 
 
 When set to a string value, this option restricts JSX transformation to only files that contain a specific JSX import source pragma comment. The plugin will only transform JSX in files that include a comment with `@jsxImportSource` followed by the specified value. If the comment is missing or specifies a different import source, the transformation is skipped for that file.
 Example usage:
+
 ```jsx
 // In babel configuration:
 {
   plugins: [
-    ["jsx-dom-expressions", {
-      requireImportSource: "r-dom"
-    }]
-  ]
+    [
+      "jsx-dom-expressions",
+      {
+        requireImportSource: "r-dom"
+      }
+    ]
+  ];
 }
 // In your component file:
 /** @jsxImportSource r-dom */
@@ -221,34 +237,28 @@ const Parent = () => {
 
 ### on(eventName)
 
-These will be treated as event handlers expecting a function. The compiler will delegate events where possible (Events that bubble or can be composed) else it will fall back to Level 1 spec "on_____" events.
+CamelCase event attributes such as `onClick` are treated as event handlers expecting a function. The compiler will delegate events where possible (events that bubble or can be composed), otherwise it falls back to Level 1 spec `on_____` events.
 
 If you wish to make it into a Bound Event, you can bind a value to your delegated event by passing an array handler instead and the second argument will be passed to your event handler as the first argument (the event will be second).
 
 ```jsx
-function handler(itemId, e) {/*...*/}
+function handler(itemId, e) {
+  /*...*/
+}
 
 <ul>
   {list().map(item => (
     <li onClick={[handler, item.id]} />
   ))}
-</ul>
+</ul>;
 ```
 
 This delegation solution works with Web Components and the Shadow DOM as well if the events are composed. That limits the list to custom events and most UA UI events like onClick, onKeyUp, onKeyDown, onDblClick, onInput, onMouseDown, onMouseUp, etc..
 Important:
 
-- To allow for casing to work all custom events should follow the all lowercase convention of native events. If you want to use different event convention (or use Level 3 Events "addEventListener") use the "on" binding.
+- To allow for casing to work, custom delegated events should follow the all lowercase convention of native events. Use a ref/directive that calls `addEventListener` when you need native listener options or custom event casing.
 
-- Event delegates aren't cleaned up automatically off Document. If you will be completely unmounting the library and wish to remove the handlers from the current page use `clearDelegatedEvents`.
-
-### on:
-
-To bypass event delegation and use normal Level 3 "addEventListener" events.
-
-```jsx
-<div on:Weird-Event={e => alert(e.detail)} />
-```
+- Event delegates are owned by render roots and are removed when those roots dispose.
 
 ### ... (spreads)
 

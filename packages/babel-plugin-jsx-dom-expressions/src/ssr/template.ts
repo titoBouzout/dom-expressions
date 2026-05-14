@@ -1,5 +1,9 @@
 import * as t from "@babel/types";
 import { getConfig, registerImportMethod } from "../shared/utils";
+import type { NodePath } from "@babel/traverse";
+import type { ProgramScopeData, TemplateRecord, TransformResult } from "../types";
+
+type SSRDeclarator = t.VariableDeclarator & { id: t.LVal; init: t.Expression };
 
 // Wrap the *inner* value of a fragment-child accessor with `_$escape` so that
 // hostile string values returned from reactive accessors cannot be
@@ -17,8 +21,8 @@ import { getConfig, registerImportMethod } from "../shared/utils";
 //     returns an arrow function
 // For arrows with an expression body we rewrite in place; for anything else
 // we conservatively wrap in a new arrow that calls and escapes.
-function wrapFragmentChildWithEscape(path, expr) {
-  const escape = registerImportMethod(path, "escape");
+function wrapFragmentChildWithEscape(path: NodePath, expr: t.Expression) {
+  const escape = registerImportMethod(path, "escape", undefined);
   if (t.isArrowFunctionExpression(expr) && !t.isBlockStatement(expr.body)) {
     expr.body = t.callExpression(escape, [expr.body]);
     return expr;
@@ -26,41 +30,58 @@ function wrapFragmentChildWithEscape(path, expr) {
   return t.arrowFunctionExpression([], t.callExpression(escape, [t.callExpression(expr, [])]));
 }
 
-export function createTemplate(path, result, wrap) {
+export function createTemplate(
+  path: NodePath,
+  result: TransformResult,
+  wrap: boolean
+): t.Expression {
   if (!result.template) {
     if (wrap && result.dynamic && getConfig(path).memoWrapper) {
       // wontEscape is set on JSXElement children whose compiled form is
       // already a safe SSR node (e.g. `_$ssr(...)` call). Wrapping those in
       // escape would be a no-op at runtime but obscures intent — skip it.
       const inner = result.wontEscape
-        ? result.exprs[0]
-        : wrapFragmentChildWithEscape(path, result.exprs[0]);
-      return t.callExpression(registerImportMethod(path, getConfig(path).memoWrapper), [inner]);
+        ? (result.exprs[0] as t.Expression)
+        : wrapFragmentChildWithEscape(path, result.exprs[0] as t.Expression);
+      return t.callExpression(registerImportMethod(path, getConfig(path).memoWrapper, undefined), [
+        inner
+      ]);
     }
-    return result.exprs[0];
+    return result.exprs[0] as t.Expression;
   }
 
   let template, id;
 
   if (!Array.isArray(result.template)) {
-    template = t.stringLiteral(result.template);
+    template = t.stringLiteral(result.template as string);
   } else if (result.template.length === 1) {
     template = t.stringLiteral(result.template[0]);
   } else {
-    const strings = result.template.map(tmpl => t.stringLiteral(tmpl));
+    const strings = result.template.map((tmpl: string) => t.stringLiteral(tmpl));
     template = t.arrayExpression(strings);
   }
 
-  const templates =
-    path.scope.getProgramParent().data.templates ||
-    (path.scope.getProgramParent().data.templates = []);
+  const data = path.scope.getProgramParent().data as ProgramScopeData;
+  const templates = data.templates || (data.templates = []);
   const found = templates.find(tmp => {
-    if (t.isArrayExpression(tmp.template) && t.isArrayExpression(template)) {
-      return tmp.template.elements.every(
-        (el, i) => template.elements[i] && el.value === template.elements[i].value
+    const candidate = tmp.template;
+    if (
+      typeof candidate !== "string" &&
+      t.isArrayExpression(candidate) &&
+      t.isArrayExpression(template)
+    ) {
+      return candidate.elements.every(
+        (el, i) =>
+          t.isStringLiteral(el) &&
+          t.isStringLiteral(template.elements[i]) &&
+          el.value === template.elements[i].value
       );
     }
-    return tmp.template.value === template.value;
+    return typeof candidate !== "string" &&
+      t.isStringLiteral(candidate) &&
+      t.isStringLiteral(template)
+      ? candidate.value === template.value
+      : false;
   });
   if (!found) {
     id = path.scope.generateUidIdentifier("tmpl$");
@@ -77,8 +98,8 @@ export function createTemplate(path, result, wrap) {
     else if (
       Array.isArray(result.template) &&
       result.template.length === 2 &&
-      result.templateValues[0].type === "CallExpression" &&
-      result.templateValues[0].callee.name === "_$ssrHydrationKey"
+      t.isCallExpression(result.templateValues?.[0]) &&
+      t.isIdentifier(result.templateValues[0].callee, { name: "_$ssrHydrationKey" })
     ) {
       // remove unnecessary ssr call when only hydration key is used
       return t.binaryExpression(
@@ -94,13 +115,19 @@ export function createTemplate(path, result, wrap) {
   }
 
   const ssrCall = t.callExpression(
-    registerImportMethod(path, "ssr"),
+    registerImportMethod(path, "ssr", undefined),
     Array.isArray(result.template) && result.template.length > 1
-      ? [id, ...result.templateValues]
+      ? [id, ...(result.templateValues ?? [])]
       : [id]
   );
 
-  const declarators = [...result.declarations, ...result.postDeclarations].filter(Boolean);
+  const declarators = [...result.declarations, ...(result.postDeclarations ?? [])].filter(
+    (declaration): declaration is SSRDeclarator =>
+      !!declaration &&
+      t.isVariableDeclarator(declaration) &&
+      !!declaration.init &&
+      t.isExpression(declaration.init)
+  );
   if (!declarators.length) return ssrCall;
 
   // IIFE-free emission — declarations live outside the `ssr(...)` call to
@@ -124,7 +151,7 @@ export function createTemplate(path, result, wrap) {
   const isVarInit = t.isVariableDeclarator(path.parent) && path.parent.init === path.node;
 
   if (isReturnArg || isVarInit) {
-    path.getStatementParent().insertBefore(
+    path.getStatementParent()?.insertBefore(
       t.variableDeclaration(
         "var",
         declarators.map(d => t.variableDeclarator(d.id, d.init))
@@ -140,9 +167,9 @@ export function createTemplate(path, result, wrap) {
   ]);
 }
 
-export function appendTemplates(path, templates) {
+export function appendTemplates(path: NodePath<t.Program>, templates: TemplateRecord[]) {
   const declarators = templates.map(template => {
-    return t.variableDeclarator(template.id, template.template);
+    return t.variableDeclarator(template.id, template.template as t.Expression);
   });
   path.node.body.unshift(t.variableDeclaration("var", declarators));
 }

@@ -30,6 +30,11 @@ describe("Test Synthetic event bubbling", () => {
       </div>
     )
   );
+  r.registerDelegatedRoot(document.body);
+
+  afterAll(() => {
+    r.unregisterDelegatedRoot(document.body);
+  });
 
   test("Fire top level event", () => {
     eventTarget = Elements.el1;
@@ -64,121 +69,66 @@ describe("Test Synthetic event bubbling", () => {
     expect(count).toBe(1);
   });
 
-  test("clear events", () => {
-    r.clearDelegatedEvents();
+  test("dispose clears root-owned events", () => {
+    const root = document.createElement("div");
+    let el, dispose;
+    dispose = r.render(() => <button ref={el} onClick={() => count++} />, root);
+    r.delegateEvents(["click"]);
+    count = 0;
+    el.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(count).toBe(1);
+    dispose();
     eventTarget = Elements.el1;
     count = 0;
     stopPropagation = false;
     var event = new MouseEvent("click", { bubbles: true });
-    eventTarget.dispatchEvent(event);
+    el.dispatchEvent(event);
     expect(count).toBe(0);
-  });
-
-  test("clearDelegatedEvents on a fresh document is a no-op", () => {
-    // Targets with no prior delegation take the `if (document[$$EVENTS])`
-    // false branch without touching addEventListener state.
-    const alt = document.implementation.createHTMLDocument("alt");
-    expect(() => r.clearDelegatedEvents(alt)).not.toThrow();
   });
 });
 
-// custom event
-describe("Custom Events", () => {
-  test("custom event with event listener options", () => {
-    let elementRegular;
-    let elementOnce;
+describe("native event listeners via ref callbacks", () => {
+  const on = (type, handler, options) => el => el.addEventListener(type, handler, options);
 
-    let count = 0;
-    let eventTarget;
-
-    function handleClick(e) {
-      expect(e.currentTarget).toBe(eventTarget);
-      expect(e.target).toBe(eventTarget);
-      count++;
-    }
-
-    createRoot(() =>
-      document.body.appendChild(
-        <div>
-          <div ref={elementRegular} on:click={{ handleEvent: handleClick }} />
-          <div ref={elementOnce} on:click={{ handleEvent: handleClick, once: true }} />
-        </div>
-      )
-    );
-
-    const event = new MouseEvent("click", { bubbles: true });
-
-    /** Dispatch a click twice to the regular element to check `count` is working a expected */
-
-    eventTarget = elementRegular;
-
-    count = 0;
-
-    eventTarget.dispatchEvent(event);
-    expect(count).toBe(1);
-
-    eventTarget.dispatchEvent(event);
-    expect(count).toBe(2);
-
-    /** Dispatch a click twice to the `once` event handler */
-
-    eventTarget = elementOnce;
-
-    count = 0;
-
-    eventTarget.dispatchEvent(event);
-    expect(count).toBe(1);
-
-    eventTarget.dispatchEvent(event);
-    expect(count).toBe(1);
+  afterEach(() => {
+    document.body.innerHTML = "";
   });
 
-  // on:name accepts a plain function too — the third arg to addEventListener
-  // is `typeof value !== "function" && value`, which evaluates to `false`
-  // for functions (skipping the options-object path).
-  test("on:click={fn} wires a plain function listener", () => {
-    let el;
+  it("wires a plain function listener", () => {
+    let el, dispose;
     let calls = 0;
-    let dispose;
 
     createRoot(d => {
       dispose = d;
-      document.body.appendChild(<div ref={el} on:click={() => calls++} />);
+      document.body.appendChild(<div ref={[node => (el = node), on("click", () => calls++)]} />);
     });
 
     el.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     expect(calls).toBe(1);
-
     dispose();
-    document.body.innerHTML = "";
   });
 
-  test("on:click with {handleEvent, capture: true} fires in capture phase", () => {
-    let parent, child, dispose;
+  it("passes capture listeners through native event ordering", () => {
+    let child, dispose;
     const order = [];
 
     createRoot(d => {
       dispose = d;
       document.body.appendChild(
-        <section ref={parent} on:click={{ handleEvent: () => order.push("parent"), capture: true }}>
-          <button ref={child} on:click={() => order.push("child")} />
+        <section ref={on("click", () => order.push("parent"), { capture: true })}>
+          <button ref={[node => (child = node), on("click", () => order.push("child"))]} />
         </section>
       );
     });
 
     child.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    // With capture=true, the parent's handler runs before the child's.
     expect(order).toEqual(["parent", "child"]);
-
     dispose();
-    document.body.innerHTML = "";
   });
 
-  test("on:click with {handleEvent, passive: true, once: true} runs once and records options", () => {
+  it("forwards addEventListener options such as passive and once", () => {
     let el, dispose;
     const events = [];
-    // Spy on addEventListener so we can see the options object the runtime
-    // forwarded to the native API.
     const original = HTMLDivElement.prototype.addEventListener;
     const recorded = [];
     HTMLDivElement.prototype.addEventListener = function (type, listener, options) {
@@ -191,29 +141,47 @@ describe("Custom Events", () => {
         dispose = d;
         document.body.appendChild(
           <div
-            ref={el}
-            on:click={{
-              handleEvent: e => events.push(e.type),
-              passive: true,
-              once: true
-            }}
+            ref={[
+              node => (el = node),
+              on("click", e => events.push(e.type), { passive: true, once: true })
+            ]}
           />
         );
       });
 
-      // Passive + once: the listener runs, then auto-removes on the first event.
       el.dispatchEvent(new MouseEvent("click", { bubbles: true }));
       el.dispatchEvent(new MouseEvent("click", { bubbles: true }));
       expect(events).toEqual(["click"]);
-
-      // Confirm the whole options object was forwarded (not just a boolean capture).
-      const match = recorded.find(r => r.type === "click");
-      expect(match.options).toMatchObject({ passive: true, once: true });
+      expect(recorded.find(r => r.type === "click").options).toMatchObject({
+        passive: true,
+        once: true
+      });
     } finally {
       HTMLDivElement.prototype.addEventListener = original;
       dispose();
-      document.body.innerHTML = "";
     }
+  });
+
+  it("composes multiple native listeners with array refs", () => {
+    let el, dispose;
+    const order = [];
+
+    createRoot(d => {
+      dispose = d;
+      document.body.appendChild(
+        <button
+          ref={[
+            node => (el = node),
+            on("click", () => order.push("capture"), { capture: true }),
+            on("click", () => order.push("bubble"))
+          ]}
+        />
+      );
+    });
+
+    el.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(order).toEqual(["capture", "bubble"]);
+    dispose();
   });
 });
 
@@ -250,8 +218,7 @@ describe("eventHandler shadow/portal branches", () => {
         </aside>
       );
     });
-    // The JSX compiler's module-level delegateEvents(["click"]) may have
-    // been cleared by earlier tests in this file.
+    r.registerDelegatedRoot(document.body);
     r.delegateEvents(["click"]);
     portalChild._$host = logicalParent;
 
@@ -263,6 +230,7 @@ describe("eventHandler shadow/portal branches", () => {
     ]);
 
     dispose();
+    r.unregisterDelegatedRoot(document.body);
   });
 
   it("walks up the tree when the event has no composedPath (legacy browser fallback)", () => {
@@ -277,6 +245,7 @@ describe("eventHandler shadow/portal branches", () => {
         </div>
       );
     });
+    r.registerDelegatedRoot(document.body);
     r.delegateEvents(["click"]);
 
     // Strip composedPath so eventHandler falls back to walkUpTree.
@@ -290,32 +259,191 @@ describe("eventHandler shadow/portal branches", () => {
     ]);
 
     dispose();
+    r.unregisterDelegatedRoot(document.body);
+  });
+});
+
+describe("root-owned event delegation", () => {
+  afterEach(() => {
+    document.body.innerHTML = "";
   });
 
-  // Once walkUpTree bubbles past every host (via _$host pointing at
-  // document itself), the closure-local `node` becomes undefined. The
-  // currentTarget getter's `node || document` fallback must surface
-  // document rather than undefined.
-  it("currentTarget falls back to document after bubbling past the root", () => {
-    let portalChild, dispose;
-    createRoot(d => {
-      dispose = d;
-      document.body.appendChild(<button ref={portalChild} onClick={() => {}} />);
-    });
+  it("delegateEvents without a root does not install document listeners", () => {
+    const button = document.createElement("button");
+    const calls = [];
+    button.$$click = () => calls.push("click");
+    document.body.appendChild(button);
+
     r.delegateEvents(["click"]);
-    // _$host points at document → walkUpTree tries to step to
-    // document.parentNode/host/_$host, all of which are null.
-    portalChild._$host = document;
+    button.dispatchEvent(new MouseEvent("click", { bubbles: true }));
 
-    const event = new MouseEvent("click", { bubbles: true, composed: true });
-    portalChild.dispatchEvent(event);
-    // After dispatch the walker's node is undefined, so the getter's
-    // fallback takes over.
-    expect(event.currentTarget).toBe(document);
+    expect(calls).toEqual([]);
+  });
 
-    delete portalChild._$host;
+  it("patches roots registered before delegateEvents", () => {
+    const root = document.createElement("div");
+    let button;
+    let calls = 0;
+    const dispose = r.render(() => <button ref={button} onClick={() => calls++} />, root);
+
+    r.delegateEvents(["click"]);
+    button.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+    expect(calls).toBe(1);
     dispose();
-    document.body.innerHTML = "";
+  });
+
+  it("patches roots registered after delegateEvents", () => {
+    const root = document.createElement("div");
+    let button;
+    let calls = 0;
+
+    r.delegateEvents(["click"]);
+    const dispose = r.render(() => <button ref={button} onClick={() => calls++} />, root);
+    button.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+    expect(calls).toBe(1);
+    dispose();
+  });
+
+  it("rendered ShadowRoot roots walk inside the shadow tree only", () => {
+    const host = document.createElement("div");
+    const shadow = host.attachShadow({ mode: "open" });
+    let button;
+    const calls = [];
+
+    document.body.appendChild(host);
+    host.$$click = () => calls.push("host");
+    const dispose = r.render(
+      () => (
+        <section onClick={() => calls.push("section")}>
+          <button ref={button} onClick={() => calls.push("button")} />
+        </section>
+      ),
+      shadow
+    );
+
+    r.delegateEvents(["click"]);
+    button.dispatchEvent(new MouseEvent("click", { bubbles: true, composed: true }));
+
+    expect(calls).toEqual(["button", "section"]);
+    dispose();
+  });
+
+  it("keeps nested roots isolated for delegated handlers", () => {
+    const outerRoot = document.createElement("div");
+    const innerRoot = document.createElement("div");
+    document.body.appendChild(outerRoot);
+    outerRoot.appendChild(innerRoot);
+    let innerButton;
+    const calls = [];
+
+    const disposeOuter = r.render(() => <section onClick={() => calls.push("outer")} />, outerRoot);
+    const disposeInner = r.render(
+      () => <button ref={innerButton} onClick={() => calls.push("inner")} />,
+      innerRoot
+    );
+
+    innerButton.dispatchEvent(new MouseEvent("click", { bubbles: true, composed: true }));
+
+    expect(calls).toEqual(["inner"]);
+    disposeInner();
+    disposeOuter();
+  });
+
+  it("dispatches portal containers through their owner root without duplicate parent dispatch", () => {
+    const root = document.createElement("div");
+    const portalMount = document.createElement("div");
+    let logicalParent, portalChild;
+    const calls = [];
+
+    document.body.appendChild(root);
+    document.body.appendChild(portalMount);
+    const dispose = r.render(
+      () => <section ref={logicalParent} onClick={() => calls.push("logical")} />,
+      root
+    );
+    portalMount.appendChild(<button ref={portalChild} onClick={() => calls.push("portal")} />);
+    portalChild._$host = logicalParent;
+    r.registerDelegatedContainer(portalMount, root);
+
+    portalChild.dispatchEvent(new MouseEvent("click", { bubbles: true, composed: true }));
+
+    expect(calls).toEqual(["portal", "logical"]);
+    r.unregisterDelegatedContainer(portalMount, root);
+    dispose();
+  });
+
+  it("keeps container listeners until the final matching unregister", () => {
+    const root = document.createElement("div");
+    let button;
+    let calls = 0;
+    const dispose = r.render(() => <button ref={button} onClick={() => calls++} />, root);
+
+    r.registerDelegatedRoot(root);
+    r.delegateEvents(["click"]);
+    r.unregisterDelegatedRoot(root);
+    button.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(calls).toBe(1);
+
+    r.unregisterDelegatedRoot(root);
+    button.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    expect(calls).toBe(1);
+    dispose();
+  });
+
+  it("removes shared container listeners after the final owner unregisters", () => {
+    const container = document.createElement("div");
+    const ownerA = document.createElement("section");
+    const ownerB = document.createElement("section");
+    const remove = jest.spyOn(container, "removeEventListener");
+    r.registerDelegatedContainer(container, ownerA);
+    r.registerDelegatedContainer(container, ownerB);
+    r.delegateEvents(["click"]);
+
+    r.unregisterDelegatedContainer(container, ownerA);
+    expect(remove).not.toHaveBeenCalledWith("click", expect.any(Function));
+
+    r.unregisterDelegatedContainer(container, ownerB);
+    expect(remove).toHaveBeenCalledWith("click", expect.any(Function));
+    remove.mockRestore();
+  });
+
+  it("shared portal containers dispatch only to the owner found through _$host", () => {
+    const portalMount = document.createElement("div");
+    const ownerA = document.createElement("section");
+    const ownerB = document.createElement("section");
+    const logicalA = document.createElement("div");
+    const logicalB = document.createElement("div");
+    const buttonA = document.createElement("button");
+    const buttonB = document.createElement("button");
+    const calls = [];
+
+    logicalA.$$click = () => calls.push("ownerA");
+    logicalB.$$click = () => calls.push("ownerB");
+    buttonA.$$click = () => calls.push("buttonA");
+    buttonB.$$click = () => calls.push("buttonB");
+    buttonA._$host = logicalA;
+    buttonB._$host = logicalB;
+    ownerA.appendChild(logicalA);
+    ownerB.appendChild(logicalB);
+    portalMount.append(buttonA, buttonB);
+
+    r.registerDelegatedRoot(ownerA);
+    r.registerDelegatedRoot(ownerB);
+    r.registerDelegatedContainer(portalMount, ownerA);
+    r.registerDelegatedContainer(portalMount, ownerB);
+    r.delegateEvents(["click"]);
+
+    buttonA.dispatchEvent(new MouseEvent("click", { bubbles: true, composed: true }));
+    buttonB.dispatchEvent(new MouseEvent("click", { bubbles: true, composed: true }));
+
+    expect(calls).toEqual(["buttonA", "ownerA", "buttonB", "ownerB"]);
+
+    r.unregisterDelegatedContainer(portalMount, ownerA);
+    r.unregisterDelegatedContainer(portalMount, ownerB);
+    r.unregisterDelegatedRoot(ownerA);
+    r.unregisterDelegatedRoot(ownerB);
   });
 });
 
@@ -432,34 +560,9 @@ describe("JSX event wiring variants", () => {
   });
 });
 
-// Spread-driven event paths: `on:name` and plain `onName` non-delegated
-// events only flow through assignProp when a spread changes across
-// renders (direct JSX props short-circuit in the compiler).
+// Spread-driven non-delegated event paths only flow through assignProp when
+// a spread changes across renders (direct JSX props short-circuit in the compiler).
 describe("spread event handling", () => {
-  it("on:foo from a reactive spread swaps listeners on update", () => {
-    const firstCalls = [];
-    const secondCalls = [];
-    const h1 = e => firstCalls.push(e.type);
-    const h2 = e => secondCalls.push(e.type);
-    const [props, setProps] = createSignal({ "on:foo": h1 });
-
-    let node, dispose;
-    createRoot(d => {
-      dispose = d;
-      node = <div {...props()} />;
-    });
-
-    node.dispatchEvent(new Event("foo"));
-    expect(firstCalls).toHaveLength(1);
-
-    setProps({ "on:foo": h2 });
-    flush();
-    node.dispatchEvent(new Event("foo"));
-    expect(firstCalls).toHaveLength(1);
-    expect(secondCalls).toHaveLength(1);
-    dispose();
-  });
-
   it("non-delegated onMouseEnter from a reactive spread swaps listeners on update", () => {
     const firstCalls = [];
     const secondCalls = [];
@@ -578,36 +681,6 @@ describe("spread prop: namespace", () => {
     // Property carries the object reference directly.
     expect(node.customData).toBe(payload);
     expect(node.hasAttribute("customData")).toBe(false);
-    dispose();
-  });
-
-  // `on:name` with an options-object prev value (not a function) hits the
-  // `typeof prev !== "function" && prev` branch when removing the listener;
-  // same for the value side when attaching.
-  it("on:foo swaps an options-object listener for another options-object listener", () => {
-    const calls = [];
-    const first = { handleEvent: e => calls.push(["first", e.type]), capture: true };
-    const second = { handleEvent: e => calls.push(["second", e.type]), capture: true };
-    const [props, setProps] = createSignal({ "on:foo": first });
-
-    let node, dispose;
-    createRoot(d => {
-      dispose = d;
-      node = <div {...props()} />;
-    });
-    node.dispatchEvent(new Event("foo"));
-    expect(calls).toEqual([["first", "foo"]]);
-
-    // Update: previous value is an options object (not a function) →
-    // `typeof prev !== "function" && prev` resolves to the prev object and
-    // is forwarded as the `options` arg to removeEventListener.
-    setProps({ "on:foo": second });
-    flush();
-    node.dispatchEvent(new Event("foo"));
-    expect(calls).toEqual([
-      ["first", "foo"],
-      ["second", "foo"]
-    ]);
     dispose();
   });
 

@@ -14,17 +14,24 @@ import {
   escapeStringForTemplate
 } from "../shared/utils";
 import { transformNode } from "../shared/transform";
+import type { BabelPath, TransformInfo, TransformResult, UniversalTransformResult } from "../types";
 
-export function transformElement(path, info) {
+type JSXAttributePath = BabelPath<t.JSXAttribute | t.JSXSpreadAttribute>;
+
+export function transformElement(
+  path: BabelPath<t.JSXElement>,
+  info: TransformInfo = {}
+): UniversalTransformResult {
   path
     .get("openingElement")
     .get("attributes")
-    .forEach(attr => {
-      evaluateAndInline(attr.node.value, attr.get("value"));
+    .forEach((attr: JSXAttributePath) => {
+      if (t.isJSXAttribute(attr.node)) evaluateAndInline(attr.node.value, attr.get("value"));
     });
 
   let tagName = getTagName(path.node),
-    results = {
+    results: UniversalTransformResult = {
+      template: "",
       id: path.scope.generateUidIdentifier("el$"),
       declarations: [],
       exprs: [],
@@ -54,9 +61,12 @@ export function transformElement(path, info) {
   return results;
 }
 
-function transformAttributes(path, results) {
-  let children, spreadExpr;
-  let attributes = path.get("openingElement").get("attributes");
+function transformAttributes(
+  path: BabelPath<t.JSXElement>,
+  results: UniversalTransformResult
+): void {
+  let children: t.JSXExpressionContainer | undefined, spreadExpr: t.ExpressionStatement | undefined;
+  let attributes = path.get("openingElement").get("attributes") as JSXAttributePath[];
   const elem = results.id,
     hasChildren = path.node.children.length > 0,
     config = getConfig(path);
@@ -79,6 +89,7 @@ function transformAttributes(path, results) {
     .get("attributes")
     .forEach(attribute => {
       const node = attribute.node;
+      if (t.isJSXSpreadAttribute(node)) return;
 
       let value = node.value,
         key = t.isJSXNamespacedName(node.name)
@@ -101,7 +112,9 @@ function transformAttributes(path, results) {
           if (!isConstant && t.isLVal(value.expression)) {
             const refIdentifier = path.scope.generateUidIdentifier("_ref$");
             results.exprs.unshift(
-              t.variableDeclaration("var", [t.variableDeclarator(refIdentifier, value.expression)]),
+              t.variableDeclaration("var", [
+                t.variableDeclarator(refIdentifier, value.expression as t.Expression)
+              ]),
               t.expressionStatement(
                 t.conditionalExpression(
                   t.logicalExpression(
@@ -141,14 +154,16 @@ function transformAttributes(path, results) {
                     "ref",
                     getRendererConfig(path, "universal").moduleName
                   ),
-                  [t.arrowFunctionExpression([], value.expression), elem]
+                  [t.arrowFunctionExpression([], value.expression as t.Expression), elem]
                 )
               )
             );
           } else {
             const refIdentifier = path.scope.generateUidIdentifier("_ref$");
             results.exprs.unshift(
-              t.variableDeclaration("var", [t.variableDeclarator(refIdentifier, value.expression)]),
+              t.variableDeclaration("var", [
+                t.variableDeclarator(refIdentifier, value.expression as t.Expression)
+              ]),
               t.expressionStatement(
                 t.logicalExpression(
                   "&&",
@@ -184,14 +199,16 @@ function transformAttributes(path, results) {
             checkMember: true
           })
         ) {
-          results.dynamics.push({ elem, key, value: value.expression });
+          results.dynamics.push({ elem, key, value: value.expression as t.Expression });
         } else {
           results.exprs.push(
-            t.expressionStatement(setAttr(attribute, elem, key, value.expression))
+            t.expressionStatement(setAttr(attribute, elem, key, value.expression as t.Expression))
           );
         }
       } else {
-        results.exprs.push(t.expressionStatement(setAttr(attribute, elem, key, value)));
+        results.exprs.push(
+          t.expressionStatement(setAttr(attribute, elem, key, value as t.Expression))
+        );
       }
     });
   if (spreadExpr) results.exprs.push(spreadExpr);
@@ -200,28 +217,40 @@ function transformAttributes(path, results) {
   }
 }
 
-export function setAttr(path, elem, name, value, { prevId } = {}) {
+export function setAttr(
+  path: BabelPath,
+  elem: t.Expression,
+  name: string,
+  value: t.Expression | t.JSXAttribute["value"],
+  { prevId }: { prevId?: t.Expression; dynamic?: boolean } = {}
+) {
   if (!value) value = t.booleanLiteral(true);
+  const args = prevId
+    ? ([elem, t.stringLiteral(name), value as t.Expression, prevId] as t.Expression[])
+    : ([elem, t.stringLiteral(name), value as t.Expression] as t.Expression[]);
   return t.callExpression(
     registerImportMethod(path, "setProp", getRendererConfig(path, "universal").moduleName),
-    prevId ? [elem, t.stringLiteral(name), value, prevId] : [elem, t.stringLiteral(name), value]
+    args
   );
 }
 
-function transformChildren(path, results) {
+function transformChildren(path: BabelPath<t.JSXElement>, results: UniversalTransformResult): void {
   const filteredChildren = filterChildren(path.get("children")),
     multi = checkLength(filteredChildren),
-    childNodes = filteredChildren.map(transformNode).reduce((memo, child) => {
-      if (!child) return memo;
-      const i = memo.length;
-      if (child.text && i && memo[i - 1].text) {
-        memo[i - 1].template += child.template;
-        memo[i - 1].templateWithClosingTags += child.templateWithClosingTags || child.template;
-      } else memo.push(child);
-      return memo;
-    }, []);
+    childNodes = filteredChildren
+      .map(path => transformNode(path))
+      .reduce((memo: TransformResult[], child) => {
+        if (!child) return memo;
+        const i = memo.length;
+        if (child.text && i && memo[i - 1].text) {
+          memo[i - 1].template = `${memo[i - 1].template as string}${child.template as string}`;
+          memo[i - 1].templateWithClosingTags =
+            `${memo[i - 1].templateWithClosingTags || memo[i - 1].template}${child.templateWithClosingTags || (child.template as string)}`;
+        } else memo.push(child);
+        return memo;
+      }, []);
 
-  const appends = [];
+  const appends: t.ExpressionStatement[] = [];
   childNodes.forEach((child, index) => {
     if (!child) return;
     if (child.tagName && child.renderer !== "universal") {
@@ -234,8 +263,9 @@ function transformChildren(path, results) {
         "insertNode",
         getRendererConfig(path, "universal").moduleName
       );
-      let insert = child.id;
+      let insert: t.Expression = child.id;
       if (child.text) {
+        const childTemplate = child.template as string;
         let createTextNode = registerImportMethod(
           path,
           "createTextNode",
@@ -247,7 +277,7 @@ function transformChildren(path, results) {
               child.id,
               t.callExpression(createTextNode, [
                 t.templateLiteral(
-                  [t.templateElement({ raw: escapeStringForTemplate(child.template) })],
+                  [t.templateElement({ raw: escapeStringForTemplate(childTemplate) })],
                   []
                 )
               ])
@@ -256,14 +286,14 @@ function transformChildren(path, results) {
         } else
           insert = t.callExpression(createTextNode, [
             t.templateLiteral(
-              [t.templateElement({ raw: escapeStringForTemplate(child.template) })],
+              [t.templateElement({ raw: escapeStringForTemplate(childTemplate) })],
               []
             )
           ]);
       }
       appends.push(t.expressionStatement(t.callExpression(insertNode, [results.id, insert])));
-      results.declarations.push(...child.declarations);
-      results.exprs.push(...child.exprs);
+      results.declarations.push(...(child.declarations as t.VariableDeclarator[]));
+      results.exprs.push(...(child.exprs as t.Statement[]));
       results.dynamics.push(...child.dynamics);
     } else if (child.exprs.length) {
       let insert = registerImportMethod(
@@ -276,14 +306,16 @@ function transformChildren(path, results) {
           t.expressionStatement(
             t.callExpression(insert, [
               results.id,
-              child.exprs[0],
+              child.exprs[0] as t.Expression,
               nextChild(childNodes, index) || t.nullLiteral()
             ])
           )
         );
       } else {
         results.exprs.push(
-          t.expressionStatement(t.callExpression(insert, [results.id, child.exprs[0]]))
+          t.expressionStatement(
+            t.callExpression(insert, [results.id, child.exprs[0] as t.Expression])
+          )
         );
       }
     }
@@ -291,24 +323,32 @@ function transformChildren(path, results) {
   results.exprs.unshift(...appends);
 }
 
-function nextChild(children, index) {
+function nextChild(children: TransformResult[], index: number): t.Identifier | undefined {
   return children[index + 1] && (children[index + 1].id || nextChild(children, index + 1));
 }
 
-function processSpreads(path, attributes, { elem, hasChildren, wrapConditionals }) {
+function processSpreads(
+  path: BabelPath<t.JSXElement>,
+  attributes: JSXAttributePath[],
+  {
+    elem,
+    hasChildren,
+    wrapConditionals
+  }: { elem: t.Identifier; hasChildren: boolean; wrapConditionals: boolean }
+): [JSXAttributePath[], t.ExpressionStatement] {
   // TODO: skip but collect the names of any properties after the last spread to not overwrite them
-  const filteredAttributes = [];
-  const spreadArgs = [];
-  let runningObject = [];
+  const filteredAttributes: JSXAttributePath[] = [];
+  const spreadArgs: t.Expression[] = [];
+  let runningObject: Array<t.ObjectProperty | t.ObjectMethod> = [];
   let dynamicSpread = false;
   let firstSpread = false;
   attributes.forEach(attribute => {
     const node = attribute.node;
-    const key =
-      !t.isJSXSpreadAttribute(node) &&
-      (t.isJSXNamespacedName(node.name)
+    const key = t.isJSXSpreadAttribute(node)
+      ? undefined
+      : t.isJSXNamespacedName(node.name)
         ? `${node.name.namespace.name}:${node.name.name.name}`
-        : node.name.name);
+        : node.name.name;
     if (t.isJSXSpreadAttribute(node)) {
       firstSpread = true;
       if (runningObject.length) {
@@ -323,14 +363,15 @@ function processSpreads(path, attributes, { elem, hasChildren, wrapConditionals 
             !node.argument.arguments.length &&
             !t.isCallExpression(node.argument.callee) &&
             !t.isMemberExpression(node.argument.callee)
-            ? node.argument.callee
+            ? (node.argument.callee as t.Expression)
             : t.arrowFunctionExpression([], node.argument)
-          : node.argument
+          : (node.argument as t.Expression)
       );
     } else if (
       (firstSpread ||
         (t.isJSXExpressionContainer(node.value) &&
           isDynamic(attribute.get("value").get("expression"), { checkMember: true }))) &&
+      key &&
       canNativeSpread(key, { checkNameSpaces: true })
     ) {
       const isContainer = t.isJSXExpressionContainer(node.value);
@@ -338,12 +379,14 @@ function processSpreads(path, attributes, { elem, hasChildren, wrapConditionals 
         isContainer && isDynamic(attribute.get("value").get("expression"), { checkMember: true });
       if (dynamic) {
         const id = convertJSXIdentifier(node.name);
-        let expr =
+        const expression = (node.value as t.JSXExpressionContainer).expression as t.Expression;
+        let expr: t.ArrowFunctionExpression & { body: t.Expression } =
           wrapConditionals &&
-          (t.isLogicalExpression(node.value.expression) ||
-            t.isConditionalExpression(node.value.expression))
+          (t.isLogicalExpression(expression) || t.isConditionalExpression(expression))
             ? transformCondition(attribute.get("value").get("expression"), true)
-            : t.arrowFunctionExpression([], node.value.expression);
+            : (t.arrowFunctionExpression([], expression) as t.ArrowFunctionExpression & {
+                body: t.Expression;
+              });
         runningObject.push(
           t.objectMethod(
             "get",
@@ -357,7 +400,9 @@ function processSpreads(path, attributes, { elem, hasChildren, wrapConditionals 
         runningObject.push(
           t.objectProperty(
             t.stringLiteral(key),
-            isContainer ? node.value.expression : node.value || t.booleanLiteral(true)
+            (isContainer
+              ? (node.value as t.JSXExpressionContainer).expression
+              : node.value || t.booleanLiteral(true)) as t.Expression
           )
         );
       }

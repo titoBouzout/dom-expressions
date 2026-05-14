@@ -9,20 +9,27 @@ import {
   wrapForEffect
 } from "../shared/utils";
 import { setAttr } from "./element";
+import type { NodePath } from "@babel/traverse";
+import type { DynamicBinding, ProgramScopeData, TemplateRecord, TransformResult } from "../types";
 
-export function createTemplate(path, result, wrap) {
+export function createTemplate(
+  path: NodePath,
+  result: TransformResult,
+  wrap: boolean
+): t.Expression {
   const config = getConfig(path);
   if (result.id) {
     registerTemplate(path, result);
+    const decl = result.decl!;
     if (
-      !(result.exprs.length || result.dynamics.length || result.postExprs.length) &&
-      result.decl.declarations.length === 1
+      !(result.exprs.length || result.dynamics.length || result.postExprs?.length) &&
+      decl.declarations.length === 1
     ) {
-      return result.decl.declarations[0].init;
+      return decl.declarations[0].init as t.Expression;
     } else {
       const dynamicsStmt = wrapDynamics(path, result.dynamics);
       const stmts = [
-        result.decl,
+        decl,
         ...result.exprs,
         ...(dynamicsStmt ? [dynamicsStmt] : []),
         ...(result.postExprs || [])
@@ -40,7 +47,7 @@ export function createTemplate(path, result, wrap) {
       const isVarInit = t.isVariableDeclarator(path.parent) && path.parent.init === path.node;
 
       if (isReturnArg || isVarInit) {
-        path.getStatementParent().insertBefore(stmts);
+        path.getStatementParent()?.insertBefore(stmts as t.Statement[]);
         return result.id;
       }
 
@@ -51,22 +58,28 @@ export function createTemplate(path, result, wrap) {
       // would need to be linearized into commas), and the perf delta in
       // these rarer positions is negligible.
       return t.callExpression(
-        t.arrowFunctionExpression([], t.blockStatement([...stmts, t.returnStatement(result.id)])),
+        t.arrowFunctionExpression(
+          [],
+          t.blockStatement([...(stmts as t.Statement[]), t.returnStatement(result.id)])
+        ),
         []
       );
     }
   }
   if (wrap && result.dynamic && config.memoWrapper) {
-    return t.callExpression(registerImportMethod(path, config.memoWrapper), [result.exprs[0]]);
+    return t.callExpression(registerImportMethod(path, config.memoWrapper, undefined), [
+      result.exprs[0] as t.Expression
+    ]);
   }
-  return result.exprs[0];
+  return result.exprs[0] as t.Expression;
 }
 
-export function appendTemplates(path, templates) {
+export function appendTemplates(path: NodePath<t.Program>, templates: TemplateRecord[]) {
   const declarators = templates.map(template => {
+    const templateText = template.template as string;
     const tmpl = {
-      cooked: template.template,
-      raw: escapeStringForTemplate(template.template)
+      cooked: templateText,
+      raw: escapeStringForTemplate(templateText)
     };
 
     const flag = template.isWrapped ? 2 : template.isImportNode ? 1 : null;
@@ -76,9 +89,10 @@ export function appendTemplates(path, templates) {
       t.addComment(
         t.callExpression(
           registerImportMethod(path, "template", getRendererConfig(path, "dom").moduleName),
-          [t.templateLiteral([t.templateElement(tmpl, true)], [])].concat(
-            flag ? [t.numericLiteral(flag)] : []
-          )
+          [
+            t.templateLiteral([t.templateElement(tmpl, true)], []),
+            ...(flag ? [t.numericLiteral(flag)] : [])
+          ]
         ),
         "leading",
         "#__PURE__"
@@ -88,48 +102,48 @@ export function appendTemplates(path, templates) {
   path.node.body.unshift(t.variableDeclaration("var", declarators));
 }
 
-function registerTemplate(path, results) {
+function registerTemplate(path: NodePath, results: TransformResult) {
   const { hydratable } = getConfig(path);
   let decl;
-  if (results.template.length) {
+  if (typeof results.template === "string" && results.template.length) {
     let templateDef, templateId;
     if (!results.skipTemplate) {
-      const templates =
-        path.scope.getProgramParent().data.templates ||
-        (path.scope.getProgramParent().data.templates = []);
+      const data = path.scope.getProgramParent().data as ProgramScopeData;
+      const templates = data.templates || (data.templates = []);
       if ((templateDef = templates.find(t => t.template === results.template))) {
         templateId = templateDef.id;
       } else {
         templateId = path.scope.generateUidIdentifier("tmpl$");
         templates.push({
           id: templateId,
-          template: results.template,
-          templateWithClosingTags: results.templateWithClosingTags,
+          template: results.template as string,
+          templateWithClosingTags: results.templateWithClosingTags as string,
           isImportNode: results.isImportNode,
           isWrapped: results.isWrapped,
           renderer: "dom"
         });
       }
     }
+    const id = results.id!;
     decl = t.variableDeclarator(
-      results.id,
+      id,
       hydratable
         ? t.callExpression(
             registerImportMethod(path, "getNextElement", getRendererConfig(path, "dom").moduleName),
             templateId ? [templateId] : []
           )
-        : t.callExpression(templateId, [])
+        : t.callExpression(templateId!, [])
     );
   }
-  results.declarations.unshift(decl);
-  results.decl = t.variableDeclaration("var", results.declarations);
+  if (decl) results.declarations.unshift(decl);
+  results.decl = t.variableDeclaration("var", results.declarations as t.VariableDeclarator[]);
 }
 
-function wrapDynamics(path, dynamics) {
+function wrapDynamics(path: NodePath, dynamics: DynamicBinding[]) {
   if (!dynamics.length) return;
   const config = getConfig(path);
 
-  const effectWrapperId = registerImportMethod(path, config.effectWrapper);
+  const effectWrapperId = registerImportMethod(path, config.effectWrapper, undefined);
 
   if (dynamics.length === 1) {
     const prevValue =
@@ -164,12 +178,9 @@ function wrapDynamics(path, dynamics) {
 
   const prevId = t.identifier("_p$");
 
-  /** @type {t.ObjectProperty[]} */
-  const values = [];
-  /** @type {t.ExpressionStatement[]} */
-  const statements = [];
-  /** @type {t.Identifier[]} */
-  const properties = [];
+  const values: t.ObjectProperty[] = [];
+  const statements: t.ExpressionStatement[] = [];
+  const properties: t.Identifier[] = [];
 
   dynamics.forEach(({ elem, key, value, tagName }, index) => {
     const propIdent = t.identifier(getNumberedId(index));

@@ -39,7 +39,7 @@ customElements.get("dx-value-attribute-only") ||
 const FIXTURES = /** @type {const} */ ([
   '<div id="main"><!-- this is a comment --><h1 random="">Welcome</h1><span style="color: rgb(85, 85, 85);">555</span><label class="name" for="entry">Edit:</label><input id="entry" type="text" readonly=""></div>',
   '<div id="main" refset="true" class="selected also" title="hi"><h1 class="hello" title="hello John Smith" style="background-color: red;"><a href="/">Welcome</a></h1></div>',
-  '<div id="main"><button>Click Bound</button><button>Click Delegated</button><button>Click Listener</button></div>',
+  '<div id="main"><button>Click Bound</button><button>Click Delegated</button></div>',
   "<div>First</div>middle<p>after1</p><div>Last</div><p>after2</p>",
   '<div id="main" title="hi"><div>John R.<span>Smith</span></div><div>After</div></div>',
   "<div>John R.<span>Smith</span></div>",
@@ -98,23 +98,19 @@ describe("Test HTML", () => {
       <div id="main">
         <button onclick=${() => (exec.bound = true)}>Click Bound</button>
         <button onClick=${[v => (exec.delegated = v), true]}>Click Delegated</button>
-        <button on:click=${() => (exec.listener = true)}>Click Listener</button>
       </div>
     `;
     expect(template.outerHTML).toBe(FIXTURES[2]);
     document.body.appendChild(template);
+    r.registerDelegatedRoot(document.body);
     var event = new MouseEvent("click", { bubbles: true });
     template.firstChild.dispatchEvent(event);
     event = new MouseEvent("click", { bubbles: true });
     template.firstChild.nextSibling.dispatchEvent(event);
-    event = new MouseEvent("click", { bubbles: true });
-    template.firstChild.nextSibling.nextSibling.dispatchEvent(event);
-
     expect(exec.bound).toBe(true);
     expect(exec.delegated).toBe(true);
-    expect(exec.listener).toBe(true);
+    r.unregisterDelegatedRoot(document.body);
     document.body.textContent = "";
-    r.clearDelegatedEvents();
   });
 
   test("Fragments", () => {

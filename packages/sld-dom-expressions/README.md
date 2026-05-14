@@ -78,9 +78,9 @@ const withForAndShow = withFor.define({ Show });
 
 ### `tag.sld`
 
-Self-reference. Lets every template start with `sld\`...\`` regardless of
+Self-reference. Lets every template start with `sld\`...\``regardless of
 which local variable name was used to bind the tag — useful for codemods,
-syntax highlighters, and tooling that keys off the literal text `sld\``.
+syntax highlighters, and tooling that keys off the literal text`sld\``.
 
 ### `tag.components`
 
@@ -91,11 +91,11 @@ The current registry, as a plain object.
 ### Elements and components
 
 ```ts
-sld`<div />`               // self-closing
-sld`<div></div>`           // matched
-sld`<MyComponent />`       // registered component (capitalized)
-sld`<${MyComponent} />`    // inline component via expression hole
-sld`<${MyComponent}>...<//>`  // shorthand close for inline component (see Limitations)
+sld`<div />`; // self-closing
+sld`<div></div>`; // matched
+sld`<MyComponent />`; // registered component (capitalized)
+sld`<${MyComponent} />`; // inline component via expression hole
+sld`<${MyComponent}>...<//>`; // shorthand close for inline component (see Limitations)
 ```
 
 - Tag names start with `a-zA-Z$_` and may contain `a-zA-Z0-9$.:-_`.
@@ -110,7 +110,7 @@ sld`<${MyComponent}>...<//>`  // shorthand close for inline component (see Limit
 - Pure-whitespace runs between elements are dropped from the AST.
 - Leading and trailing whitespace inside an element is dropped when the
   element contains at least one expression hole.
-- When in doubt, use an expression: `sld\`<p>${"  exact  "}</p>\``.
+- When in doubt, use an expression: `sld\`<p>${" exact "}</p>\``.
 
 ### Attributes and properties
 
@@ -122,8 +122,7 @@ sld`<input prop:value=${val} />`    // forced DOM property
 sld`<input attr:foo=${val} />`      // forced HTML attribute
 sld`<input ...${props} />`          // spread
 sld`<input ref=${el => ...} />`     // ref (not reactive)
-sld`<input on:input=${handler} />`  // native addEventListener
-sld`<input onClick=${handler} />`   // delegated event (Solid)
+sld`<input onClick=${handler} />`   // delegated event when supported by the runtime
 sld`<input onclick=${handler} />`   // bound listener (legacy lowercase)
 ```
 
@@ -154,14 +153,14 @@ sld`<Route component=${() => Counter} />`;
 
 ## JSX vs `sld`
 
-| Feature             | Solid JSX                               | `sld` tagged template                              |
-| :------------------ | :-------------------------------------- | :------------------------------------------------- |
-| **Fragments**       | Required: `<>...</>` for multiple roots | None needed: returns a node, or array of nodes     |
-| **Spread**          | `<div {...props} />`                    | `<div ...${props} />`                              |
-| **Comments**        | `{/* ... */}`                           | `<!-- ... -->` (stripped)                          |
-| **Raw-text tags**   | `innerHTML` workaround                  | `<style>` / `<script>` bodies are raw text         |
-| **Whitespace**      | JSX-style stripping                     | Trims between tags; preserves inside text          |
-| **Reactivity**      | Signals auto-wrapped                    | Zero-arg functions auto-wrapped (use `() =>` to opt out) |
+| Feature            | Solid JSX                               | `sld` tagged template                                    |
+| :----------------- | :-------------------------------------- | :------------------------------------------------------- |
+| **Fragments**      | Required: `<>...</>` for multiple roots | None needed: returns a node, or array of nodes           |
+| **Spread**         | `<div {...props} />`                    | `<div ...${props} />`                                    |
+| **Comments**       | `{/* ... */}`                           | `<!-- ... -->` (stripped)                                |
+| **Raw-text tags**  | `innerHTML` workaround                  | `<style>` / `<script>` bodies are raw text               |
+| **Whitespace**     | JSX-style stripping                     | Trims between tags; preserves inside text                |
+| **Reactivity**     | Signals auto-wrapped                    | Zero-arg functions auto-wrapped (use `() =>` to opt out) |
 | **Component refs** | Identifier in scope                     | Registered name (`<Foo />`) or expression (`<${Foo} />`) |
 
 Because `sld` returns a `JSX.Element` — a single node when the template

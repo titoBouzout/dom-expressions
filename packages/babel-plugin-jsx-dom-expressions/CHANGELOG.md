@@ -1,5 +1,17 @@
 # babel-plugin-jsx-dom-expressions
 
+## 0.50.0-next.11
+
+### Patch Changes
+
+- d5cd499: Remove `on:` namespace event support from compiler, runtime, JSX types, and renderer packages.
+
+## 0.50.0-next.10
+
+### Patch Changes
+
+- ba2c493: Update the JSX compiler source to TypeScript and refresh its generated output expectations for the current Babel and Rollup toolchain.
+
 ## 0.50.0-next.9
 
 ## 0.50.0-next.8

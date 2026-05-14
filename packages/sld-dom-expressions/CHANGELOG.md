@@ -1,5 +1,13 @@
 # sld-dom-expressions
 
+## 0.50.0-next.11
+
+### Patch Changes
+
+- d5cd499: Remove `on:` namespace event support from compiler, runtime, JSX types, and renderer packages.
+
+## 0.50.0-next.10
+
 ## 0.50.0-next.9
 
 ### Patch Changes

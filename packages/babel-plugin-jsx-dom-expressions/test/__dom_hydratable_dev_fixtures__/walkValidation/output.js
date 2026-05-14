@@ -23,7 +23,7 @@ var _el$6 = _$getNextElement(_tmpl$3),
 _$insert(_el$8, name);
 const mixedTextAndElements = _el$6;
 var _el$9 = _$getNextElement(_tmpl$4),
-  _el$10 = _$getFirstChild(_el$9, "ul"),
-  _el$11 = _$getFirstChild(_el$10, "li");
-_$insert(_el$11, name);
+  _el$0 = _$getFirstChild(_el$9, "ul"),
+  _el$1 = _$getFirstChild(_el$0, "li");
+_$insert(_el$1, name);
 const nestedWalk = _el$9;

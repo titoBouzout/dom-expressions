@@ -71,7 +71,7 @@ const findAttributes = new RegExp(
 );
 const selfClosing = new RegExp(tagName + attrName + attrPartials + "*)([ " + spaces + "]*/>)", "g");
 const marker = "<!--#-->";
-const reservedNameSpaces = new Set(["class", "on", "style", "prop"]);
+const reservedNameSpaces = new Set(["class", "style", "prop"]);
 
 function attrReplacer($0: string, $1: string, $2: string, $3: string) {
   return "<" + $1 + $2.replace(findAttributes, replaceAttributes) + $3;
@@ -192,19 +192,13 @@ export function createHTML(
   }
 
   function parseAttribute(node: IDom, tag: string, name: string, value: string, options: Options) {
-    if (name.slice(0, 2) === "on") {
-      if (!name.includes(":")) {
-        const lc = name.slice(2).toLowerCase();
-        const delegate = delegateEvents && r.DelegatedEvents.has(lc);
-        options.exprs.push(
-          `r.addEventListener(${tag},"${lc}",exprs[${options.counter++}],${delegate})`
-        );
-        delegate && options.delegatedEvents.add(lc);
-      } else {
-        options.exprs.push(
-          `${tag}.addEventListener("${name.slice(3)}",exprs[${options.counter++}])`
-        );
-      }
+    if (name.slice(0, 2) === "on" && !name.includes(":")) {
+      const lc = name.slice(2).toLowerCase();
+      const delegate = delegateEvents && r.DelegatedEvents.has(lc);
+      options.exprs.push(
+        `r.addEventListener(${tag},"${lc}",exprs[${options.counter++}],${delegate})`
+      );
+      delegate && options.delegatedEvents.add(lc);
     } else if (name === "ref") {
       options.exprs.push(`r.ref(() => exprs[${options.counter++}], ${tag})`);
     } else {
