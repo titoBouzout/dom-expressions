@@ -77,7 +77,7 @@ export function createSLDRuntime(r: Runtime) {
       node.children.forEach(child => buildTemplate(child, insideTemplate));
     } else if (node.type === COMPONENT_NODE || node.type === ROOT_NODE) {
       node.children.forEach(child => buildTemplate(child, false));
-    } else if (node.type === TEXT_NODE) {
+    } else if (node.type === TEXT_NODE && !insideTemplate) {
       textTemplate.innerHTML = node.value;
       node.value = textTemplate.content.textContent ?? "";
     }
