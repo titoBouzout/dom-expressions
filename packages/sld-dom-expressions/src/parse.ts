@@ -243,7 +243,9 @@ export const parse = (tokens: Token[], voidElements: Set<string>): RootNode => {
       }
 
       default:
-        throw new Error(`Unexpected token: ${JSON.stringify(token)}  after <${(stack[stack.length - 1] as ElementNode | ComponentNode).name}>`);
+        throw new Error(
+          `Unexpected token: ${JSON.stringify(token)}  after <${(stack[stack.length - 1] as ElementNode | ComponentNode).name}>`
+        );
     }
   }
 
