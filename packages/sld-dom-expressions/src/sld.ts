@@ -34,8 +34,8 @@ export function createSLDRuntime(r: Runtime) {
     return r.SVGElements.has(name)
       ? document.createElementNS("http://www.w3.org/2000/svg", name)
       : r.MathMLElements.has(name)
-      ? document.createElementNS("http://www.w3.org/1998/Math/MathML", name)
-      : document.createElement(name);
+        ? document.createElementNS("http://www.w3.org/1998/Math/MathML", name)
+        : document.createElement(name);
   };
 
   // Internal: build an SLD tag bound to a component registry.
@@ -58,7 +58,7 @@ export function createSLDRuntime(r: Runtime) {
     let root = cache.get(strings);
     if (!root) {
       root = parse(tokenize(strings, rawTextElements), r.VoidElements);
-      buildTemplate(root);
+      buildTemplate(root, false);
       cache.set(strings, root);
     }
     return root;
@@ -77,44 +77,13 @@ export function createSLDRuntime(r: Runtime) {
       node.children.forEach(child => buildTemplate(child, insideTemplate));
     } else if (node.type === COMPONENT_NODE || node.type === ROOT_NODE) {
       node.children.forEach(child => buildTemplate(child, false));
+    } else if (node.type === TEXT_NODE) {
+      textTemplate.innerHTML = node.value;
+      node.value = textTemplate.content.textContent ?? "";
     }
   };
 
   const textTemplate = document.createElement("template");
-
-  // const buildInnerHTML = (node: ChildNode): string => {
-  //   switch (node.type) {
-  //     case TEXT_NODE:
-  //       return node.value;
-  //     case EXPRESSION_NODE:
-  //       return `<!--${node.value}-->`;
-  //     case COMPONENT_NODE:
-  //       return `<!--${node.name}-->`;
-  //     case ELEMENT_NODE:
-  //       let hasSpread = false;
-  //       let props = "";
-
-  //       const elem = createElement(node.name);
-  //       //props located after spread need to be applied after spread for possible overrides
-  //       node.props = node.props.filter(prop => {
-  //         if (prop.type === STATIC_PROP) {
-  //           if (prop.name.startsWith("prop:")) return true;
-  //           props += ` ${prop.name}=${prop.quote || '"'}${prop.value}${prop.quote || '"'} `;
-  //           return hasSpread;
-  //         } else if (prop.type === BOOLEAN_PROP) {
-  //           props += ` ${prop.name} `;
-  //           return hasSpread;
-  //         } else if (prop.type === SPREAD_PROP) {
-  //           hasSpread = true;
-  //           return hasSpread;
-  //         }
-  //         return true;
-  //       });
-  //       return `<${node.name} ${props}>${node.children.map(buildInnerHTML).join("")}</${
-  //         node.name
-  //       }>`;
-  //   }
-  // };
 
   const buildNodes = (node: ChildNode): Node => {
     switch (node.type) {
@@ -183,7 +152,7 @@ export function createSLDRuntime(r: Runtime) {
     values: any[],
     components: ComponentRegistry
   ): JSX.Element => {
-    if (node.type!==ELEMENT_NODE || !node.template) {
+    if (node.type !== ELEMENT_NODE || !node.template) {
       return flat(node.children.map(n => renderNode(n, values, components)));
     }
 
@@ -217,9 +186,12 @@ export function createSLDRuntime(r: Runtime) {
         }
       }
     };
-    walkNodes(node.children, node.name === "template"
-                ? document.createTreeWalker((element as HTMLTemplateElement).content, 129)
-                : walker);
+    walkNodes(
+      node.children,
+      node.name === "template"
+        ? document.createTreeWalker((element as HTMLTemplateElement).content, 129)
+        : walker
+    );
     return element;
   };
 

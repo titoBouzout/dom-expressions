@@ -217,7 +217,7 @@ describe("SLD Integration Tests", () => {
       dispose();
     });
 
-        it("handles top level expressions", () => {
+    it("handles top level expressions", () => {
       const [count, setCount] = createSignal(0);
       const dispose = createRoot(d => {
         const nodes = sld`<div></div>${() => count()}` as HTMLElement;
@@ -491,7 +491,8 @@ describe("SLD Integration Tests", () => {
     it("handles html encodings", () =>
       createRoot(dispose => {
         const elem = sld`&copy;<span>&gt;</span>` as Node[];
-        expect(elem[0].textContent).toEqual("\u00A9");
+        
+        expect(elem[0]).toEqual("\u00A9");
         expect(elem[1].textContent).toEqual(">");
         dispose();
       }));
