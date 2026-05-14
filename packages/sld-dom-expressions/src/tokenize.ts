@@ -182,7 +182,7 @@ export const tokenize = (
             const endQuoteIndex = str.indexOf(char, cursor + 1);
 
             if (endQuoteIndex === -1) {
-              throw new Error(`Unterminated string`);
+              throw new Error(`Unterminated string at ${i}:${cursor}`);
             }
             tokens.push({
               type: STRING_TOKEN,
@@ -203,7 +203,7 @@ export const tokenize = (
             tokens.push({ type: SPREAD_TOKEN });
             cursor += 3;
           } else {
-            throw new Error(`Unexpected Character: ${str[cursor]}`);
+            throw new Error(`Unexpected Character: ${str[cursor]} at ${i}:${cursor}`);
           }
           break;
         }

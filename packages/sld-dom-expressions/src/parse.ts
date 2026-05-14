@@ -159,7 +159,7 @@ export const parse = (tokens: Token[], voidElements: Set<string>): RootNode => {
             pos++;
             continue;
           }
-          throw new Error("Mismatched closing tag.");
+          throw new Error(`Mismatched closing tag at token ${pos}.`);
         }
 
         // Handle Opening Tag: <name ...>
@@ -190,7 +190,9 @@ export const parse = (tokens: Token[], voidElements: Set<string>): RootNode => {
                 node.props.push({ type: SPREAD_PROP, value: expr.value });
                 pos += 2; // Consume '...' and expression
               } else {
-                throw new Error("Spread operator must be followed by an expression.");
+                throw new Error(
+                  `Spread operator must be followed by an expression at token ${pos}.`
+                );
               }
             } else if (attrToken.type === IDENTIFIER_TOKEN) {
               const name = attrToken.value;
@@ -212,7 +214,9 @@ export const parse = (tokens: Token[], voidElements: Set<string>): RootNode => {
                   } as StringProp);
                   pos++;
                 } else {
-                  throw new Error("Attribute value must be an expression or a string.");
+                  throw new Error(
+                    `Attribute value must be an expression or a string at token ${pos}.`
+                  );
                 }
               } else {
                 // Boolean prop
@@ -220,7 +224,7 @@ export const parse = (tokens: Token[], voidElements: Set<string>): RootNode => {
                 pos++;
               }
             } else {
-              throw new Error("Invalid attribute.");
+              throw new Error(`Invalid attribute at token ${pos}.`);
             }
           }
 
@@ -239,12 +243,12 @@ export const parse = (tokens: Token[], voidElements: Set<string>): RootNode => {
       }
 
       default:
-        throw new Error(`Unexpected token: ${JSON.stringify(token)}`);
+        throw new Error(`Unexpected token: ${JSON.stringify(token)} at position ${pos}.`);
     }
   }
 
   if (stack.length > 1) {
-    throw new Error("Unclosed tag found.");
+    throw new Error(`Unclosed tag found near token ${len}.`);
   }
 
   return root;

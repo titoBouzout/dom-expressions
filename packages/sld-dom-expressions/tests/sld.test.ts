@@ -491,7 +491,7 @@ describe("SLD Integration Tests", () => {
     it("handles html encodings", () =>
       createRoot(dispose => {
         const elem = sld`&copy;<span>&gt;</span>` as Node[];
-        
+
         expect(elem[0]).toEqual("\u00A9");
         expect(elem[1].textContent).toEqual(">");
         dispose();
@@ -526,6 +526,26 @@ describe("SLD Integration Tests", () => {
           `);
         expect(el.className).toBe("spaced");
         expect(el.textContent?.trim()).toBe("Text");
+        dispose();
+      }));
+
+    it("throws for an unregistered capitalized component", () =>
+      createRoot(dispose => {
+        expect(() => sld`<UnregisteredComponent />`).toThrow(/not found in registry/);
+        dispose();
+      }));
+
+    it("throws for spread of a non-object value", () =>
+      createRoot(dispose => {
+        const invalid = 42;
+        expect(() => sld`<div ...${invalid}></div>`).toThrow(/Can only spread objects/);
+        dispose();
+      }));
+
+    it("throws for dynamic component that is not a function", () =>
+      createRoot(dispose => {
+        const notAComponent = "not-a-function";
+        expect(() => sld`<${notAComponent} />`).toThrowError(/not found in registry/);
         dispose();
       }));
 
