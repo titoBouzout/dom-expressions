@@ -6,6 +6,7 @@ export { createComponent, effect, memo, untrack } from "rxcore";
 export { getOwner };
 
 export {
+  DOMWithState,
   ChildProperties,
   DOMElements,
   SVGElements,
@@ -1020,6 +1021,11 @@ export function getAssets() {
   return out;
 }
 
+// consider deprecating
+export function Assets(props) {
+  useAssets(() => props.children);
+}
+
 export function generateHydrationScript({ eventNames = ["click", "input"], nonce } = {}) {
   return `<script${
     nonce ? ` nonce="${nonce}"` : ""
@@ -1272,6 +1278,11 @@ export {
   notSup as insert,
   notSup as spread,
   notSup as delegateEvents,
+  notSup as registerDelegatedRoot,
+  notSup as unregisterDelegatedRoot,
+  notSup as registerDelegatedContainer,
+  notSup as unregisterDelegatedContainer,
+  notSup as getDelegatedRoot,
   notSup as dynamicProperty,
   notSup as setAttribute,
   notSup as setAttributeNS,
@@ -1285,7 +1296,9 @@ export {
   notSup as getNextElement,
   notSup as getNextMatch,
   notSup as getNextMarker,
-  notSup as runHydrationEvents
+  notSup as runHydrationEvents,
+  notSup as ref,
+  notSup as setStyleProperty
 };
 
 function notSup() {

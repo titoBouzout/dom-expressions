@@ -181,6 +181,13 @@ Removes tags from the template output if they have no closing parents and are th
 
 Removes quotes for html attributes when possible from the template output. This may not work in all browser-like environments the same. The solution has been tested again Chrome/Edge/Firefox/Safari.
 
+### omitAttributeSpacing
+
+- Type: `boolean`
+- Default: `true`
+
+When `true`, quoted attributes may omit the space before the next attribute. Set this to `false` to emit strictly spaced attributes for stricter HTML/SVG parsers.
+
 ### requireImportSource
 
 - Type: `string | false`

@@ -19,6 +19,7 @@ export interface JSXDOMExpressionsConfig {
   omitNestedClosingTags: boolean;
   omitLastClosingTag: boolean;
   omitQuotes: boolean;
+  omitAttributeSpacing: boolean;
   contextToCustomElements: boolean;
   staticMarker: string;
   effectWrapper: string;
@@ -41,6 +42,7 @@ const config: JSXDOMExpressionsConfig = {
   omitNestedClosingTags: false,
   omitLastClosingTag: true,
   omitQuotes: true,
+  omitAttributeSpacing: true,
   contextToCustomElements: false,
   staticMarker: "@once",
   effectWrapper: "effect",
