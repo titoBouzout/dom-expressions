@@ -159,7 +159,7 @@ export const parse = (tokens: Token[], voidElements: Set<string>): RootNode => {
             pos++;
             continue;
           }
-          throw new Error(`Mismatched closing tag at token ${pos}.`);
+          throw new Error(`Mismatched closing tag for <${currentParent.name}> at token ${pos}.`);
         }
 
         // Handle Opening Tag: <name ...>
@@ -191,7 +191,7 @@ export const parse = (tokens: Token[], voidElements: Set<string>): RootNode => {
                 pos += 2; // Consume '...' and expression
               } else {
                 throw new Error(
-                  `Spread operator must be followed by an expression at token ${pos}.`
+                  `Spread operator in <${node.name}> must be followed by an expression at token ${pos}.`
                 );
               }
             } else if (attrToken.type === IDENTIFIER_TOKEN) {
@@ -215,7 +215,7 @@ export const parse = (tokens: Token[], voidElements: Set<string>): RootNode => {
                   pos++;
                 } else {
                   throw new Error(
-                    `Attribute value must be an expression or a string at token ${pos}.`
+                    `Attribute value in <${node.name}> must be an expression or a string at token ${pos}.`
                   );
                 }
               } else {
@@ -224,7 +224,7 @@ export const parse = (tokens: Token[], voidElements: Set<string>): RootNode => {
                 pos++;
               }
             } else {
-              throw new Error(`Invalid attribute at token ${pos}.`);
+              throw new Error(`Invalid attribute in <${node.name}> at token ${pos}.`);
             }
           }
 
@@ -248,7 +248,7 @@ export const parse = (tokens: Token[], voidElements: Set<string>): RootNode => {
   }
 
   if (stack.length > 1) {
-    throw new Error(`Unclosed tag found near token ${len}.`);
+    throw new Error(`Unclosed tag for <${(stack[stack.length - 1] as ElementNode).name}>`);
   }
 
   return root;
