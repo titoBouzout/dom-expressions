@@ -58,26 +58,28 @@ export function createSLDRuntime(r: Runtime) {
     let root = cache.get(strings);
     if (!root) {
       root = parse(tokenize(strings, rawTextElements), r.VoidElements);
-      buildTemplate(root);
+      buildTemplate(root, false);
       cache.set(strings, root);
     }
     return root;
   };
 
   //build template element with same exact shape as tree so they can be walked through in sync
-  const buildTemplate = (node: RootNode | ChildNode): void => {
-    if (node.type === ROOT_NODE || node.type === COMPONENT_NODE) {
-      //Criteria for using template is component or root has at least 1 element. May be be a more optimal condition.
-      if (node.children.some(v => v.type === ELEMENT_NODE)) {
+  const buildTemplate = (node: RootNode | ChildNode, insideTemplate: boolean): void => {
+    if (node.type === ELEMENT_NODE) {
+      if (!insideTemplate) {
+        // node.template = r.template(buildInnerHTML(node));
         const template = document.createElement("template");
-        template.content.append(...node.children.map(buildNodes));
-        // buildNodes(node.children, template.content);
-        // template.innerHTML = node.children.map(buildHTML).join("");
+        template.content.appendChild(buildNodes(node));
         node.template = template;
+        insideTemplate = true;
       }
-      node.children.forEach(buildTemplate);
-    } else if (node.type === ELEMENT_NODE) {
-      node.children.forEach(buildTemplate);
+      node.children.forEach(child => buildTemplate(child, insideTemplate));
+    } else if (node.type === COMPONENT_NODE || node.type === ROOT_NODE) {
+      node.children.forEach(child => buildTemplate(child, false));
+    } else if (node.type === TEXT_NODE && !insideTemplate) {
+      textTemplate.innerHTML = node.value;
+      node.value = textTemplate.content.textContent ?? "";
     }
   };
 
@@ -136,7 +138,7 @@ export function createSLDRuntime(r: Runtime) {
         let name = node.name;
 
         // 3. Standard HTML Element (node.name is guaranteed string here)
-        const element = createElement(name);
+        const element = renderChildren(node, values, components) as Element;
         const props = gatherProps(node, values, components);
 
         r.spread(element, props, true);
@@ -146,16 +148,16 @@ export function createSLDRuntime(r: Runtime) {
   };
 
   const renderChildren = (
-    node: RootNode | ComponentNode,
+    node: RootNode | ComponentNode | ElementNode,
     values: any[],
     components: ComponentRegistry
   ): JSX.Element => {
-    if (!node.template) {
+    if (node.type !== ELEMENT_NODE || !node.template) {
       return flat(node.children.map(n => renderNode(n, values, components)));
     }
 
-    const clone = node.template.content.cloneNode(true) as DocumentFragment;
-    walker.currentNode = clone;
+    const element = node.template.content.firstChild!.cloneNode(true) as Element;
+    walker.currentNode = element;
 
     const walkNodes = (nodes: ChildNode[], walker: TreeWalker) => {
       for (const node of nodes) {
@@ -184,8 +186,13 @@ export function createSLDRuntime(r: Runtime) {
         }
       }
     };
-    walkNodes(node.children, walker);
-    return clone.childNodes.length === 1 ? clone.firstChild : Array.from(clone.childNodes);
+    walkNodes(
+      node.children,
+      node.name === "template"
+        ? document.createTreeWalker((element as HTMLTemplateElement).content, 129)
+        : walker
+    );
+    return element;
   };
 
   const gatherProps = (

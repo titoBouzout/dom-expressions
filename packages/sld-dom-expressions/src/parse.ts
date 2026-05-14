@@ -48,7 +48,6 @@ export type ChildNode = ElementNode | TextNode | ExpressionNode | ComponentNode;
 export interface RootNode {
   type: typeof ROOT_NODE;
   children: ChildNode[];
-  template?: HTMLTemplateElement;
 }
 
 export interface ElementNode {
@@ -56,6 +55,7 @@ export interface ElementNode {
   name: string;
   props: PropNode[];
   children: ChildNode[];
+  template?: HTMLTemplateElement;
 }
 
 export interface ComponentNode {
@@ -63,7 +63,6 @@ export interface ComponentNode {
   name: string | number;
   props: PropNode[];
   children: ChildNode[];
-  template?: HTMLTemplateElement;
 }
 
 export interface TextNode {
@@ -160,7 +159,7 @@ export const parse = (tokens: Token[], voidElements: Set<string>): RootNode => {
             pos++;
             continue;
           }
-          throw new Error("Mismatched closing tag.");
+          throw new Error(`Mismatched closing tag for <${currentParent.name}>`);
         }
 
         // Handle Opening Tag: <name ...>
@@ -191,7 +190,9 @@ export const parse = (tokens: Token[], voidElements: Set<string>): RootNode => {
                 node.props.push({ type: SPREAD_PROP, value: expr.value });
                 pos += 2; // Consume '...' and expression
               } else {
-                throw new Error("Spread operator must be followed by an expression.");
+                throw new Error(
+                  `Spread operator in <${node.name}> must be followed by an expression`
+                );
               }
             } else if (attrToken.type === IDENTIFIER_TOKEN) {
               const name = attrToken.value;
@@ -213,7 +214,9 @@ export const parse = (tokens: Token[], voidElements: Set<string>): RootNode => {
                   } as StringProp);
                   pos++;
                 } else {
-                  throw new Error("Attribute value must be an expression or a string.");
+                  throw new Error(
+                    `Attribute value for "${name}" in <${node.name}> must be an expression or a string`
+                  );
                 }
               } else {
                 // Boolean prop
@@ -221,7 +224,7 @@ export const parse = (tokens: Token[], voidElements: Set<string>): RootNode => {
                 pos++;
               }
             } else {
-              throw new Error("Invalid attribute.");
+              throw new Error(`Invalid attribute in <${node.name}>`);
             }
           }
 
@@ -240,12 +243,14 @@ export const parse = (tokens: Token[], voidElements: Set<string>): RootNode => {
       }
 
       default:
-        throw new Error(`Unexpected token: ${JSON.stringify(token)}`);
+        throw new Error(
+          `Unexpected token: ${JSON.stringify(token)}  after <${(stack[stack.length - 1] as ElementNode | ComponentNode).name}>`
+        );
     }
   }
 
   if (stack.length > 1) {
-    throw new Error("Unclosed tag found.");
+    throw new Error(`Unclosed tag for <${(stack[stack.length - 1] as ElementNode).name}>`);
   }
 
   return root;

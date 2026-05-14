@@ -217,6 +217,22 @@ describe("SLD Integration Tests", () => {
       dispose();
     });
 
+    it("handles top level expressions", () => {
+      const [count, setCount] = createSignal(0);
+      const dispose = createRoot(d => {
+        const nodes = sld`<div></div>${() => count()}` as HTMLElement;
+        r.insert(document.body, nodes);
+        return d;
+      });
+
+      expect(document.body.textContent).toContain("0");
+      setCount(5);
+      flush();
+
+      expect(document.body.textContent).toContain("5");
+      dispose();
+    });
+
     it("handles sibling expressions and static text correctly", () =>
       createRoot(dispose => {
         const [a] = createSignal("A");
@@ -458,7 +474,7 @@ describe("SLD Integration Tests", () => {
       createRoot(dispose => {
         const nodes = sld`${"hole"}<template>Count: ${() => 1}</template>` as Node[];
         document.body.append(...nodes);
-        expect((nodes[2] as HTMLTemplateElement).content.textContent).toEqual("Count: 1");
+        expect((nodes[1] as HTMLTemplateElement).content.textContent).toEqual("Count: 1");
         dispose();
       }));
 
@@ -487,7 +503,8 @@ describe("SLD Integration Tests", () => {
     it("handles html encodings", () =>
       createRoot(dispose => {
         const elem = sld`&copy;<span>&gt;</span>` as Node[];
-        expect(elem[0].textContent).toEqual("\u00A9");
+
+        expect(elem[0]).toEqual("\u00A9");
         expect(elem[1].textContent).toEqual(">");
         dispose();
       }));
@@ -521,6 +538,26 @@ describe("SLD Integration Tests", () => {
           `);
         expect(el.className).toBe("spaced");
         expect(el.textContent?.trim()).toBe("Text");
+        dispose();
+      }));
+
+    it("throws for an unregistered capitalized component", () =>
+      createRoot(dispose => {
+        expect(() => sld`<UnregisteredComponent />`).toThrow(/not found in registry/);
+        dispose();
+      }));
+
+    it("throws for spread of a non-object value", () =>
+      createRoot(dispose => {
+        const invalid = 42;
+        expect(() => sld`<div ...${invalid}></div>`).toThrow(/Can only spread objects/);
+        dispose();
+      }));
+
+    it("throws for dynamic component that is not a function", () =>
+      createRoot(dispose => {
+        const notAComponent = "not-a-function";
+        expect(() => sld`<${notAComponent} />`).toThrowError(/not found in registry/);
         dispose();
       }));
 
