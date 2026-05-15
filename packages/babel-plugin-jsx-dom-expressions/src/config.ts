@@ -21,6 +21,7 @@ export interface JSXDOMExpressionsConfig {
   omitQuotes: boolean;
   omitAttributeSpacing: boolean;
   contextToCustomElements: boolean;
+  staticMarker: string;
   effectWrapper: string;
   memoWrapper: string;
   validate: boolean;
@@ -43,6 +44,7 @@ const config: JSXDOMExpressionsConfig = {
   omitQuotes: true,
   omitAttributeSpacing: true,
   contextToCustomElements: false,
+  staticMarker: "@static",
   effectWrapper: "effect",
   memoWrapper: "memo",
   validate: true,

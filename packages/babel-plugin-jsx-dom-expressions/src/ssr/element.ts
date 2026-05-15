@@ -134,7 +134,7 @@ function groupAttributeClosures(path: BabelPath, results: SSRTransformResult): v
       const di = declMap.get(run.ids[k])!;
       const init = results.declarations[di]!.init as babelTypes.Expression;
       // Arrow w/ expression body → inline its body. Anything else
-      // (bare identifier, `_$escape(/*@once*/ x)`, …) gets dropped in
+      // (bare identifier, `_$escape(/*@static*/ x)`, …) gets dropped in
       // as-is; the runtime's type dispatch handles both fn and value slots.
       bodies.push(
         babelTypes.isArrowFunctionExpression(init) && !babelTypes.isBlockStatement(init.body)

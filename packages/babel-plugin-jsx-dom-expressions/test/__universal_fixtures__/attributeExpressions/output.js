@@ -81,20 +81,19 @@ _$effect(
 );
 const template2 = _el$5;
 var _el$9 = _$createElement("div");
+_$setProp(_el$9, "id", /*@static*/ state.id);
+_$setProp(
+  _el$9,
+  "style",
+  /*@static*/ {
+    "background-color": state.color
+  }
+);
+_$setProp(_el$9, "textContent", /*@static*/ state.content);
 _$effect(
-  () => ({
-    e: /*@once*/ state.id,
-    t: /*@once*/ {
-      "background-color": state.color
-    },
-    a: state.name,
-    o: /*@once*/ state.content
-  }),
-  ({ e, t, a, o }, _p$) => {
-    e !== _p$?.e && _$setProp(_el$9, "id", e, _p$?.e);
-    t !== _p$?.t && _$setProp(_el$9, "style", t, _p$?.t);
-    a !== _p$?.a && _$setProp(_el$9, "name", a, _p$?.a);
-    o !== _p$?.o && _$setProp(_el$9, "textContent", o, _p$?.o);
+  () => state.name,
+  (_v$, _$p) => {
+    _$setProp(_el$9, "name", _v$, _$p);
   }
 );
 const template3 = _el$9;

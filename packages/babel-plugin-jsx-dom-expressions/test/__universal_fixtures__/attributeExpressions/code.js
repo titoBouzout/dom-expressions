@@ -33,10 +33,10 @@ const template2 = (
 
 const template3 = (
   <div
-    id={/*@once*/ state.id}
-    style={/*@once*/ { "background-color": state.color }}
+    id={/*@static*/ state.id}
+    style={/*@static*/ { "background-color": state.color }}
     name={state.name}
-    textContent={/*@once*/ state.content}
+    textContent={/*@static*/ state.content}
   />
 );
 

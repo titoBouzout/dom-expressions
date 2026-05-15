@@ -119,9 +119,7 @@ const template2 = Child({
   get dynamic() {
     return state.data;
   },
-  get stale() {
-    return /*@once*/ state.data;
-  },
+  stale: state.data,
   handleClick: clickHandler,
   get ["hyphen-ated"]() {
     return state.data;

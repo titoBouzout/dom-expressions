@@ -43,12 +43,10 @@ const template10 = Module(
   })
 );
 var _v$9 = _$ssrHydrationKey(),
-  _v$0 = () => _$escape(/*@once*/ state.children);
+  _v$0 = _$escape(/*@static*/ state.children);
 const template11 = _$ssr(_tmpl$2, _v$9, _v$0);
 const template12 = Module({
-  get children() {
-    return /*@once*/ state.children;
-  }
+  children: state.children
 });
 var _v$1 = _$ssrHydrationKey(),
   _v$10 = _$escape(children);

@@ -11,6 +11,7 @@ import type {
 } from "../types";
 
 type JSXElementName = t.JSXIdentifier | t.JSXMemberExpression | t.JSXNamespacedName;
+type StaticMarkerNode = t.Node & { expression?: unknown };
 type JSXElementPath = NodePath<t.JSXElement>;
 type JSXAttributePath = NodePath<t.JSXAttribute>;
 type ConditionPath = NodePath<t.Expression | t.JSXEmptyExpression>;
@@ -93,12 +94,35 @@ export function isComponent(tagName: string): boolean {
   );
 }
 
+export function hasStaticMarker(
+  object: StaticMarkerNode | null | undefined,
+  path: NodePath
+): boolean | undefined {
+  if (!object) return false;
+  if (
+    object.leadingComments &&
+    object.leadingComments[0] &&
+    object.leadingComments[0].value.trim() === getConfig(path).staticMarker
+  )
+    return true;
+  if (object.expression && typeof object.expression === "object")
+    return hasStaticMarker(object.expression as StaticMarkerNode, path);
+}
+
 export function isDynamic(
   path: NodePath,
   { checkMember, checkTags, checkCallExpressions = true }: DynamicOptions
 ): boolean | undefined {
+  const config = getConfig(path);
   const expr = path.node;
   if (t.isFunction(expr)) return false;
+  if (
+    expr.leadingComments &&
+    expr.leadingComments[0] &&
+    expr.leadingComments[0].value.trim() === config.staticMarker
+  ) {
+    return false;
+  }
 
   if (
     checkCallExpressions &&
