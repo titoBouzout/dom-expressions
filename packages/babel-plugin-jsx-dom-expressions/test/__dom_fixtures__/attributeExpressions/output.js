@@ -72,7 +72,8 @@ var _tmpl$ = /*#__PURE__*/ _$template(`<div><h1><a href=/>Welcome`),
   ),
   _tmpl$50 = /*#__PURE__*/ _$template(`<video src=test.mp4 muted>`),
   _tmpl$51 = /*#__PURE__*/ _$template(`<div class=todo>`),
-  _tmpl$52 = /*#__PURE__*/ _$template(`<div class="todo item">`);
+  _tmpl$52 = /*#__PURE__*/ _$template(`<div class="todo item">`),
+  _tmpl$53 = /*#__PURE__*/ _$template(`<div style:border="1px solid black">`);
 import * as styles from "./styles.module.css";
 import { binding } from "somewhere";
 function refFn() {}
@@ -200,13 +201,11 @@ _$effect(
       "background-color": color(),
       ...props.style
     },
-    t: props.top,
-    a: !!props.active
+    t: !!props.active
   }),
-  ({ e, t, a }, _p$) => {
+  ({ e, t }, _p$) => {
     _$style(_el$11, e, _p$?.e);
-    t !== _p$?.t && _$setStyleProperty(_el$11, "padding-top", t);
-    a !== _p$?.a && _el$11.classList.toggle("my-class", a);
+    t !== _p$?.t && _el$11.classList.toggle("my-class", t);
   }
 );
 const template7 = _el$11;
@@ -842,4 +841,15 @@ _$effect(
   }
 );
 const template99 = _el$123;
+
+// `style:` is not a reserved namespace — it falls through to a literal attribute.
+const template100 = _tmpl$53();
+var _el$125 = _tmpl$4();
+_$effect(
+  () => props.border,
+  _v$ => {
+    _$setAttribute(_el$125, "style:border", _v$);
+  }
+);
+const template101 = _el$125;
 _$delegateEvents(["click", "input"]);

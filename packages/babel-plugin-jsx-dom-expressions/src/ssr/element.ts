@@ -513,12 +513,6 @@ function transformToObject(
 
 function normalizeAttributes(path: BabelPath<babelTypes.JSXElement>): JSXAttributePath[] {
   const attributes = path.get("openingElement").get("attributes"),
-    styleAttributes = attributes.filter(
-      (a): a is JSXAttributeOnlyPath =>
-        t.isJSXAttribute(a.node) &&
-        t.isJSXNamespacedName(a.node.name) &&
-        a.node.name.namespace.name === "style"
-    ),
     classNamespaceAttributes = attributes.filter(
       (a): a is JSXAttributeOnlyPath =>
         t.isJSXAttribute(a.node) &&
@@ -569,7 +563,6 @@ function normalizeAttributes(path: BabelPath<babelTypes.JSXElement>): JSXAttribu
     first.name = t.jsxIdentifier("class");
     first.value = t.jsxExpressionContainer(t.templateLiteral(quasis, values));
   }
-  if (styleAttributes.length) transformToObject("style", attributes, styleAttributes);
   return attributes;
 }
 

@@ -166,8 +166,7 @@ var _v$1 = _$ssrHydrationKey(),
     _$ssrStyle({
       "background-color": color(),
       "margin-right": "40px",
-      ...props.style,
-      "padding-top": props.top
+      ...props.style
     });
 const template7 = _$ssr(
   _tmpl$8,

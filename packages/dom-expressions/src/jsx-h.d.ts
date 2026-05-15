@@ -271,11 +271,6 @@ export namespace JSX {
 
   // TODO: Should we allow this?
   // type ClassKeys = `class:${string}`;
-  // type CSSKeys = Exclude<keyof csstype.PropertiesHyphen, `-${string}`>;
-
-  // type CSSAttributes = {
-  //   [key in CSSKeys as `style:${key}`]: csstype.PropertiesHyphen[key];
-  // };
 
   // BOOLEAN
 

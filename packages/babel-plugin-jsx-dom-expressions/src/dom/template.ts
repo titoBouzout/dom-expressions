@@ -167,7 +167,8 @@ function wrapDynamics(path: NodePath, dynamics: DynamicBinding[]) {
               setAttr(path, dynamics[0].elem, dynamics[0].key, newValue, {
                 tagName: dynamics[0].tagName,
                 dynamic: true,
-                prevId: prevValue
+                prevId: prevValue,
+                styleProperty: dynamics[0].styleProperty
               })
             )
           ])
@@ -182,7 +183,7 @@ function wrapDynamics(path: NodePath, dynamics: DynamicBinding[]) {
   const statements: t.ExpressionStatement[] = [];
   const properties: t.Identifier[] = [];
 
-  dynamics.forEach(({ elem, key, value, tagName }, index) => {
+  dynamics.forEach(({ elem, key, value, tagName, styleProperty }, index) => {
     const propIdent = t.identifier(getNumberedId(index));
     const propMember = t.memberExpression(prevId, propIdent);
     const optionalPropMember = t.optionalMemberExpression(prevId, propIdent, false, true);
@@ -205,7 +206,6 @@ function wrapDynamics(path: NodePath, dynamics: DynamicBinding[]) {
         )
       );
     } else {
-      const prev = key.startsWith("style:") ? propIdent : undefined;
       statements.push(
         t.expressionStatement(
           t.logicalExpression(
@@ -220,7 +220,7 @@ function wrapDynamics(path: NodePath, dynamics: DynamicBinding[]) {
             setAttr(path, elem, key, propIdent, {
               tagName,
               dynamic: true,
-              prevId: prev
+              styleProperty
             })
           )
         )

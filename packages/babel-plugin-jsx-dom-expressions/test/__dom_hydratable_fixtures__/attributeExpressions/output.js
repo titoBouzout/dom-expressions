@@ -198,13 +198,11 @@ _$effect(
       "background-color": color(),
       ...props.style
     },
-    t: props.top,
-    a: !!props.active
+    t: !!props.active
   }),
-  ({ e, t, a }, _p$) => {
+  ({ e, t }, _p$) => {
     _$style(_el$11, e, _p$?.e);
-    t !== _p$?.t && _$setStyleProperty(_el$11, "padding-top", t);
-    a !== _p$?.a && _el$11.classList.toggle("my-class", a);
+    t !== _p$?.t && _el$11.classList.toggle("my-class", t);
   }
 );
 const template7 = _el$11;

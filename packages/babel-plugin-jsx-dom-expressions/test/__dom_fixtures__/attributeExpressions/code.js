@@ -53,7 +53,6 @@ let undefVar;
 const template7 = (
   <div
     style={{ "background-color": color(), "margin-right": "40px", ...props.style }}
-    style:padding-top={props.top}
     class:my-class={props.active}
     class:other-class={undefVar}
     class={{ "other-class2": undefVar }}
@@ -386,3 +385,7 @@ const template97 = <div class={["todo", { active: isActive(), [props.name]: prop
 const template98 = <div class={["todo", { active: isActive() }, props.extra]} />;
 
 const template99 = <div class={["todo", "item", { todo: false, active: isActive() }]} />;
+
+// `style:` is not a reserved namespace — it falls through to a literal attribute.
+const template100 = <div style:border="1px solid black" />;
+const template101 = <div style:border={props.border} />;

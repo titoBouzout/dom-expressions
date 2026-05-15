@@ -129,13 +129,11 @@ _$effect(
       "margin-right": "40px",
       ...props.style
     },
-    t: props.top,
-    a: props.active
+    t: props.active
   }),
-  ({ e, t, a }, _p$) => {
+  ({ e, t }, _p$) => {
     e !== _p$?.e && _$setProp(_el$11, "style", e, _p$?.e);
-    t !== _p$?.t && _$setProp(_el$11, "style:padding-top", t, _p$?.t);
-    a !== _p$?.a && _$setProp(_el$11, "class:my-class", a, _p$?.a);
+    t !== _p$?.t && _$setProp(_el$11, "class:my-class", t, _p$?.t);
   }
 );
 const template7 = _el$11;
