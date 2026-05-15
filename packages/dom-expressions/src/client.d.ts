@@ -56,9 +56,9 @@ export function addEventListener(
 ): void;
 export function classList(
   node: Element,
-  value: { [k: string]: boolean },
-  prev?: { [k: string]: boolean }
-): { [k: string]: boolean };
+  value: JSX.ClassList,
+  prev?: JSX.ClassList
+): JSX.ClassList;
 export function style(
   node: Element,
   value: { [k: string]: string },

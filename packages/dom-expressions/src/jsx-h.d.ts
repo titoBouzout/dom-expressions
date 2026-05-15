@@ -140,14 +140,13 @@ export namespace JSX {
   interface IntrinsicAttributes {
     ref?: unknown | ((e: unknown) => void) | undefined;
   }
+  export type ClassList = {
+    [k: string]: boolean | undefined;
+  };
   interface CustomAttributes<T> {
     ref?: T | ((el: T) => void) | undefined;
     children?: FunctionMaybe<Element | undefined>;
-    classList?:
-      | {
-          [k: string]: boolean | undefined;
-        }
-      | undefined;
+    classList?: ClassList | undefined;
     $ServerOnly?: boolean | undefined;
   }
   type Accessor<T> = () => T;
