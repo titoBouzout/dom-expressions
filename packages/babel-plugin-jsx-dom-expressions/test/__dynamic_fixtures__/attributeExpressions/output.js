@@ -17,7 +17,7 @@ import { spread as _$spread } from "r-dom";
 import { mergeProps as _$mergeProps } from "r-custom";
 var _tmpl$ = /*#__PURE__*/ _$template(`<div><h1><a href=/>Welcome`),
   _tmpl$2 = /*#__PURE__*/ _$template(`<div><div></div><div> </div><div>`),
-  _tmpl$3 = /*#__PURE__*/ _$template(`<div foo>`),
+  _tmpl$3 = /*#__PURE__*/ _$template(`<div foo> `),
   _tmpl$4 = /*#__PURE__*/ _$template(`<div>`),
   _tmpl$5 = /*#__PURE__*/ _$template(`<div class=a className=b>`),
   _tmpl$6 = /*#__PURE__*/ _$template(`<div style=margin-right:40px>`),
@@ -149,86 +149,92 @@ _$effect(
   }
 );
 const template2 = _el$4;
-var _el$9 = _tmpl$3();
-_$setAttribute(_el$9, "id", /*@once*/ state.id);
-_$setStyleProperty(_el$9, "background-color", /*@once*/ state.color);
-_el$9.textContent = /*@once*/ state.content;
+var _el$9 = _tmpl$3(),
+  _el$0 = _el$9.firstChild;
 _$effect(
-  () => state.name,
-  _v$ => {
-    _$setAttribute(_el$9, "name", _v$);
+  () => ({
+    e: /*@once*/ state.id,
+    t: /*@once*/ state.color,
+    a: state.name,
+    o: /*@once*/ state.content
+  }),
+  ({ e, t, a, o }, _p$) => {
+    e !== _p$?.e && _$setAttribute(_el$9, "id", e);
+    t !== _p$?.t && _$setStyleProperty(_el$9, "background-color", t);
+    a !== _p$?.a && _$setAttribute(_el$9, "name", a);
+    (!_p$ || o !== _p$.o) && (_el$0.data = o);
   }
 );
 const template3 = _el$9;
-var _el$0 = _tmpl$4();
-_$className(_el$0, {
+var _el$1 = _tmpl$4();
+_$className(_el$1, {
   "ccc:ddd": true
 });
 _$effect(
   () => state.class,
   _v$ => {
-    _$setAttribute(_el$0, "className", _v$);
+    _$setAttribute(_el$1, "className", _v$);
   }
 );
-const template4 = _el$0;
+const template4 = _el$1;
 const template5 = _tmpl$5();
-var _el$10 = _tmpl$4();
-_el$10.textContent = "Hi";
+var _el$11 = _tmpl$4();
+_el$11.textContent = "Hi";
 _$effect(
   () => someStyle(),
   (_v$, _$p) => {
-    _$style(_el$10, _v$, _$p);
+    _$style(_el$11, _v$, _$p);
   }
 );
-const template6 = _el$10;
+const template6 = _el$11;
 let undefVar;
-var _el$11 = _tmpl$6();
-_el$11.classList.toggle("other-class2", !!undefVar);
+var _el$12 = _tmpl$6();
+_el$12.classList.toggle("other-class2", !!undefVar);
 _$effect(
   () => ({
     "background-color": color(),
     ...props.style
   }),
   (_v$, _$p) => {
-    _$style(_el$11, _v$, _$p);
+    _$style(_el$12, _v$, _$p);
   }
 );
-const template7 = _el$11;
+const template7 = _el$12;
 let refTarget;
-var _el$12 = _tmpl$4();
+var _el$13 = _tmpl$4();
 var _ref$2 = refTarget;
 typeof _ref$2 === "function" || Array.isArray(_ref$2)
-  ? _$ref(() => _ref$2, _el$12)
-  : (refTarget = _el$12);
-const template8 = _el$12;
-var _el$13 = _tmpl$4();
-_$ref(() => e => console.log(e), _el$13);
-const template9 = _el$13;
+  ? _$ref(() => _ref$2, _el$13)
+  : (refTarget = _el$13);
+const template8 = _el$13;
 var _el$14 = _tmpl$4();
+_$ref(() => e => console.log(e), _el$14);
+const template9 = _el$14;
+var _el$15 = _tmpl$4();
 var _ref$3 = refFactory();
-(typeof _ref$3 === "function" || Array.isArray(_ref$3)) && _$ref(() => _ref$3, _el$14);
-const template10 = _el$14;
-var _el$15 = _tmpl$7();
-_el$15.htmlFor = thing;
-_el$15.number = 123;
-const template12 = _el$15;
+(typeof _ref$3 === "function" || Array.isArray(_ref$3)) && _$ref(() => _ref$3, _el$15);
+const template10 = _el$15;
+var _el$16 = _tmpl$7();
+_el$16.htmlFor = thing;
+_el$16.number = 123;
+const template12 = _el$16;
 const template13 = _tmpl$8();
-var _el$17 = _tmpl$9();
+var _el$18 = _tmpl$9();
 _$effect(
   () => state.visible,
   _v$ => {
-    _el$17.checked = _v$;
+    _el$18.checked = _v$;
   }
 );
-const template14 = _el$17;
+const template14 = _el$18;
 const template15 = _tmpl$0();
 const template16 = _tmpl$1();
-var _el$20 = _tmpl$10();
-_$addEventListener(_el$20, "click", increment, true);
-const template17 = _el$20;
-var _el$21 = _tmpl$4();
+var _el$21 = _tmpl$10();
+_$addEventListener(_el$21, "click", increment, true);
+const template17 = _el$21;
+var _el$22 = _tmpl$4();
 _$spread(
-  _el$21,
+  _el$22,
   _$mergeProps(() => ({
     get [key()]() {
       return props.value;
@@ -236,21 +242,21 @@ _$spread(
   })),
   false
 );
-const template18 = _el$21;
-var _el$22 = _tmpl$4();
-_$className(_el$22, [
+const template18 = _el$22;
+var _el$23 = _tmpl$4();
+_$className(_el$23, [
   {
     "bg-red-500": true
   },
   "flex flex-col"
 ]);
-const template19 = _el$22;
-var _el$23 = _tmpl$11(),
-  _el$24 = _el$23.firstChild,
-  _el$25 = _el$24.nextSibling;
-_$addEventListener(_el$24, "input", doSomething, true);
-_$addEventListener(_el$25, "input", doSomethingElse, true);
-_$setAttribute(_el$25, "readonly", value);
+const template19 = _el$23;
+var _el$24 = _tmpl$11(),
+  _el$25 = _el$24.firstChild,
+  _el$26 = _el$25.nextSibling;
+_$addEventListener(_el$25, "input", doSomething, true);
+_$addEventListener(_el$26, "input", doSomethingElse, true);
+_$setAttribute(_el$26, "readonly", value);
 _$effect(
   () => ({
     e: s(),
@@ -261,58 +267,58 @@ _$effect(
     n: max()
   }),
   ({ e, t, a, o, i, n }, _p$) => {
-    _el$24.value = e ?? "";
-    t !== _p$?.t && _$setAttribute(_el$24, "min", t);
-    a !== _p$?.a && _$setAttribute(_el$24, "max", a);
-    _el$25.checked = o;
-    i !== _p$?.i && _$setAttribute(_el$25, "min", i);
-    n !== _p$?.n && _$setAttribute(_el$25, "max", n);
+    _el$25.value = e ?? "";
+    t !== _p$?.t && _$setAttribute(_el$25, "min", t);
+    a !== _p$?.a && _$setAttribute(_el$25, "max", a);
+    _el$26.checked = o;
+    i !== _p$?.i && _$setAttribute(_el$26, "min", i);
+    n !== _p$?.n && _$setAttribute(_el$26, "max", n);
   }
 );
-const template20 = _el$23;
-var _el$26 = _tmpl$12();
+const template20 = _el$24;
+var _el$27 = _tmpl$12();
 _$effect(
   () => ({
     ...rest
   }),
   (_v$, _$p) => {
-    _$style(_el$26, _v$, _$p);
+    _$style(_el$27, _v$, _$p);
   }
 );
-const template21 = _el$26;
+const template21 = _el$27;
 const template22 = _tmpl$13();
-var _el$28 = _tmpl$4();
-_$insert(_el$28, () => "t" in test && "true");
+var _el$29 = _tmpl$4();
+_$insert(_el$29, () => "t" in test && "true");
 _$effect(
   () => "t" in test,
   _v$ => {
-    _$setAttribute(_el$28, "disabled", _v$);
+    _$setAttribute(_el$29, "disabled", _v$);
   }
 );
-const template23 = _el$28;
-var _el$29 = _tmpl$14();
+const template23 = _el$29;
+var _el$30 = _tmpl$14();
 _$spread(
-  _el$29,
+  _el$30,
   _$mergeProps(props, {
     something: true
   }),
   false
 );
-const template24 = _el$29;
-var _el$30 = _tmpl$15(),
-  _el$31 = _el$30.firstChild;
-_$insert(_el$30, () => props.children, _el$31);
-_$spread(
-  _el$31,
-  _$mergeProps(props, {
-    something: true
-  }),
-  false
-);
-const template25 = _el$30;
-var _el$32 = _tmpl$16();
+const template24 = _el$30;
+var _el$31 = _tmpl$15(),
+  _el$32 = _el$31.firstChild;
+_$insert(_el$31, () => props.children, _el$32);
 _$spread(
   _el$32,
+  _$mergeProps(props, {
+    something: true
+  }),
+  false
+);
+const template25 = _el$31;
+var _el$33 = _tmpl$16();
+_$spread(
+  _el$33,
   _$mergeProps(
     {
       start: "Hi",
@@ -322,10 +328,10 @@ _$spread(
   ),
   true
 );
-const template26 = _el$32;
-var _el$33 = _tmpl$16();
+const template26 = _el$33;
+var _el$34 = _tmpl$16();
 _$spread(
-  _el$33,
+  _el$34,
   _$mergeProps(
     {
       start: "Hi"
@@ -338,47 +344,37 @@ _$spread(
   ),
   true
 );
-const template27 = _el$33;
-var _el$34 = _tmpl$17(),
-  _el$35 = _el$34.firstChild,
+const template27 = _el$34;
+var _el$35 = _tmpl$17(),
   _el$36 = _el$35.firstChild,
-  _el$37 = _el$35.nextSibling,
-  _el$38 = _el$37.nextSibling;
-_$spread(_el$34, _$mergeProps(api), true);
+  _el$37 = _el$36.firstChild,
+  _el$38 = _el$36.nextSibling,
+  _el$39 = _el$38.nextSibling;
 _$spread(_el$35, _$mergeProps(api), true);
-_$insert(_el$35, () => (api() ? "checked" : "unchecked"), null);
-_$spread(_el$37, _$mergeProps(api), false);
+_$spread(_el$36, _$mergeProps(api), true);
+_$insert(_el$36, () => (api() ? "checked" : "unchecked"), null);
 _$spread(_el$38, _$mergeProps(api), false);
-const template28 = _el$34;
-var _el$39 = _tmpl$4();
-_$setAttribute(_el$39, "attribute", !!someValue);
-_$insert(_el$39, !!someValue);
-const template29 = _el$39;
+_$spread(_el$39, _$mergeProps(api), false);
+const template28 = _el$35;
+var _el$40 = _tmpl$4();
+_$setAttribute(_el$40, "attribute", !!someValue);
+_$insert(_el$40, !!someValue);
+const template29 = _el$40;
 const template30 = _tmpl$18();
-var _el$41 = _tmpl$4();
+var _el$42 = _tmpl$4();
 _$effect(
   () => getStore.itemProperties.color,
   _v$ => {
-    _$setStyleProperty(_el$41, "background-color", _v$);
+    _$setStyleProperty(_el$42, "background-color", _v$);
   }
 );
-const template31 = _el$41;
+const template31 = _el$42;
 const template32 = _tmpl$4();
 const template33 = [
   (() => {
-    var _el$43 = _tmpl$19();
-    _$effect(
-      () => styles.button,
-      (_v$, _$p) => {
-        _$className(_el$43, _v$, _$p);
-      }
-    );
-    return _el$43;
-  })(),
-  (() => {
     var _el$44 = _tmpl$19();
     _$effect(
-      () => styles["foo--bar"],
+      () => styles.button,
       (_v$, _$p) => {
         _$className(_el$44, _v$, _$p);
       }
@@ -388,7 +384,7 @@ const template33 = [
   (() => {
     var _el$45 = _tmpl$19();
     _$effect(
-      () => styles.foo.bar,
+      () => styles["foo--bar"],
       (_v$, _$p) => {
         _$className(_el$45, _v$, _$p);
       }
@@ -398,44 +394,54 @@ const template33 = [
   (() => {
     var _el$46 = _tmpl$19();
     _$effect(
-      () => styles[foo()],
+      () => styles.foo.bar,
       (_v$, _$p) => {
         _$className(_el$46, _v$, _$p);
       }
     );
     return _el$46;
+  })(),
+  (() => {
+    var _el$47 = _tmpl$19();
+    _$effect(
+      () => styles[foo()],
+      (_v$, _$p) => {
+        _$className(_el$47, _v$, _$p);
+      }
+    );
+    return _el$47;
   })()
 ];
-var _el$47 = _tmpl$4();
+var _el$48 = _tmpl$4();
 var _ref$4 = a().b.c;
 typeof _ref$4 === "function" || Array.isArray(_ref$4)
-  ? _$ref(() => _ref$4, _el$47)
-  : (a().b.c = _el$47);
-const template35 = _el$47;
-var _el$48 = _tmpl$4();
-var _ref$5 = a().b?.c;
-(typeof _ref$5 === "function" || Array.isArray(_ref$5)) && _$ref(() => _ref$5, _el$48);
-const template36 = _el$48;
+  ? _$ref(() => _ref$4, _el$48)
+  : (a().b.c = _el$48);
+const template35 = _el$48;
 var _el$49 = _tmpl$4();
-var _ref$6 = a() ? b : c;
-(typeof _ref$6 === "function" || Array.isArray(_ref$6)) && _$ref(() => _ref$6, _el$49);
-const template37 = _el$49;
+var _ref$5 = a().b?.c;
+(typeof _ref$5 === "function" || Array.isArray(_ref$5)) && _$ref(() => _ref$5, _el$49);
+const template36 = _el$49;
 var _el$50 = _tmpl$4();
+var _ref$6 = a() ? b : c;
+(typeof _ref$6 === "function" || Array.isArray(_ref$6)) && _$ref(() => _ref$6, _el$50);
+const template37 = _el$50;
+var _el$51 = _tmpl$4();
 var _ref$7 = a() ?? b;
-(typeof _ref$7 === "function" || Array.isArray(_ref$7)) && _$ref(() => _ref$7, _el$50);
-const template38 = _el$50;
+(typeof _ref$7 === "function" || Array.isArray(_ref$7)) && _$ref(() => _ref$7, _el$51);
+const template38 = _el$51;
 const template39 = _tmpl$20();
-var _el$52 = _tmpl$4();
+var _el$53 = _tmpl$4();
 _$effect(
   () => a(),
   _v$ => {
-    _$setStyleProperty(_el$52, "color", _v$);
+    _$setStyleProperty(_el$53, "color", _v$);
   }
 );
-const template40 = _el$52;
-var _el$53 = _tmpl$21(),
-  _el$54 = _el$53.firstChild,
-  _el$55 = _el$54.nextSibling;
+const template40 = _el$53;
+var _el$54 = _tmpl$21(),
+  _el$55 = _el$54.firstChild,
+  _el$56 = _el$55.nextSibling;
 _$effect(
   () => ({
     e: state.color,
@@ -443,12 +449,12 @@ _$effect(
     a: Color.Blue
   }),
   ({ e, t, a }, _p$) => {
-    queueMicrotask(() => (_el$53.value = e)) || (_el$53.value = e);
-    _el$54.value = t;
-    _el$55.value = a;
+    queueMicrotask(() => (_el$54.value = e)) || (_el$54.value = e);
+    _el$55.value = t;
+    _el$56.value = a;
   }
 );
-const template41 = _el$53;
+const template41 = _el$54;
 const template42 = _tmpl$22();
 const template43 = _tmpl$23();
 const template44 = _tmpl$24();
@@ -458,118 +464,134 @@ const template47 = _tmpl$27();
 const template48 = _tmpl$28();
 const template49 = _tmpl$29();
 const template50 = _tmpl$30();
-var _el$65 = _tmpl$4();
-_$ref(() => binding, _el$65);
-const template51 = _el$65;
 var _el$66 = _tmpl$4();
+_$ref(() => binding, _el$66);
+const template51 = _el$66;
+var _el$67 = _tmpl$4();
 var _ref$8 = binding.prop;
 typeof _ref$8 === "function" || Array.isArray(_ref$8)
-  ? _$ref(() => _ref$8, _el$66)
-  : (binding.prop = _el$66);
-const template52 = _el$66;
-var _el$67 = _tmpl$4();
+  ? _$ref(() => _ref$8, _el$67)
+  : (binding.prop = _el$67);
+const template52 = _el$67;
+var _el$68 = _tmpl$4();
 var _ref$9 = refFn;
 typeof _ref$9 === "function" || Array.isArray(_ref$9)
-  ? _$ref(() => _ref$9, _el$67)
-  : (refFn = _el$67);
-const template53 = _el$67;
-var _el$68 = _tmpl$4();
-_$ref(() => refConst, _el$68);
-const template54 = _el$68;
+  ? _$ref(() => _ref$9, _el$68)
+  : (refFn = _el$68);
+const template53 = _el$68;
 var _el$69 = _tmpl$4();
+_$ref(() => refConst, _el$69);
+const template54 = _el$69;
+var _el$70 = _tmpl$4();
 var _ref$0 = refUnknown;
 typeof _ref$0 === "function" || Array.isArray(_ref$0)
-  ? _$ref(() => _ref$0, _el$69)
-  : (refUnknown = _el$69);
-const template55 = _el$69;
+  ? _$ref(() => _ref$0, _el$70)
+  : (refUnknown = _el$70);
+const template55 = _el$70;
 const template56 = _tmpl$31();
 const template57 = _tmpl$32();
-var _el$72 = _tmpl$4();
-_el$72.true = true;
-_el$72.false = false;
-const template58 = _el$72;
+var _el$73 = _tmpl$4();
+_el$73.true = true;
+_el$73.false = false;
+const template58 = _el$73;
 const template59 = _tmpl$33();
-var _el$74 = _tmpl$34();
-_$setAttribute(_el$74, "i", undefined);
-_$setAttribute(_el$74, "j", null);
-_$setAttribute(_el$74, "k", void 0);
-const template60 = _el$74;
-var _el$75 = _$createElement("math"),
-  _el$76 = _$createElement("mrow");
-_$insertNode(_el$75, _el$76);
-_$setProp(_el$75, "display", "block");
-const template61 = _el$75;
-var _el$77 = _$createElement("mrow"),
-  _el$78 = _$createElement("mi"),
-  _el$80 = _$createElement("mo");
-_$insertNode(_el$77, _el$78);
-_$insertNode(_el$77, _el$80);
-_$insertNode(_el$78, _$createTextNode(`x`));
-_$insertNode(_el$80, _$createTextNode(`=`));
-const template62 = _el$77;
+var _el$75 = _tmpl$34();
+_$setAttribute(_el$75, "i", undefined);
+_$setAttribute(_el$75, "j", null);
+_$setAttribute(_el$75, "k", void 0);
+const template60 = _el$75;
+var _el$76 = _$createElement("math"),
+  _el$77 = _$createElement("mrow");
+_$insertNode(_el$76, _el$77);
+_$setProp(_el$76, "display", "block");
+const template61 = _el$76;
+var _el$78 = _$createElement("mrow"),
+  _el$79 = _$createElement("mi"),
+  _el$81 = _$createElement("mo");
+_$insertNode(_el$78, _el$79);
+_$insertNode(_el$78, _el$81);
+_$insertNode(_el$79, _$createTextNode(`x`));
+_$insertNode(_el$81, _$createTextNode(`=`));
+const template62 = _el$78;
 const template63 = _tmpl$35();
 const template64 = _tmpl$36();
 const template65 = _tmpl$37();
-var _el$85 = _tmpl$37();
+var _el$86 = _tmpl$37();
 _$effect(
   () => signal(),
   _v$ => {
-    _$setStyleProperty(_el$85, "border", _v$);
+    _$setStyleProperty(_el$86, "border", _v$);
   }
 );
-const template66 = _el$85;
-var _el$86 = _tmpl$37();
-_$setStyleProperty(_el$86, "border", somevalue);
-const template67 = _el$86;
+const template66 = _el$86;
 var _el$87 = _tmpl$37();
+_$setStyleProperty(_el$87, "border", somevalue);
+const template67 = _el$87;
+var _el$88 = _tmpl$37();
 _$effect(
   () => some.access,
   _v$ => {
-    _$setStyleProperty(_el$87, "border", _v$);
+    _$setStyleProperty(_el$88, "border", _v$);
   }
 );
-const template68 = _el$87;
+const template68 = _el$88;
 const template69 = _tmpl$37();
-var _el$89 = _tmpl$38();
-_$setAttribute(_el$89, "playsinline", value);
-const template70 = _el$89;
+var _el$90 = _tmpl$38();
+_$setAttribute(_el$90, "playsinline", value);
+const template70 = _el$90;
 const template71 = _tmpl$39();
 const template72 = _tmpl$38();
 const template73 = _tmpl$40();
 const template74 = _tmpl$41();
-var _el$94 = _tmpl$38();
-_el$94.poster = "1.jpg";
-const template75 = _el$94;
-var _el$95 = _tmpl$42(),
-  _el$96 = _el$95.firstChild;
-_el$96.poster = "1.jpg";
-const template76 = _el$95;
+var _el$95 = _tmpl$38();
+_el$95.poster = "1.jpg";
+const template75 = _el$95;
+var _el$96 = _tmpl$42(),
+  _el$97 = _el$96.firstChild;
+_el$97.poster = "1.jpg";
+const template76 = _el$96;
 
 // ONCE TESTS
-var _el$97 = _tmpl$4();
-_$setStyleProperty(_el$97, "width", /*@once*/ props.width);
-_$setStyleProperty(_el$97, "height", props.height);
-const template77 = _el$97;
 var _el$98 = _tmpl$4();
-_$setStyleProperty(_el$98, "width", /*@once*/ props.width);
-_$setStyleProperty(_el$98, "height", props.height);
 _$effect(
-  () => color(),
-  _v$ => {
-    _$setAttribute(_el$98, "something", _v$);
+  () => ({
+    e: /*@once*/ props.width,
+    t: props.height
+  }),
+  ({ e, t }, _p$) => {
+    e !== _p$?.e && _$setStyleProperty(_el$98, "width", e);
+    t !== _p$?.t && _$setStyleProperty(_el$98, "height", t);
   }
 );
-const template78 = _el$98;
+const template77 = _el$98;
 var _el$99 = _tmpl$4();
-_$setStyleProperty(_el$99, "height", /* @once */ props.height);
-_$setAttribute(_el$99, "something", /*@once*/ color());
 _$effect(
-  () => props.width,
-  _v$ => {
-    _$setStyleProperty(_el$99, "width", _v$);
+  () => ({
+    e: /*@once*/ props.width,
+    t: props.height,
+    a: color()
+  }),
+  ({ e, t, a }, _p$) => {
+    e !== _p$?.e && _$setStyleProperty(_el$99, "width", e);
+    t !== _p$?.t && _$setStyleProperty(_el$99, "height", t);
+    a !== _p$?.a && _$setAttribute(_el$99, "something", a);
   }
 );
-const template79 = _el$99;
+const template78 = _el$99;
+var _el$100 = _tmpl$4();
+_$effect(
+  () => ({
+    e: props.width,
+    t: /* @once */ props.height,
+    a: /*@once*/ color()
+  }),
+  ({ e, t, a }, _p$) => {
+    e !== _p$?.e && _$setStyleProperty(_el$100, "width", e);
+    t !== _p$?.t && _$setStyleProperty(_el$100, "height", t);
+    a !== _p$?.a && _$setAttribute(_el$100, "something", a);
+  }
+);
+const template79 = _el$100;
 
 // ONCE TESTS SPREADS
 
@@ -581,68 +603,54 @@ const propsSpread = {
     "margin-right": /* @once */ props.right
   }
 };
-var _el$100 = _tmpl$4();
-_$spread(_el$100, propsSpread, false);
-const template80 = _el$100;
 var _el$101 = _tmpl$4();
-_$spread(
-  _el$101,
-  {
-    ...propsSpread
-  },
-  false
-);
-const template81 = _el$101;
+_$spread(_el$101, propsSpread, false);
+const template80 = _el$101;
 var _el$102 = _tmpl$4();
+_$spread(_el$102, propsSpread, false);
+const template81 = _el$102;
+var _el$103 = _tmpl$4();
 _$spread(
-  _el$102,
+  _el$103,
   _$mergeProps(propsSpread, {
     get ["data-dynamic"]() {
       return color();
     },
-    "data-static": /* @once */ color()
+    get ["data-static"]() {
+      return /* @once */ color();
+    }
   }),
   false
 );
-const template82 = _el$102;
-var _el$103 = _tmpl$4();
-_$spread(
-  _el$103,
-  _$mergeProps(
-    {
-      ...propsSpread
-    },
-    {
-      get ["data-dynamic"]() {
-        return color();
-      },
-      "data-static": /* @once */ color()
-    }
-  ),
-  false
-);
-const template83 = _el$103;
+const template82 = _el$103;
 var _el$104 = _tmpl$4();
 _$spread(
   _el$104,
-  _$mergeProps(
-    {
-      ...propsSpread1
+  _$mergeProps(propsSpread, {
+    get ["data-dynamic"]() {
+      return color();
     },
-    propsSpread2,
-    {
-      ...propsSpread3
-    },
-    {
-      get ["data-dynamic"]() {
-        return color();
-      },
-      "data-static": /* @once */ color()
+    get ["data-static"]() {
+      return /* @once */ color();
     }
-  ),
+  }),
   false
 );
-const template84 = _el$104;
+const template83 = _el$104;
+var _el$105 = _tmpl$4();
+_$spread(
+  _el$105,
+  _$mergeProps(propsSpread1, propsSpread2, propsSpread3, {
+    get ["data-dynamic"]() {
+      return color();
+    },
+    get ["data-static"]() {
+      return /* @once */ color();
+    }
+  }),
+  false
+);
+const template84 = _el$105;
 
 // ONCE PROPERTY OF OBJECT ACCESS
 
@@ -653,23 +661,28 @@ const styleProp = {
     height: props.height
   }
 };
-var _el$105 = _tmpl$4();
-_$style(_el$105, /* @once */ styleProp.style);
-const template85 = _el$105;
 var _el$106 = _tmpl$4();
 _$effect(
-  () => styleProp.style,
+  () => /* @once */ styleProp.style,
   (_v$, _$p) => {
     _$style(_el$106, _v$, _$p);
   }
 );
-const template86 = _el$106;
+const template85 = _el$106;
+var _el$107 = _tmpl$4();
+_$effect(
+  () => styleProp.style,
+  (_v$, _$p) => {
+    _$style(_el$107, _v$, _$p);
+  }
+);
+const template86 = _el$107;
 const style = {
   background: "red",
   border: "solid black " + count() + "px"
 };
-var _el$107 = _tmpl$43();
-_$insert(_el$107, count);
+var _el$108 = _tmpl$43();
+_$insert(_el$108, count);
 _$effect(
   () => ({
     e: count(),
@@ -677,21 +690,25 @@ _$effect(
     a: style
   }),
   ({ e, t, a }, _p$) => {
-    e !== _p$?.e && _$setAttribute(_el$107, "aria-label", e);
-    _$style(_el$107, t, _p$?.t);
-    _$className(_el$107, a, _p$?.a);
+    e !== _p$?.e && _$setAttribute(_el$108, "aria-label", e);
+    _$style(_el$108, t, _p$?.t);
+    _$className(_el$108, a, _p$?.a);
   }
 );
-const template87 = _el$107;
-var _el$108 = _tmpl$43();
-_$style(_el$108, /* @once*/ style);
-_$className(_el$108, /* @once*/ style);
-_$insert(_el$108, count);
+const template87 = _el$108;
+var _el$109 = _tmpl$43();
+_$insert(_el$109, count);
 _$effect(
-  () => count(),
-  _v$ => {
-    _$setAttribute(_el$108, "aria-label", _v$);
+  () => ({
+    e: count(),
+    t: /* @once*/ style,
+    a: /* @once*/ style
+  }),
+  ({ e, t, a }, _p$) => {
+    e !== _p$?.e && _$setAttribute(_el$109, "aria-label", e);
+    _$style(_el$109, t, _p$?.t);
+    _$className(_el$109, a, _p$?.a);
   }
 );
-const template88 = _el$108;
+const template88 = _el$109;
 _$delegateEvents(["click", "input"]);

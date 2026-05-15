@@ -139,13 +139,6 @@ Array of Component exports from module, that aren't included by default with the
 
 This plugin leverages a heuristic for reactive wrapping and lazy evaluation of JSX expressions. This option indicates the reactive wrapper function name (`effect`), defaults to `effect`.
 
-### staticMarker
-
-- Type: `string`
-- Default: `@once`
-
-Comment decorator string indicates the static expression, used to tell the compiler not to wrap them by `effect` function, defaults to `@once`.
-
 ### memoWrapper
 
 - Type: `string`

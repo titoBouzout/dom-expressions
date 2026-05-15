@@ -47,10 +47,12 @@ const template10 = _$createComponent(
   })
 );
 var _el$1 = _$createElement("module");
-_$insert(_el$1, /*@once*/ state.children);
+_$insert(_el$1, () => /*@once*/ state.children);
 const template11 = _el$1;
 const template12 = _$createComponent(Module, {
-  children: state.children
+  get children() {
+    return /*@once*/ state.children;
+  }
 });
 var _el$10 = _$createElement("module");
 _$insert(_el$10, children);

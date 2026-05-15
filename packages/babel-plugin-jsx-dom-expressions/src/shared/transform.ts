@@ -82,18 +82,6 @@ export function transformJSX(
   const template = getCreateTemplate(config, path, result as TransformResult);
 
   path.replaceWith(replace(template(path, result as TransformResult, false) as t.Expression));
-
-  path.traverse({
-    enter(path: NodePath) {
-      if (
-        path.node.leadingComments &&
-        path.node.leadingComments[0] &&
-        path.node.leadingComments[0].value.trim() === config.staticMarker
-      ) {
-        path.node.leadingComments.shift();
-      }
-    }
-  });
 }
 
 function getTargetFunctionParent(path: NodePath, parent: FunctionParentScope): FunctionParentScope {

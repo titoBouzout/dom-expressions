@@ -30,8 +30,7 @@ import {
   isLockedDOMProperty,
   transformCondition,
   trimWhitespace,
-  inlineCallExpression,
-  hasStaticMarker
+  inlineCallExpression
 } from "../shared/utils";
 import { transformNode } from "../shared/transform";
 import { InlineElements, BlockElements } from "./constants";
@@ -1090,8 +1089,7 @@ function transformAttributes(
             checkMember: true
           }) ||
             ((key === "class" || key === "style") &&
-              !attribute.get("value").get("expression").evaluate().confident &&
-              !hasStaticMarker(value, path)))
+              !attribute.get("value").get("expression").evaluate().confident))
         ) {
           // own effect
           let nextElem = elem as babelTypes.Expression;
@@ -1458,7 +1456,6 @@ function processSpreads(
   attributes: JSXAttributePath[],
   { elem, hasChildren, wrapConditionals }: SpreadOptions
 ): [JSXAttributePath[], babelTypes.ExpressionStatement] {
-  const config = getConfig(path);
   const tagName = getTagName(path.node);
 
   // TODO: skip but collect the names of any properties after the last spread to not overwrite them
@@ -1474,11 +1471,6 @@ function processSpreads(
         ? `${node.name.namespace.name}:${node.name.name.name}`
         : node.name.name);
     if (t.isJSXSpreadAttribute(node)) {
-      const isStatic =
-        node.innerComments &&
-        node.innerComments[0] &&
-        node.innerComments[0].value.trim() === config.staticMarker;
-
       if (runningObject.length) {
         spreadArgs.push(t.objectExpression(runningObject));
         runningObject = [];
@@ -1491,7 +1483,7 @@ function processSpreads(
           ? inlineCallExpression(node.argument)
           : node.argument;
 
-      spreadArgs.push(isStatic ? t.objectExpression([t.spreadElement(s)]) : s);
+      spreadArgs.push(s);
     } else if (key && key !== "ref") {
       const value = node.value;
       const isContainer = t.isJSXExpressionContainer(value);

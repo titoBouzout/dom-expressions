@@ -35,10 +35,12 @@ const template10 = Module(
     children: "Hello"
   })
 );
-var _v$4 = _$escape(/*@once*/ state.children);
+var _v$4 = () => _$escape(/*@once*/ state.children);
 const template11 = _$ssr(_tmpl$2, _v$4);
 const template12 = Module({
-  children: state.children
+  get children() {
+    return /*@once*/ state.children;
+  }
 });
 var _v$5 = _$escape(children);
 const template13 = _$ssr(_tmpl$2, _v$5);
