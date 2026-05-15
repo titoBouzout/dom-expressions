@@ -852,6 +852,20 @@ export namespace JSX {
         : never)
     | (string & {});
 
+  type ExtractEventType<T> = {
+    [K in keyof T as K extends `on${infer Name}` ? Name : never]: T[K] extends EventHandlerUnion<
+      Element,
+      infer E
+    >
+      ? E
+      : never;
+  };
+
+  // EventType["click"] = MouseEvent
+
+  type EventType = ExtractEventType<EventHandlersElement<Element>> &
+    ExtractEventType<EventHandlersWindow<Element>>;
+
   // GLOBAL ATTRIBUTES
 
   /**
@@ -1530,6 +1544,10 @@ export namespace JSX {
     src?: FunctionMaybe<string | RemoveAttribute>;
 
     onEncrypted?: EventHandlerUnion<T, MediaEncryptedEvent> | undefined;
+    onWaitingForKey?: EventHandlerUnion<T, Event> | undefined;
+
+    /** @deprecated */
+    mediagroup?: FunctionMaybe<string | RemoveAttribute>;
 
     // special cases locked to properties
 
@@ -1868,6 +1886,11 @@ export namespace JSX {
     width?: FunctionMaybe<number | string | RemoveAttribute>;
 
     onEnterPictureInPicture?: EventHandlerUnion<T, PictureInPictureEvent> | undefined;
+    onLeavePictureInPicture?: EventHandlerUnion<T, PictureInPictureEvent> | undefined;
+  }
+
+  interface WebViewHTMLAttributes<T> extends HTMLAttributes<T> {
+    allowpopups?: FunctionMaybe<BooleanAttribute | RemoveAttribute>;
     disableblinkfeatures?: FunctionMaybe<string | RemoveAttribute>;
     disablewebsecurity?: FunctionMaybe<BooleanAttribute | RemoveAttribute>;
     enableblinkfeatures?: FunctionMaybe<string | RemoveAttribute>;
@@ -2144,6 +2167,29 @@ export namespace JSX {
   interface AnimationElementSVGAttributes<T>
     extends SVGAttributes<T>, ExternalResourceSVGAttributes, ConditionalProcessingSVGAttributes {
     onBegin?: EventHandlerUnion<T, TimeEvent> | undefined;
+    onEnd?: EventHandlerUnion<T, TimeEvent> | undefined;
+    onRepeat?: EventHandlerUnion<T, TimeEvent> | undefined;
+  }
+
+  interface ContainerElementSVGAttributes<T>
+    extends
+      SVGAttributes<T>,
+      ShapeElementSVGAttributes<T>,
+      Pick<
+        PresentationSVGAttributes,
+        | "clip-path"
+        | "mask"
+        | "cursor"
+        | "opacity"
+        | "filter"
+        | "enable-background"
+        | "color-interpolation"
+        | "color-rendering"
+      > {}
+
+  interface FilterPrimitiveElementSVGAttributes<T>
+    extends SVGAttributes<T>, Pick<PresentationSVGAttributes, "color-interpolation-filters"> {
+    height?: FunctionMaybe<number | string | RemoveAttribute>;
     result?: FunctionMaybe<string | RemoveAttribute>;
     width?: FunctionMaybe<number | string | RemoveAttribute>;
     x?: FunctionMaybe<number | string | RemoveAttribute>;
