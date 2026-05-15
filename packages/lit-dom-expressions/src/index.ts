@@ -1,6 +1,9 @@
 import { parse, stringify, IDom } from "html-parse-string";
 
 type MountableElement = Element | Document | ShadowRoot | DocumentFragment | Node;
+export type ClassList = {
+  [k: string]: boolean | undefined;
+};
 interface Runtime {
   effect<T>(fn: (prev?: T) => T, init?: T): any;
   untrack<T>(fn: () => T): T;
@@ -9,7 +12,7 @@ interface Runtime {
   createComponent(Comp: (props: any) => any, props: any): any;
   addEventListener(node: Element, name: string, handler: EventListener | EventListenerObject | (EventListenerObject & AddEventListenerOptions), delegate: boolean): void;
   delegateEvents(eventNames: string[]): void;
-  classList(node: Element, value: { [k: string]: boolean }, prev?: { [k: string]: boolean }): { [k: string]: boolean };
+  classList(node: Element, value: ClassList, prev?: ClassList): ClassList;
   style(node: Element, value: { [k: string]: string }, prev?: { [k: string]: string }): void;
   mergeProps(...sources: unknown[]): unknown;
   dynamicProperty(props: any, key: string): any;
