@@ -73,7 +73,8 @@ var _tmpl$ = /*#__PURE__*/ _$template(`<div><h1><a href=/>Welcome`),
   _tmpl$50 = /*#__PURE__*/ _$template(`<video src=test.mp4 muted>`),
   _tmpl$51 = /*#__PURE__*/ _$template(`<div class=todo>`),
   _tmpl$52 = /*#__PURE__*/ _$template(`<div class="todo item">`),
-  _tmpl$53 = /*#__PURE__*/ _$template(`<div style:border="1px solid black">`);
+  _tmpl$53 = /*#__PURE__*/ _$template(`<div style:border="1px solid black">`),
+  _tmpl$54 = /*#__PURE__*/ _$template(`<div class:selected>`);
 import * as styles from "./styles.module.css";
 import { binding } from "somewhere";
 function refFn() {}
@@ -193,19 +194,14 @@ _$effect(
 const template6 = _el$10;
 let undefVar;
 var _el$11 = _tmpl$6();
-_el$11.classList.toggle("other-class", !!undefVar);
 _el$11.classList.toggle("other-class2", !!undefVar);
 _$effect(
   () => ({
-    e: {
-      "background-color": color(),
-      ...props.style
-    },
-    t: !!props.active
+    "background-color": color(),
+    ...props.style
   }),
-  ({ e, t }, _p$) => {
-    _$style(_el$11, e, _p$?.e);
-    t !== _p$?.t && _el$11.classList.toggle("my-class", t);
+  (_v$, _$p) => {
+    _$style(_el$11, _v$, _$p);
   }
 );
 const template7 = _el$11;
@@ -852,4 +848,15 @@ _$effect(
   }
 );
 const template101 = _el$125;
+
+// `class:` is not a reserved namespace — it falls through to a literal attribute.
+const template102 = _tmpl$54();
+var _el$127 = _tmpl$4();
+_$effect(
+  () => props.active,
+  _v$ => {
+    _$setAttribute(_el$127, "class:selected", _v$);
+  }
+);
+const template103 = _el$127;
 _$delegateEvents(["click", "input"]);

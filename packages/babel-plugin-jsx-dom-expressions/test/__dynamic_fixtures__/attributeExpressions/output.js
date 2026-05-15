@@ -183,19 +183,14 @@ _$effect(
 const template6 = _el$10;
 let undefVar;
 var _el$11 = _tmpl$6();
-_el$11.classList.toggle("other-class", !!undefVar);
 _el$11.classList.toggle("other-class2", !!undefVar);
 _$effect(
   () => ({
-    e: {
-      "background-color": color(),
-      ...props.style
-    },
-    t: !!props.active
+    "background-color": color(),
+    ...props.style
   }),
-  ({ e, t }, _p$) => {
-    _$style(_el$11, e, _p$?.e);
-    t !== _p$?.t && _el$11.classList.toggle("my-class", t);
+  (_v$, _$p) => {
+    _$style(_el$11, _v$, _$p);
   }
 );
 const template7 = _el$11;

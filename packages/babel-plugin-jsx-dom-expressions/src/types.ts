@@ -113,6 +113,7 @@ export interface DynamicBinding {
   value: t.Expression;
   tagName?: string;
   styleProperty?: boolean;
+  classProperty?: boolean;
 }
 
 export interface SetAttrOptions {
@@ -120,6 +121,7 @@ export interface SetAttrOptions {
   dynamic?: boolean;
   prevId?: t.Expression;
   styleProperty?: boolean;
+  classProperty?: boolean;
 }
 
 export interface DynamicOptions {

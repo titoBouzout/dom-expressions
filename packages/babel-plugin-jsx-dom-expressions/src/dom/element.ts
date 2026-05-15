@@ -52,6 +52,7 @@ type DOMSetAttrOptions = {
   prevId?: babelTypes.Expression;
   tagName?: string;
   styleProperty?: boolean;
+  classProperty?: boolean;
 };
 type SpreadOptions = {
   elem: babelTypes.Expression;
@@ -303,7 +304,7 @@ export function setAttr(
   elem: babelTypes.Expression,
   name: string,
   value: babelTypes.Expression,
-  { dynamic, prevId, tagName, styleProperty }: DOMSetAttrOptions = {}
+  { dynamic, prevId, tagName, styleProperty, classProperty }: DOMSetAttrOptions = {}
 ): babelTypes.Expression {
   // pull out namespace
   const config = getConfig(path);
@@ -313,9 +314,9 @@ export function setAttr(
     namespace = parts[0];
   }
 
-  // `styleProperty: true` is set only for properties extracted by the
-  // `style={{...}}` splitter — never for user-written `style:foo`, which falls
-  // through to a literal attribute.
+  // `styleProperty` and `classProperty` are set only for properties extracted
+  // by the `style={{...}}` / `class={{...}}` splitters — never for user-written
+  // `style:foo` / `class:foo`, which fall through to literal attributes.
   if (styleProperty) {
     if (parts && parts[1] && parts[0] === "style") name = parts[1];
     return t.callExpression(
@@ -328,7 +329,8 @@ export function setAttr(
     );
   }
 
-  if (namespace === "class") {
+  if (classProperty) {
+    if (parts && parts[1] && parts[0] === "class") name = parts[1];
     return t.callExpression(
       t.memberExpression(
         t.memberExpression(elem, t.identifier("classList")),
@@ -712,23 +714,21 @@ function transformAttributes(
       const { confident, value: computed } = propPath.get("value").evaluate();
       if (leading) p.value.leadingComments = leading;
       if (!confident) {
+        const newAttr = t.jsxAttribute(
+          t.jsxNamespacedName(
+            t.jsxIdentifier("class"),
+            t.jsxIdentifier(
+              t.isIdentifier(p.key)
+                ? p.key.name
+                : String((p.key as babelTypes.StringLiteral | babelTypes.NumericLiteral).value)
+            )
+          ),
+          t.jsxExpressionContainer(p.value as babelTypes.Expression)
+        );
+        (newAttr as babelTypes.JSXAttribute & { _classProperty?: boolean })._classProperty = true;
         path
           .get("openingElement")
-          .node.attributes.splice(
-            Number(classListAttribute.key) + ++i,
-            0,
-            t.jsxAttribute(
-              t.jsxNamespacedName(
-                t.jsxIdentifier("class"),
-                t.jsxIdentifier(
-                  t.isIdentifier(p.key)
-                    ? p.key.name
-                    : String((p.key as babelTypes.StringLiteral | babelTypes.NumericLiteral).value)
-                )
-              ),
-              t.jsxExpressionContainer(p.value as babelTypes.Expression)
-            )
-          );
+          .node.attributes.splice(Number(classListAttribute.key) + ++i, 0, newAttr);
       } else if (computed) {
         path
           .get("openingElement")
@@ -860,12 +860,15 @@ function transformAttributes(
       const node = attribute.node;
       const isStyleProperty =
         (node as babelTypes.JSXAttribute & { _styleProperty?: boolean })._styleProperty === true;
+      const isClassProperty =
+        (node as babelTypes.JSXAttribute & { _classProperty?: boolean })._classProperty === true;
       let value = node.value,
         key = t.isJSXNamespacedName(node.name)
           ? `${node.name.namespace.name}:${node.name.name.name}`
           : node.name.name,
         reservedNameSpace =
           isStyleProperty ||
+          isClassProperty ||
           (t.isJSXNamespacedName(node.name) && reservedNameSpaces.has(node.name.namespace.name));
       if (t.isJSXExpressionContainer(value)) {
         const evaluated = attribute.get("value").get("expression").evaluate().value;
@@ -1108,14 +1111,16 @@ function transformAttributes(
             key,
             value: value.expression,
             tagName,
-            styleProperty: isStyleProperty
+            styleProperty: isStyleProperty,
+            classProperty: isClassProperty
           });
         } else {
           results.exprs.push(
             t.expressionStatement(
               setAttr(attribute, elem, key, value.expression, {
                 tagName,
-                styleProperty: isStyleProperty
+                styleProperty: isStyleProperty,
+                classProperty: isClassProperty
               })
             )
           );

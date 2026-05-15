@@ -124,16 +124,12 @@ const template6 = _el$10;
 var _el$11 = _$createElement("div");
 _$effect(
   () => ({
-    e: {
-      "background-color": color(),
-      "margin-right": "40px",
-      ...props.style
-    },
-    t: props.active
+    "background-color": color(),
+    "margin-right": "40px",
+    ...props.style
   }),
-  ({ e, t }, _p$) => {
-    e !== _p$?.e && _$setProp(_el$11, "style", e, _p$?.e);
-    t !== _p$?.t && _$setProp(_el$11, "class:my-class", t, _p$?.t);
+  (_v$, _$p) => {
+    _$setProp(_el$11, "style", _v$, _$p);
   }
 );
 const template7 = _el$11;
